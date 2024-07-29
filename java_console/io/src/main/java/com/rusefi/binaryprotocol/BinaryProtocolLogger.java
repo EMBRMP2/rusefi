@@ -6,6 +6,7 @@ import com.rusefi.Timeouts;
 import com.rusefi.composite.CompositeEvent;
 import com.rusefi.composite.CompositeParser;
 import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.core.Sensor;
 import com.rusefi.core.SensorCentral;
 import com.rusefi.io.LinkManager;
@@ -78,7 +79,7 @@ public class BinaryProtocolLogger {
         if (needCompositeLogger) {
             getComposite(binaryProtocol);
         } else if (isCompositeLoggerEnabled) {
-            binaryProtocol.executeCommand(Fields.TS_SET_LOGGER_SWITCH, new byte[]{Fields.TS_COMPOSITE_DISABLE}, "disable composite");
+            binaryProtocol.executeCommand(Integration.TS_SET_LOGGER_SWITCH, new byte[]{Integration.TS_COMPOSITE_DISABLE}, "disable composite");
             isCompositeLoggerEnabled = false;
             closeComposites();
         }
@@ -99,7 +100,7 @@ public class BinaryProtocolLogger {
         // todo: actually if console gets disconnected composite logging might end up enabled in controller?
         isCompositeLoggerEnabled = true;
 
-        byte[] response = binaryProtocol.executeCommand(Fields.TS_GET_COMPOSITE_BUFFER_DONE_DIFFERENTLY, "composite log");
+        byte[] response = binaryProtocol.executeCommand(Integration.TS_GET_COMPOSITE_BUFFER_DONE_DIFFERENTLY, "composite log");
         if (checkResponseCode(response)) {
             List<CompositeEvent> events = CompositeParser.parse(response);
             createCompositesIfNeeded();

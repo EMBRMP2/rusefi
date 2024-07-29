@@ -38,14 +38,21 @@ expected<float> AlternatorController::observePlant() {
 }
 
 expected<float> AlternatorController::getSetpoint() {
+	const float rpm = Sensor::getOrZero(SensorType::Rpm);
+
 	// check if the engine is not running
-	bool alternatorShouldBeEnabledAtCurrentRpm = Sensor::getOrZero(SensorType::Rpm) > engineConfiguration->cranking.rpm;
+	bool alternatorShouldBeEnabledAtCurrentRpm = rpm > engineConfiguration->cranking.rpm;
 
 	if (!engineConfiguration->isAlternatorControlEnabled || !alternatorShouldBeEnabledAtCurrentRpm) {
 		return unexpected;
 	}
 
-	return engineConfiguration->targetVBatt;
+	const float load = getEngineState()->fuelingLoad;
+	return interpolate3d(
+		config->alternatorVoltageTargetTable,
+		config->alternatorVoltageTargetLoadBins, load,
+		config->alternatorVoltageTargetRpmBins, rpm
+	);;
 }
 
 expected<percent_t> AlternatorController::getOpenLoop(float target) {
@@ -98,31 +105,17 @@ void AlternatorController::onFastCallback() {
 	ClosedLoopController::update();
 }
 
-
-void showAltInfo(void) {
-	efiPrintf("alt=%s @%s t=%dms", boolToString(engineConfiguration->isAlternatorControlEnabled),
-			hwPortname(engineConfiguration->alternatorControlPin),
-			engineConfiguration->alternatorControl.periodMs);
-	efiPrintf("p=%.2f/i=%.2f/d=%.2f offset=%.2f", engineConfiguration->alternatorControl.pFactor,
-			0, 0, engineConfiguration->alternatorControl.offset); // todo: i & d
-	efiPrintf("vbatt=%.2f/duty=%.2f/target=%.2f", Sensor::getOrZero(SensorType::BatteryVoltage), currentAltDuty,
-			engineConfiguration->targetVBatt);
-}
-
 void setAltPFactor(float p) {
 	engineConfiguration->alternatorControl.pFactor = p;
 	efiPrintf("setAltPid: %.2f", p);
 	engine->module<AlternatorController>()->pidReset();
-	showAltInfo();
 }
 
 void AlternatorController::onConfigurationChange(engine_configuration_s const * previousConfiguration) {
-	shouldResetPid = !alternatorPid.isSame(&previousConfiguration->alternatorControl);
+	shouldResetPid = !previousConfiguration || !alternatorPid.isSame(&previousConfiguration->alternatorControl);
 }
 
 void initAlternatorCtrl() {
-	addConsoleAction("altinfo", showAltInfo);
-	
 	engine->module<AlternatorController>()->init();
 
 	if (!isBrainPinValid(engineConfiguration->alternatorControlPin))

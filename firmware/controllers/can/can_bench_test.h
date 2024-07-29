@@ -5,9 +5,10 @@
 #pragma once
 #include "can.h"
 
-void processCanBenchTest(const CANRxFrame& frame);
-void sendEventCounters();
-void sendButtonCounters();
-void sendRawAnalogValues();
-void sendBoardStatus();
-void initQcControls();
+void processCanQcBenchTest(const CANRxFrame& frame);
+void sendQcBenchEventCounters();
+void sendQcBenchButtonCounters();
+void sendQcBenchAuxDigitalCounters();
+void sendQcBenchRawAnalogValues();
+void sendQcBenchBoardStatus();
+void initQcBenchControls();

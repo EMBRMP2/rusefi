@@ -18,7 +18,7 @@
 void setVwAba() {
 	setFrankensoConfiguration();
 
-	setWholeTimingTable_d(20);
+	setWholeTimingTable(20);
 	// set cranking_timing_angle 10
 	engineConfiguration->crankingTimingAngle = 10;
 
@@ -38,7 +38,7 @@ void setVwAba() {
 
 	engineConfiguration->ignitionMode = IM_ONE_COIL;
 
-#if HW_FRANKENSO
+#ifdef HW_FRANKENSO
 	engineConfiguration->mafAdcChannel = EFI_ADC_1;
 	engineConfiguration->ignitionPins[0] = Gpio::E14; // Frankenso high side - pin 1G
 	engineConfiguration->ignitionPins[1] = Gpio::Unassigned;
@@ -53,7 +53,7 @@ void setVwAba() {
 
 	setEgoSensor(ES_PLX);
 	setFuelTablesLoadBin(20, mapRange);
-	setTimingLoadBin(20, mapRange);
+	setLinearCurve(config->ignitionLoadBins, 20, mapRange);
 
 	engineConfiguration->isSdCardEnabled = false;
 	engineConfiguration->tpsMin = 740;

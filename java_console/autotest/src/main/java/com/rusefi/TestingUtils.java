@@ -2,6 +2,7 @@ package com.rusefi;
 
 import com.devexperts.logging.Logging;
 import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.core.EngineState;
 import com.rusefi.functional_tests.EcuTestHelper;
 import com.rusefi.io.CommandQueue;
@@ -112,7 +113,7 @@ public class TestingUtils {
     }
 
     static String getNextWaveChart(CommandQueue commandQueue) {
-        IoUtil.sendBlockingCommand(Fields.CMD_RESET_ENGINE_SNIFFER, commandQueue);
+        IoUtil.sendBlockingCommand(Integration.CMD_RESET_ENGINE_SNIFFER, commandQueue);
         String result = getEngineChart(commandQueue);
         FileLog.MAIN.logLine("current chart: " + result);
         return result;
@@ -130,7 +131,7 @@ public class TestingUtils {
         final AtomicReference<String> result = new AtomicReference<>();
 
         FileLog.MAIN.logLine("waiting for next chart");
-        commandQueue.getLinkManager().getEngineState().replaceStringValueAction(Fields.PROTOCOL_ENGINE_SNIFFER, new EngineState.ValueCallback<String>() {
+        commandQueue.getLinkManager().getEngineState().replaceStringValueAction(Integration.PROTOCOL_ENGINE_SNIFFER, new EngineState.ValueCallback<String>() {
             @Override
             public void onUpdate(String value) {
                 engineChartLatch.countDown();
@@ -148,6 +149,6 @@ public class TestingUtils {
     }
 
     public static void installVoidEngineSnifferAction(CommandQueue commandQueue) {
-        commandQueue.getLinkManager().getEngineState().replaceStringValueAction(Fields.PROTOCOL_ENGINE_SNIFFER, (EngineState.ValueCallback<String>) EngineState.ValueCallback.VOID);
+        commandQueue.getLinkManager().getEngineState().replaceStringValueAction(Integration.PROTOCOL_ENGINE_SNIFFER, (EngineState.ValueCallback<String>) EngineState.ValueCallback.VOID);
     }
 }

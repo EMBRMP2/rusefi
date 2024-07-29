@@ -8,13 +8,30 @@
 
 #if EFI_ENGINE_CONTROL
 
-void turnInjectionPinHigh(InjectionEvent *event) {
+void turnInjectionPinHigh(uintptr_t arg) {
 	efitick_t nowNt = getTimeNowNt();
-	for (int i = 0;i < MAX_WIRES_COUNT;i++) {
+
+	// clear last bit to recover the pointer
+	InjectionEvent *event = reinterpret_cast<InjectionEvent*>(arg & ~(1UL));
+
+	// extract last bit
+	bool stage2Active = arg & 1;
+
+	for (size_t i = 0; i < efi::size(event->outputs); i++) {
 		InjectorOutputPin *output = event->outputs[i];
 
 		if (output) {
 			output->open(nowNt);
+		}
+	}
+
+	if (stage2Active) {
+		for (size_t i = 0; i < efi::size(event->outputsStage2); i++) {
+			InjectorOutputPin *output = event->outputsStage2[i];
+
+			if (output) {
+				output->open(nowNt);
+			}
 		}
 	}
 }
@@ -47,10 +64,10 @@ static float getInjectionAngleCorrection(float fuelMs, float oneDegreeUs) {
 		return 0;
 	}
 
-	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !cisnan(fuelMs), "NaN fuelMs", false);
+	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !std::isnan(fuelMs), "NaN fuelMs", false);
 
 	angle_t injectionDurationAngle = MS2US(fuelMs) / oneDegreeUs;
-	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !cisnan(injectionDurationAngle), "NaN injectionDurationAngle", false);
+	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !std::isnan(injectionDurationAngle), "NaN injectionDurationAngle", false);
 	assertAngleRange(injectionDurationAngle, "injectionDuration_r", ObdCode::CUSTOM_INJ_DURATION);
 
 	if (mode == InjectionTimingMode::Center) {
@@ -70,7 +87,7 @@ InjectionEvent::InjectionEvent() {
 // or unexpected if unable to calculate the start angle due to missing information.
 expected<float> InjectionEvent::computeInjectionAngle() const {
 	floatus_t oneDegreeUs = getEngineRotationState()->getOneDegreeUs(); // local copy
-	if (cisnan(oneDegreeUs)) {
+	if (std::isnan(oneDegreeUs)) {
 		// in order to have fuel schedule we need to have current RPM
 		// wonder if this line slows engine startup?
 		return unexpected;
@@ -82,7 +99,7 @@ expected<float> InjectionEvent::computeInjectionAngle() const {
 
 	// User configured offset - degrees after TDC combustion
 	floatus_t injectionOffset = getEngineState()->injectionOffset;
-	if (cisnan(injectionOffset)) {
+	if (std::isnan(injectionOffset)) {
 		// injection offset map not ready - we are not ready to schedule fuel events
 		return unexpected;
 	}
@@ -96,7 +113,7 @@ expected<float> InjectionEvent::computeInjectionAngle() const {
 	// Convert from cylinder-relative to cylinder-1-relative
 	openingAngle += getPerCylinderFiringOrderOffset(ownIndex, cylinderNumber);
 
-	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !cisnan(openingAngle), "findAngle#3", false);
+	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !std::isnan(openingAngle), "findAngle#3", false);
 	assertAngleRange(openingAngle, "findAngle#a33", ObdCode::CUSTOM_ERR_6544);
 
 	wrapAngle(openingAngle, "addFuel#2", ObdCode::CUSTOM_ERR_6555);
@@ -127,10 +144,8 @@ bool InjectionEvent::updateInjectionAngle() {
 /**
  * @returns false in case of error, true if success
  */
-bool FuelSchedule::addFuelEventsForCylinder(int i) {
-	InjectionEvent *ev = &elements[i];
-
-	bool updatedAngle = ev->updateInjectionAngle();
+bool InjectionEvent::update() {
+	bool updatedAngle = updateInjectionAngle();
 
 	if (!updatedAngle) {
 		return false;
@@ -145,13 +160,14 @@ bool FuelSchedule::addFuelEventsForCylinder(int i) {
 		injectorIndex = 0;
 	} else if (mode == IM_SEQUENTIAL || mode == IM_BATCH) {
 		// Map order index -> cylinder index (firing order)
-		injectorIndex = getCylinderId(i) - 1;
+		injectorIndex = ID2INDEX(getFiringOrderCylinderId(ownIndex));
 	} else {
 		firmwareError(ObdCode::CUSTOM_OBD_UNEXPECTED_INJECTION_MODE, "Unexpected injection mode %d", mode);
 		injectorIndex = 0;
 	}
 
 	InjectorOutputPin *secondOutput;
+	InjectorOutputPin* secondOutputStage2;
 
 	if (mode == IM_BATCH) {
 		/**
@@ -160,25 +176,29 @@ bool FuelSchedule::addFuelEventsForCylinder(int i) {
 		// Compute the position of this cylinder's twin in the firing order
 		// Each injector gets fired as a primary (the same as sequential), but also
 		// fires the injector 360 degrees later in the firing order.
-		int secondOrder = (i + (engineConfiguration->cylindersCount / 2)) % engineConfiguration->cylindersCount;
-		int secondIndex = getCylinderId(secondOrder) - 1;
+		int secondOrder = (ownIndex + (engineConfiguration->cylindersCount / 2)) % engineConfiguration->cylindersCount;
+		int secondIndex = ID2INDEX(getFiringOrderCylinderId(secondOrder));
 		secondOutput = &enginePins.injectors[secondIndex];
+		secondOutputStage2 = &enginePins.injectorsStage2[secondIndex];
 	} else {
 		secondOutput = nullptr;
+		secondOutputStage2 = nullptr;
 	}
 
 	InjectorOutputPin *output = &enginePins.injectors[injectorIndex];
-	bool isSimultaneous = mode == IM_SIMULTANEOUS;
 
-	ev->outputs[0] = output;
-	ev->outputs[1] = secondOutput;
-	ev->isSimultaneous = isSimultaneous;
+	outputs[0] = output;
+	outputs[1] = secondOutput;
+	isSimultaneous = mode == IM_SIMULTANEOUS;
 	// Stash the cylinder number so we can select the correct fueling bank later
-	ev->cylinderNumber = injectorIndex;
+	cylinderNumber = injectorIndex;
+
+	outputsStage2[0] = &enginePins.injectorsStage2[injectorIndex];
+	outputsStage2[1] = secondOutputStage2;
 
 	if (!isSimultaneous && !output->isInitialized()) {
 		// todo: extract method for this index math
-		warning(ObdCode::CUSTOM_OBD_INJECTION_NO_PIN_ASSIGNED, "no_pin_inj #%s", output->name);
+		warning(ObdCode::CUSTOM_OBD_INJECTION_NO_PIN_ASSIGNED, "no_pin_inj #%s", output->getName());
 	}
 
 	return true;
@@ -186,7 +206,7 @@ bool FuelSchedule::addFuelEventsForCylinder(int i) {
 
 void FuelSchedule::addFuelEvents() {
 	for (size_t cylinderIndex = 0; cylinderIndex < engineConfiguration->cylindersCount; cylinderIndex++) {
-		bool result = addFuelEventsForCylinder(cylinderIndex);
+		bool result = elements[cylinderIndex].update();
 
 		if (!result) {
 			invalidate();
@@ -198,14 +218,14 @@ void FuelSchedule::addFuelEvents() {
 	isReady = true;
 }
 
-void FuelSchedule::onTriggerTooth(int rpm, efitick_t nowNt, float currentPhase, float nextPhase) {
+void FuelSchedule::onTriggerTooth(efitick_t nowNt, float currentPhase, float nextPhase) {
 	// Wait for schedule to be built - this happens the first time we get RPM
 	if (!isReady) {
 		return;
 	}
 
 	for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
-		elements[i].onTriggerTooth(rpm, nowNt, currentPhase, nextPhase);
+		elements[i].onTriggerTooth(nowNt, currentPhase, nextPhase);
 	}
 }
 

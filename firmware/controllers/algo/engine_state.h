@@ -19,6 +19,8 @@ public:
 	void updateSlowSensors();
 	void updateTChargeK(int rpm, float tps);
 
+	void updateSparkSkip();
+
 	/**
 	 * always 360 or 720, never zero
 	 */
@@ -31,6 +33,10 @@ public:
 
 	// Per-injection fuel mass, including TPS accel enrich
 	float injectionMass[MAX_CYLINDER_COUNT] = {0};
+  // todo: move to .txt or even better extract injection.txt?
+	float stftCorrection[STFT_BANK_COUNT] = {0};
+
+	float injectionStage2Fraction = 0;
 
 	Timer crankingTimer;
 
@@ -56,7 +62,7 @@ public:
 	// Angle between firing the main (primary) spark and the secondary (trailing) spark
 	angle_t trailingSparkAngle = 0;
 
-	efitick_t timeSinceLastTChargeK;
+	Timer timeSinceLastTChargeK;
 
 	float currentVe = 0;
 
@@ -76,6 +82,7 @@ public:
 	 * @see getInjectionDuration()
 	 */
 	floatms_t injectionDuration = 0;
+	floatms_t injectionDurationStage2 = 0;
 
 	angle_t injectionOffset = 0;
 
@@ -85,3 +92,6 @@ public:
 };
 
 EngineState * getEngineState();
+
+bool getClutchDownState();
+bool getBrakePedalState();

@@ -1,4 +1,2 @@
-#!/bin/bash
-
-cd ..
-bash ../common_make.sh hellen/alphax-8chan ARCH_STM32F7
+#!/usr/bin/env bash
+cd ../../../.. && bash bin/compile.sh config/boards/hellen/alphax-8chan/meta-info-alphax-8chan_f7.env

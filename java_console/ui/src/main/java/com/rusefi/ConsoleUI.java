@@ -7,12 +7,12 @@ import com.rusefi.core.MessagesCentral;
 import com.rusefi.io.CommandQueue;
 import com.rusefi.io.LinkManager;
 import com.rusefi.io.serial.BaudRateHolder;
-import com.rusefi.maintenance.FirmwareFlasher;
-import com.rusefi.maintenance.VersionChecker;
+import com.rusefi.maintenance.StLinkFlasher;
 import com.rusefi.ui.*;
 import com.rusefi.ui.console.MainFrame;
 import com.rusefi.ui.console.TabbedPanel;
 import com.rusefi.ui.engine.EngineSnifferPanel;
+import com.rusefi.ui.knock.KnockPane;
 import com.rusefi.ui.logview.LogViewer;
 import com.rusefi.ui.lua.LuaScriptPanel;
 import com.rusefi.ui.util.DefaultExceptionHandler;
@@ -76,7 +76,7 @@ public class ConsoleUI {
         setFrameIcon(ConsoleUI.staticFrame);
         log.info("Console " + CONSOLE_VERSION);
 
-        log.info("Hardware: " + FirmwareFlasher.getHardwareKind());
+        log.info("Hardware: " + StLinkFlasher.getHardwareKind());
 
         getConfig().getRoot().setProperty(PORT_KEY, port);
         getConfig().getRoot().setProperty(SPEED_KEY, BaudRateHolder.INSTANCE.baudRate);
@@ -117,6 +117,11 @@ public class ConsoleUI {
             tabbedPaneAdd("Sensor Sniffer", sensorSniffer.getPanel(), sensorSniffer.getTabSelectedListener());
         }
 
+        if (!linkManager.isLogViewer()) {
+            KnockPane knockAnalyzer = new KnockPane(uiContext, getConfig().getRoot().getChild("knock_analyzer"));
+            tabbedPaneAdd("Knock analyzer", knockAnalyzer.getPanel(), knockAnalyzer.getTabSelectedListener());
+        }
+
 //        tabbedPane.addTab("LE controls", new FlexibleControls().getPanel());
 
 //        tabbedPane.addTab("ADC", new AdcPanel(new BooleanInputsModel()).createAdcPanel());
@@ -146,7 +151,10 @@ public class ConsoleUI {
 
         MessagesCentral.getInstance().postMessage(ConsoleUI.class, "COMPOSITE_OFF_RPM=" + BinaryProtocolLogger.COMPOSITE_OFF_RPM);
 
+        /*
+        https://github.com/rusefi/rusefi/issues/5956
         tabbedPane.addTab("rusEFI Online", new OnlineTab(uiContext).getContent());
+*/
         tabbedPane.addTab("Connection", new ConnectionTab(uiContext).getContent());
 
         if (false) {
@@ -191,8 +199,8 @@ public class ConsoleUI {
 
         getConfig().load();
         FileLog.suspendLogging = getConfig().getRoot().getBoolProperty(GaugesPanel.DISABLE_LOGS);
-        Thread.setDefaultUncaughtExceptionHandler(new DefaultExceptionHandler());
-        VersionChecker.start();
+        DefaultExceptionHandler.install();
+// not very useful?        VersionChecker.start();
         SwingUtilities.invokeAndWait(() -> awtCode(args));
     }
 
@@ -234,7 +242,7 @@ public class ConsoleUI {
             } else {
                 for (String p : LinkManager.getCommPorts())
                     MessagesCentral.getInstance().postMessage(Launcher.class, "Available port: " + p);
-                new StartupFrame().chooseSerialPort();
+                new StartupFrame().showUi();
             }
 
         } catch (Throwable e) {

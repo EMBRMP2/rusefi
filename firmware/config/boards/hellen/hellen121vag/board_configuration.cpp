@@ -72,7 +72,7 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
@@ -94,7 +94,7 @@ void setBoardDefaultConfiguration() {
 
 	engineConfiguration->enableSoftwareKnock = true;
 
-	engineConfiguration->fuelPumpPin = Gpio::H144_OUT_IO3;
+	engineConfiguration->fuelPumpPin = Gpio::MM176_GP13;
 	engineConfiguration->malfunctionIndicatorPin = Gpio::G4; // 47 - CEL
 	engineConfiguration->tachOutputPin = Gpio::H144_OUT_PWM7;
 
@@ -102,7 +102,7 @@ void setBoardDefaultConfiguration() {
     engineConfiguration->idle.solenoidPin = Gpio::H144_OUT_IO4;
 
 	engineConfiguration->fanPin = Gpio::H144_OUT_PWM8;
-	engineConfiguration->mainRelayPin = Gpio::H144_OUT_IO1;
+	engineConfiguration->mainRelayPin = Gpio::MM176_OUT_PWM17;
 
 //	engineConfiguration->injectorCompensationMode
 	engineConfiguration->fuelReferencePressure = 300;
@@ -119,5 +119,8 @@ void setBoardDefaultConfiguration() {
 	engineConfiguration->ignitionMode = IM_INDIVIDUAL_COILS; // IM_WASTED_SPARK
 
 	engineConfiguration->vrThreshold[0].pin = Gpio::H144_OUT_PWM6;
-	hellenWbo();
+}
+
+int getBoardMetaDcOutputsCount() {
+    return 1;
 }

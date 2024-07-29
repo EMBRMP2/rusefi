@@ -19,8 +19,7 @@ void setEtbWastegatePosition(percent_t pos);
 void setEtbLuaAdjustment(percent_t adjustment);
 void setHitachiEtbCalibration();
 
-// these two sensors use same plug but have different calibrations and even rotate in different directions
-void set18919_AM810_pedal_position_sensor();
+// same plug as 18919 AM810 but have different calibrations
 void setToyota89281_33010_pedal_position_sensor();
 
 void setBoschVAGETB();
@@ -34,6 +33,8 @@ void unregisterEtbPins();
 void setProteusHitachiEtbDefaults();
 
 void etbAutocal(size_t throttleIndex);
+
+float getSanitizedPedal();
 
 class DcMotor;
 struct pid_s;
@@ -50,9 +51,9 @@ public:
 	virtual void setWastegatePosition(percent_t pos) = 0;
 	virtual void update() = 0;
 	virtual void autoCalibrateTps() = 0;
-	virtual bool isEtbMode() = 0;
+	virtual bool isEtbMode() const = 0;
 
 	virtual const pid_state_s& getPidState() const = 0;
-
+  virtual float getCurrentTarget() const = 0;
 	virtual void setLuaAdjustment(percent_t adjustment) = 0;
 };

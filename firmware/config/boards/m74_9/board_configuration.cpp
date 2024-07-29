@@ -1,5 +1,6 @@
 
 #include "pch.h"
+#include "defaults.h"
 #include "smart_gpio.h"
 #include "drivers/gpio/l9779.h"
 
@@ -45,11 +46,11 @@ static void setupEtb() {
 	// PWM - pwm control (enable high, coast low)
 	// DIS - disables motor (enable low)
 
-//	// PWM pin
-//	engineConfiguration->etbIo[0].controlPin = Gpio::C7;
-//	// DIR pin
-//	engineConfiguration->etbIo[0].directionPin1 = Gpio::A8;
-//	// Disable pin
+	// PWM pin
+	engineConfiguration->etbIo[0].controlPin = Gpio::B14;
+	// DIR pin
+	engineConfiguration->etbIo[0].directionPin1 = Gpio::B15;
+//	// Disable pin todo clarify if we have it?
 //	engineConfiguration->etbIo[0].disablePin = Gpio::C8;
 
 	// we only have pwm/dir, no dira/dirb
@@ -58,7 +59,7 @@ static void setupEtb() {
 
 /**
  * @brief   Board-specific configuration defaults.
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
@@ -75,16 +76,27 @@ void setBoardDefaultConfiguration() {
 	engineConfiguration->is_enabled_spi_1 = true;
 
 	engineConfiguration->spi1mosiPin = Gpio::E15;
-	engineConfiguration->spi1MosiMode = PO_DEFAULT;
 	engineConfiguration->spi1misoPin = Gpio::E14;
-	engineConfiguration->spi1MisoMode = PO_DEFAULT;
 	engineConfiguration->spi1sckPin = Gpio::E13;
-	engineConfiguration->spi1SckMode = PO_DEFAULT;
 
-// todo	engineConfiguration->triggerInputPins[0] =
-//todo setTPS1Inputs(, );
+  engineConfiguration->triggerInputPins[0] = Gpio::F8;
+  engineConfiguration->camInputs[0] = Gpio::B9;
 
-//todo setPPSInputs(, );
+// todo	engineConfiguration->clt.adcChannel = EFI_ADC_; // ADC3 PF5
+// todo	engineConfiguration->iat.adcChannel = EFI_ADC_; // ADC3 PF6
+// todo	engineConfiguration->map.sensor.hwChannel = EFI_ADC_;
+
+	// ?k high side/?k low side = ? ratio divider todo is the value below right?
+  engineConfiguration->analogInputDividerCoefficient = 2.0f;
+
+//	todo engineConfiguration->vbattDividerCoeff = (33 + 6.8) / 6.8; // 5.835
+
+//	engineConfiguration->vbattAdcChannel = EFI_ADC_;
+	engineConfiguration->adcVcc = 3.3f;
+
+  setTPS1Inputs(EFI_ADC_12, EFI_ADC_13);
+
+  setPPSInputs(EFI_ADC_10, EFI_ADC_11);
 }
 
 void setBoardConfigOverrides() {
@@ -150,25 +162,25 @@ void boardInit(void)
 	board_init_ext_gpios();
 }
 
-static Gpio PROTEUS_OUTPUTS[] = {
+static Gpio OUTPUTS[] = {
 	Gpio::L9779_OUT_4, // Injector 1
 	Gpio::L9779_OUT_3, // Injector 2
-	Gpio::L9779_OUT_2, // Injector 3
-	Gpio::L9779_OUT_1, // Injector 4
-	Gpio::L9779_OUT_6, // Oxygen sensor 1 heater
-	Gpio::L9779_OUT_5, // EVAP solenoid control
-	Gpio::L9779_OUT_7, // Oxygen sensor 2 heater
-	Gpio::L9779_IGN_1, // Coil 1 (< +2.5v) / Coils 1,4
-	Gpio::L9779_IGN_3, // Coil 3  (< +2.5v) / Coils 2,4
-	Gpio::L9779_OUT_17, // Air compressor control
-	Gpio::L9779_OUT_14, // Secondary starter relay
-	Gpio::L9779_OUT_15, // FAN 1 relay
-	Gpio::L9779_OUT_16, // FAN 2 relay
-	Gpio::L9779_OUT_13, // Fuel pump relay
+//	Gpio::L9779_OUT_2, // Injector 3
+//	Gpio::L9779_OUT_1, // Injector 4
+//	Gpio::L9779_OUT_6, // Oxygen sensor 1 heater
+//	Gpio::L9779_OUT_5, // EVAP solenoid control
+//	Gpio::L9779_OUT_7, // Oxygen sensor 2 heater
+//	Gpio::L9779_IGN_1, // Coil 1 (< +2.5v) / Coils 1,4
+//	Gpio::L9779_IGN_3, // Coil 3  (< +2.5v) / Coils 2,4
+//	Gpio::L9779_OUT_17, // Air compressor control
+//	Gpio::L9779_OUT_14, // Secondary starter relay
+//	Gpio::L9779_OUT_15, // FAN 1 relay
+//	Gpio::L9779_OUT_16, // FAN 2 relay
+//	Gpio::L9779_OUT_13, // Fuel pump relay
 };
 
 int getBoardMetaOutputsCount() {
-    return efi::size(PROTEUS_OUTPUTS);
+    return efi::size(OUTPUTS);
 }
 
 int getBoardMetaDcOutputsCount() {

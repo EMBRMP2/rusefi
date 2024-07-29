@@ -16,7 +16,7 @@
 
 /*
  * STM32F7 memory setup.
- * 
+ *
  * RAM0 - Data, Heap.
  * RAM3 - Main Stack, Process Stack, BSS, NOCACHE, ETH.
  *
@@ -25,26 +25,27 @@
  * 'bl' is related to rusefi bootloader
  */
 
- /* TODO: 512k flash limit is a mitigation for https://github.com/rusefi/rusefi/issues/3566 and https://github.com/rusefi/rusefi/issues/3775 */
-flash_size = DEFINED(FLASH_SIZE) ? FLASH_SIZE : 512k;
+/* change address & length if bootloader */
+bootloader_size = 32k;
+flash_start = 0x08000000 + (DEFINED(HAS_BOOTLOADER) ? bootloader_size : 0);
+flash_size = DEFINED(IS_BOOTLOADER) ? bootloader_size : (DEFINED(EFI_FLASH_SIZE) ? EFI_FLASH_SIZE : 768k);
+image_size = DEFINED(HAS_BOOTLOADER) ? (flash_size - bootloader_size) : flash_size;
 
 /* OpenBLT <-> main FW shared area */
-_OpenBLT_Shared_Params_Size = DEFINED(BOOTLOADER) ? 16 : 0;
+_OpenBLT_Shared_Params_Size = DEFINED(HAS_BOOTLOADER) || DEFINED(IS_BOOTLOADER) ? 16 : 0;
 
 MEMORY
 {
-    bl          : org = 0x08000000, len = 16k       /* bootloader section */
-    /* change address & length if bootloader */
-    flash0 (rx) : org = DEFINED(BOOTLOADER) ? 0x08008000 : 0x08000000, len = DEFINED(BOOTLOADER) ? (flash_size - 32k) : flash_size
-    /* TODO: should we use same flash_size for flash@ITCM? */
-    flash1 (rx) : org = DEFINED(BOOTLOADER) ? 0x00208000 : 0x00200000, len = DEFINED(BOOTLOADER) ? (2m - 32k) : 2m /* Flash as ITCM */
+    bl          : org = 0x08000000, len = bootloader_size       /* bootloader section */
+    flash0 (rx) : org = flash_start, len = image_size
+    flash1 (rx) : org = flash_start - 0x07e00000, len = image_size /* Flash as ITCM */
     flash2 (rx) : org = 0x00000000, len = 0
     flash3 (rx) : org = 0x00000000, len = 0
     flash4 (rx) : org = 0x00000000, len = 0
     flash5 (rx) : org = 0x00000000, len = 0
     flash6 (rx) : org = 0x00000000, len = 0
     flash7 (rx) : org = 0x00000000, len = 0
-    shared      : org = 0x20000000, len = _OpenBLT_Shared_Params_Size
+    shared      : org = 0x20020000, len = _OpenBLT_Shared_Params_Size
     ram0   (wx) : org = 0x20020000 + _OpenBLT_Shared_Params_Size, len = 384k - _OpenBLT_Shared_Params_Size      /* SRAM1 + SRAM2 */
     ram1   (wx) : org = 0x20020000 + _OpenBLT_Shared_Params_Size, len = 368k - _OpenBLT_Shared_Params_Size      /* SRAM1 */
     ram2   (wx) : org = 0x2007C000, len = 16k       /* SRAM2 */

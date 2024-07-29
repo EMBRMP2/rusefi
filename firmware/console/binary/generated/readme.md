@@ -1,3 +1,3 @@
-At the moment gen_output_channels.sh generates the content here based on output_channels.txt
+LiveDataProcessor.java produces file here based on LiveData.yaml
 
-Things are a bit easier to troubleshoot without complete integration.
+See also log_fields_generated.h

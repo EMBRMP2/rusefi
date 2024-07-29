@@ -49,7 +49,7 @@ int brainPin_to_index(Gpio brainPin) {
  */
 
 bool brain_pin_markUsed(Gpio brainPin, const char *msg) {
-#if ! EFI_BOOTLOADER
+#ifndef EFI_BOOTLOADER
 	efiPrintf("pin_markUsed: %s on %s", msg, hwPortname(brainPin));
 #endif
 
@@ -79,7 +79,7 @@ bool brain_pin_markUsed(Gpio brainPin, const char *msg) {
  */
 
 void brain_pin_markUnused(brain_pin_e brainPin) {
-#if ! EFI_BOOTLOADER
+#ifndef EFI_BOOTLOADER
 	efiPrintf("pin_markUnused: %s", hwPortname(brainPin));
 #endif
 	int index = brainPin_to_index(brainPin);
@@ -114,7 +114,7 @@ void pinDiag2string(char *buffer, size_t size, brain_pin_diag_e pin_diag) {
 	/* use autogeneraged helpers here? */
 	if (pin_diag == PIN_OK) {
 		chsnprintf(buffer, size, "Ok");
-	} else if (pin_diag != PIN_INVALID) {
+	} else if (pin_diag != PIN_UNKNOWN) {
 		chsnprintf(buffer, size, "%s%s%s%s%s%s",
 			pin_diag & PIN_DRIVER_OFF ? "driver_off " : "",
 			pin_diag & PIN_OPEN ? "open_load " : "",
@@ -143,12 +143,14 @@ static void reportPins() {
 
 		/* show used pins */
 		if (pin_user != NULL) {
+			static char pin_state[64];
 			brain_pin_e brainPin = index_to_brainPin(i);
 			int pin = getBrainPinIndex(brainPin);
 			ioportid_t port = getBrainPinPort(brainPin);
+			debugBrainPin(pin_state, sizeof(pin_state), brainPin);
 
             const char *boardPinName = getBoardSpecificPinName(brainPin);
-			efiPrintf("pin %s%d (%s): %s", portname(port), pin, boardPinName, pin_user);
+			efiPrintf("pin %s%d (%s): %s %s", portname(port), pin, boardPinName, pin_user, pin_state);
 			totalPinsUsed++;
 		}
 	}
@@ -184,18 +186,22 @@ static void reportPins() {
 	#endif
 
 	efiPrintf("Total pins used: %d", totalPinsUsed);
-}
 
-void printSpiConfig(const char *msg, spi_device_e device) {
-#if HAL_USE_SPI
-	efiPrintf("%s %s mosi=%s", msg, getSpi_device_e(device), hwPortname(getMosiPin(device)));
-	efiPrintf("%s %s miso=%s", msg, getSpi_device_e(device), hwPortname(getMisoPin(device)));
-	efiPrintf("%s %s sck=%s",  msg, getSpi_device_e(device), hwPortname(getSckPin(device)));
-#endif // HAL_USE_SPI
+	gpiochips_debug();
 }
 
 __attribute__((weak)) const char * getBoardSpecificPinName(brain_pin_e /*brainPin*/) {
 	return nullptr;
+}
+
+static const char *hwOnChipPhysicalPinName(ioportid_t hwPort, int hwPin) {
+  portNameStream.eos = 0; // reset
+	if (hwPort == GPIO_NULL) {
+		return "NONE";
+	}
+	chprintf((BaseSequentialStream *) &portNameStream, "%s%d", portname(hwPort), hwPin);
+	portNameStream.buffer[portNameStream.eos] = 0; // need to terminate explicitly
+  return portNameBuffer;
 }
 
 const char *hwPhysicalPinName(Gpio brainPin) {
@@ -206,19 +212,14 @@ const char *hwPhysicalPinName(Gpio brainPin) {
 		return "NONE";
 	}
 
-	portNameStream.eos = 0; // reset
 	if (brain_pin_is_onchip(brainPin)) {
-
 		ioportid_t hwPort = getHwPort("hostname", brainPin);
-		if (hwPort == GPIO_NULL) {
-			return "NONE";
-		}
 		int hwPin = getHwPin("hostname", brainPin);
-		chprintf((BaseSequentialStream *) &portNameStream, "%s%d", portname(hwPort), hwPin);
+	  return hwOnChipPhysicalPinName(hwPort, hwPin);
 	}
 	#if (BOARD_EXT_GPIOCHIPS > 0)
 		else {
-
+	    portNameStream.eos = 0; // reset
 			const char *pin_name = gpiochips_getPinName(brainPin);
 
 			if (pin_name) {
@@ -228,11 +229,11 @@ const char *hwPhysicalPinName(Gpio brainPin) {
 				chprintf((BaseSequentialStream *) &portNameStream, "ext:%s.%d",
 					gpiochips_getChipName(brainPin), gpiochips_getPinOffset(brainPin));
 			}
+	    portNameStream.buffer[portNameStream.eos] = 0; // need to terminate explicitly
+	    return portNameBuffer;
 		}
 	#endif
-	portNameStream.buffer[portNameStream.eos] = 0; // need to terminate explicitly
-
-	return portNameBuffer;
+  return "unexpected";
 }
 
 const char *hwPortname(brain_pin_e brainPin) {
@@ -279,6 +280,9 @@ bool brain_pin_is_ext(brain_pin_e brainPin)
 
 bool gpio_pin_markUsed(ioportid_t port, ioportmask_t pin, const char *msg) {
 	int index = getPortPinIndex(port, pin);
+#ifndef EFI_BOOTLOADER
+	efiPrintf("pin_markUsed: %s on %s", msg, hwOnChipPhysicalPinName(port, pin));
+#endif
 
 	if (getBrainUsedPin(index) != NULL) {
 		/**
@@ -286,7 +290,7 @@ bool gpio_pin_markUsed(ioportid_t port, ioportmask_t pin, const char *msg) {
 		 * connected, so the warning is never displayed on the console and that's quite a problem!
 		 */
 //		warning(ObdCode::OBD_PCM_Processor_Fault, "%s%d req by %s used by %s", portname(port), pin, msg, getBrainUsedPin(index));
-		firmwareError(ObdCode::CUSTOM_ERR_PIN_ALREADY_USED_1, "%s%d req by %s used by %s", portname(port), pin, msg, getBrainUsedPin(index));
+		firmwareError(ObdCode::CUSTOM_ERR_PIN_ALREADY_USED_1, "%s%d req by %s used by %s", portname(port), (int)pin, msg, getBrainUsedPin(index));
 		return true;
 	}
 	getBrainUsedPin(index) = msg;

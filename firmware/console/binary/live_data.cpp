@@ -6,9 +6,11 @@
 #include "wideband_state_generated.h"
 #include "electronic_throttle_impl.h"
 #include "knock_controller_generated.h"
+#include "tcu_controller_generated.h"
 #include "fuel_computer.h"
 #include "antilag_system_state_generated.h"
 #include "vvt_generated.h"
+#include <livedata_board_extra.h>
 
 template<>
 const output_channels_s* getLiveData(size_t) {
@@ -18,6 +20,16 @@ const output_channels_s* getLiveData(size_t) {
 template<>
 const knock_controller_s* getLiveData(size_t) {
 	return &engine->module<KnockController>().unmock();
+}
+
+template<>
+const tcu_controller_s* getLiveData(size_t) {
+#if EFI_TCU
+  GearControllerBase *gearController = engine->gearController;
+	return gearController == nullptr ? nullptr : gearController->transmissionController;
+#else
+		return nullptr;
+#endif // EFI_TCU
 }
 
 template<>
@@ -49,7 +61,7 @@ const antilag_system_state_s* getLiveData(size_t) {
 
 template<>
 const injector_model_s* getLiveData(size_t) {
-	return &engine->module<InjectorModel>().unmock();
+	return &engine->module<InjectorModelPrimary>().unmock();
 }
 
 template<>

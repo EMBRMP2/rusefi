@@ -15,7 +15,7 @@
 #include "proteus_meta.h"
 
 #if HW_MICRO_RUSEFI || HW_PROTEUS
-static void commonPassatB6() {
+static inline void commonPassatB6() {
 	setCrankOperationMode();
 	engineConfiguration->trigger.type = trigger_type_e::TT_TOOTHED_WHEEL_60_2;
 	engineConfiguration->vvtMode[0] = VVT_BOSCH_QUICK_START;
@@ -38,7 +38,7 @@ static void commonPassatB6() {
 
 //	engineConfiguration->canNbcType = CAN_BUS_NBC_VAG;
 
-	engineConfiguration->enableAemXSeries = true;
+//	engineConfiguration->enableAemXSeries = true;
 
 
 	// Injectors flow 1214 cc/min at 100 bar pressure
@@ -97,7 +97,9 @@ static void commonPassatB6() {
 */
 
 	setTable(config->veTable, 55);
+#if EFI_ELECTRONIC_THROTTLE_BODY
 	setBoschVAGETB();
+#endif //EFI_ELECTRONIC_THROTTLE_BODY
 
 	// random number just to take position away from zero
 	engineConfiguration->vvtOffsets[0] = 180;
@@ -140,6 +142,7 @@ static const float hardCodedGperSValues[] {
 void setProteusVwPassatB6() {
 #if HW_PROTEUS
 	static_assert(sizeof(hardCodedFreqBins) == sizeof(hardCodedGperSValues));
+#if SCRIPT_CURVE_16 == 16
 	{
 		size_t mi = 0;
 		for (; mi < efi::size(hardCodedFreqBins); mi++) {
@@ -153,7 +156,7 @@ void setProteusVwPassatB6() {
 		}
 	}
 	strcpy(engineConfiguration->scriptCurveName[0], "MAFcurve");
-
+#endif
 
 	commonPassatB6();
 	engineConfiguration->triggerInputPins[0] = PROTEUS_VR_1;
@@ -178,7 +181,9 @@ void setProteusVwPassatB6() {
 
     setProteusEtbIO();
 
+#if EFI_PROD_CODE
     #include "vw_b6.lua"
+#endif
 
 #endif // HW_PROTEUS
 }

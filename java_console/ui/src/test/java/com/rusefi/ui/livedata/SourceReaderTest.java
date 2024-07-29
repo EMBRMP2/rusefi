@@ -1,12 +1,12 @@
 package com.rusefi.ui.livedata;
 
 import com.rusefi.livedata.LiveDataParserPanel;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.*;
 import java.net.URISyntaxException;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class SourceReaderTest {
     @Test

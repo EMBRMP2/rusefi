@@ -1,7 +1,7 @@
 package com.rusefi.test;
 
 import com.rusefi.VariableRegistry;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.rusefi.VariableRegistry.*;
-import static org.junit.Assert.assertEquals;
+import static com.rusefi.AssertCompatibility.assertEquals;
 
 /**
  * 3/30/2015
@@ -77,7 +77,7 @@ public class VariableRegistryTest {
     public void testDefineAndQuotes() throws IOException {
         VariableRegistry registry = new VariableRegistry();
         registry.readPrependValues(new StringReader("#define SINGLE 'L'\n" +
-                "#define DOUBLE \"R\""));
+                "#define DOUBLE \"R\""), false);
         assertEquals("hello L R 'L' \"R\"", registry.applyVariables("hello @#SINGLE#@ @#DOUBLE#@ @@SINGLE@@ @@DOUBLE@@"));
     }
 }

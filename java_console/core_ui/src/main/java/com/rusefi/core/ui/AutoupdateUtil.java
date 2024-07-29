@@ -1,6 +1,5 @@
 package com.rusefi.core.ui;
 
-import com.rusefi.core.ui.AutoupdateUtil;
 import com.rusefi.autoupdate.ReportedIOException;
 import com.rusefi.core.net.ConnectionAndMeta;
 import org.jetbrains.annotations.NotNull;
@@ -12,7 +11,6 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.net.URLStreamHandlerFactory;
 import java.util.Date;
 
 public class AutoupdateUtil {
@@ -81,13 +79,11 @@ public class AutoupdateUtil {
     }
 
     private static class DynamicForResourcesURLClassLoader extends URLClassLoader {
+        public DynamicForResourcesURLClassLoader(ClassLoader parent ) {
+            super(new URL[ 0 ], parent );
+        }
 
-        public DynamicForResourcesURLClassLoader( URL[] urls, ClassLoader parent ) { super( urls, parent ); }
-
-        public DynamicForResourcesURLClassLoader( URL[] urls ) { super( urls ); }
-
-        public DynamicForResourcesURLClassLoader( URL[] urls, ClassLoader parent, URLStreamHandlerFactory factory ) { super( urls, parent, factory ); }
-
+        // public morozov pattern: making protected public
         @Override
         public void addURL( URL url ) {
             super.addURL( url );
@@ -107,7 +103,7 @@ public class AutoupdateUtil {
         }
     }
 
-    private static final DynamicForResourcesURLClassLoader dynamicResourcesLoader = new DynamicForResourcesURLClassLoader( new URL[ 0 ], AutoupdateUtil.class.getClassLoader() );
+    private static final DynamicForResourcesURLClassLoader dynamicResourcesLoader = new DynamicForResourcesURLClassLoader(AutoupdateUtil.class.getClassLoader() );
 
     @NotNull
     public static URLClassLoader getClassLoaderByJar(String jar) throws MalformedURLException {
@@ -142,18 +138,28 @@ public class AutoupdateUtil {
         return null;
     }
 
+    public static void assertNotAwtThread() {
+        if (SwingUtilities.isEventDispatchThread()) {
+            showError("Non AWT thread expected");
+        }
+    }
+
     public static void assertAwtThread() {
         if (!SwingUtilities.isEventDispatchThread()) {
-            Exception e = new IllegalStateException("Not on AWT thread but " + Thread.currentThread().getName());
-
-            StringBuilder trace = new StringBuilder(e + "\n");
-            for(StackTraceElement element : e.getStackTrace())
-                trace.append(element.toString()).append("\n");
-            SwingUtilities.invokeLater(() -> {
-                Window w = getSelectedWindow(Window.getWindows());
-                JOptionPane.showMessageDialog(w, trace, "Error", JOptionPane.ERROR_MESSAGE);
-            });
+            showError("Not on AWT thread but " + Thread.currentThread().getName());
         }
+    }
+
+    private static void showError(String error) {
+        Exception e = new IllegalStateException(error);
+
+        StringBuilder trace = new StringBuilder(e + "\n");
+        for(StackTraceElement element : e.getStackTrace())
+            trace.append(element.toString()).append("\n");
+        SwingUtilities.invokeLater(() -> {
+            Window w = getSelectedWindow(Window.getWindows());
+            JOptionPane.showMessageDialog(w, trace, "Error", JOptionPane.ERROR_MESSAGE);
+        });
     }
 
     public static boolean hasExistingFile(String zipFileName, long completeFileSize, long lastModified) {

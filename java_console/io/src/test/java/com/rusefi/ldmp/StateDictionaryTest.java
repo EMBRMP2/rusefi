@@ -4,9 +4,9 @@ import com.rusefi.config.generated.FuelComputer;
 import com.rusefi.config.generated.IgnitionState;
 import com.rusefi.config.generated.TsOutputs;
 import com.rusefi.enums.live_data_e;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class StateDictionaryTest {
     @Test

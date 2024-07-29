@@ -47,13 +47,11 @@ void setBoardConfigOverrides() {
 	setHellenMegaEnPin();
 	setHellenVbatt();
 
-	setHellenSdCardSpi1();
-	configureHellenMegaAccCS2Pin();
+	hellenMegaSdWithAccelerometer();
 	configureHellenCanTerminator();
 	setHellenCan();
 
-	engineConfiguration->clt.config.bias_resistor = 4700;
-	engineConfiguration->iat.config.bias_resistor = 4700;
+	setDefaultHellenAtPullUps();
 
 	engineConfiguration->triggerInputPins[0] = Gpio::MM100_IN_CRANK;
 	engineConfiguration->camInputs[0] = Gpio::MM100_IN_D1;
@@ -72,7 +70,7 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();

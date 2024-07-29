@@ -18,17 +18,27 @@ typedef struct {
 	int writeValueCommandCounter;
 	int crc32CheckCommandCounter;
 	int writeChunkCommandCounter;
-	int errorCounter;
 	int totalCounter;
 	int textCommandCounter;
 	int testCommandCounter;
+
+	// overall counter, not all of this errors are reported back to TS
+	int errorCounter;
+	// by type error counters reported to TS
+	int errorUnderrunCounter;
+	int errorOverrunCounter;
+	int errorCrcCounter;
+	int errorUnrecognizedCommand;
+	int errorOutOfRange;
+	int errorOther;
 } tunerstudio_counters_s;
 
 extern tunerstudio_counters_s tsState;
 
 void tunerStudioDebug(TsChannelBase* tsChannel, const char *msg);
 void tunerStudioError(TsChannelBase* tsChannel, const char *msg);
-void sendErrorCode(TsChannelBase *tsChannel, uint8_t code);
+#define DO_NOT_LOG nullptr
+void sendErrorCode(TsChannelBase *tsChannel, uint8_t code, /*empty line by default, use nullptr not to log*/const char *msg="");
 
 uint8_t* getWorkingPageAddr();
 

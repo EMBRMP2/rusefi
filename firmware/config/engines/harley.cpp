@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "proteus_meta.h"
+#include "harley_canned.cpp"
+#include "harley.h"
 
 static void harleyEngine() {
     engineConfiguration->cylindersCount = 2;
@@ -7,14 +9,14 @@ static void harleyEngine() {
     strcpy(engineConfiguration->engineMake, "Harley");
 }
 
-
 /**
- * PROTEUS_HARLEY
+ * HARLEY
  * set engine_type 6
  */
-void proteusHarley() {
+void setHarley() {
     harleyEngine();
     engineConfiguration->displacement = 1.9;
+    engineConfiguration->ignitionMode = IM_INDIVIDUAL_COILS;
     engineConfiguration->injectionMode = IM_SEQUENTIAL;
     for (size_t i = engineConfiguration->cylindersCount;i < MAX_CYLINDER_COUNT;i++) {
         engineConfiguration->injectionPins[i] = Gpio::Unassigned;
@@ -28,24 +30,33 @@ void proteusHarley() {
 	engineConfiguration->afr.hwChannel = EFI_ADC_NONE;
 	engineConfiguration->enableAemXSeries = true;
 
-	engineConfiguration->timing_offset_cylinder[0] = 45.0 / 2;
-	engineConfiguration->timing_offset_cylinder[1] = -45.0 / 2;
+  // total 45 degree odd fire, split across two cylinders mostly for fun
+	engineConfiguration->timing_offset_cylinder[0] = -HARLEY_V_TWIN / 2;
+	engineConfiguration->timing_offset_cylinder[1] = +HARLEY_V_TWIN / 2;
 
-	// for now we need non wired camInput to keep TS field enable/disable logic happy
-	engineConfiguration->camInputs[0] = PROTEUS_DIGITAL_6;
+  // work-around for https://github.com/rusefi/rusefi/issues/5894 todo: fix it!
+	engineConfiguration->maximumIgnitionTiming = 90;
+  engineConfiguration->minimumIgnitionTiming = -90;
+
 	engineConfiguration->vvtMode[0] = VVT_MAP_V_TWIN;
 
+  engineConfiguration->oddFireEngine = true;
 	engineConfiguration->mainRelayPin = Gpio::Unassigned;
 	engineConfiguration->mapCamDetectionAnglePosition = 50;
 
 	setCustomMap(/*lowValue*/ 20, /*mapLowValueVoltage*/ 0.79, /*highValue*/ 101.3, /*mapHighValueVoltage*/ 4);
 
-#if HW_PROTEUS
+#if HW_PROTEUS && EFI_PROD_CODE
     engineConfiguration->acrPin = Gpio::PROTEUS_IGN_8;
     engineConfiguration->acrPin2 = Gpio::PROTEUS_IGN_9;
 
     engineConfiguration->triggerInputPins[0] = PROTEUS_VR_1;
-    engineConfiguration->camInputs[0] = PROTEUS_DIGITAL_3;
+	// for now we need non wired camInput to keep TS field enable/disable logic happy
+#if EFI_PROD_CODE
+	  engineConfiguration->camInputs[0] = PROTEUS_DIGITAL_6;
+#else
+    engineConfiguration->camInputs[0] = Gpio::Unassigned;
+#endif
 
 	engineConfiguration->luaOutputPins[0] = Gpio::PROTEUS_LS_12;
 
@@ -112,22 +123,22 @@ end
 
 
 function onTick()
- 
+
   if packet502[1] == 01 then
     offCounter = 0
     counter543 = (counter543 + 1) % 64
     packet543[7] = 64 + counter543
     packet543[8] = crc8_j1850(packet543, 7)
-    APP = getSensor("AcceleratorPedal") 
+    APP = getSensor("AcceleratorPedal")
     if APP == nil then
       packet543[5] = 0
     else
       packet543[5] = APP *2
     end
- 
+
     txCan(1, 0x543, 0, packet543)
 	txCan(1, 0x541, 0, packet541)
-   
+
     if every200msTimer:getElapsedSeconds() > 0.2 then
        every200msTimer:reset();
        txCan(1, 0x540, 0, packet540)
@@ -137,7 +148,7 @@ function onTick()
        every50msTimer:reset();
 	   txCan(1, 0x542, 0, packet542)
     end
-	
+
     if everySecondTimer:getElapsedSeconds() > 1 then
        everySecondTimer:reset();
        txCan(1, 0x502, 0, packet502)
@@ -159,7 +170,7 @@ function onTick()
   else
     if offCounter == 0 then --goodbye sweet love
       txCan(1, 0x502, 0, packet502) --goodbye
-      offCounter = 1 --One shot 
+      offCounter = 1 --One shot
     end
   end
 end

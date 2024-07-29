@@ -10,8 +10,7 @@
 
 #pragma once
 
-#include "rusefi_generated.h"
-
+#include "generated_lookup_meta.h"
 
 /**
  * https://github.com/rusefi/rusefi/wiki/Engine-Types
@@ -37,7 +36,7 @@ enum class engine_type_e : uint16_t {
 	MRE_SECONDARY_CAN = 4,
 
 	NISSAN_PRIMERA = 5,
-	PROTEUS_HARLEY = 6,
+	HARLEY = 6,
 	FORD_INLINE_6_1995 = 7,
 	/**
 	 * one cylinder engine
@@ -46,34 +45,33 @@ enum class engine_type_e : uint16_t {
 	 */
 	GY6_139QMB = 8,
 
-	PROTEUS_E65_6H_MAN_IN_THE_MIDDLE = 9,
-	HELLEN_NA8_96 = 10,
+	POLARIS_RZR = 9,
+	MAZDA_MIATA_NA96 = 10,
 	FORD_COYOTE = 11,
 	MITSUBISHI_3A92 = 12,
 	TOYOTA_1NZ_FE = 13,
-	MRE_MIATA_NA6_MAP = 66,
+
+	FORD_ESCORT_GT = 14,
 	FUEL_BENCH = 15,
+	MITSUBISHI_4G93 = 16,
+	TCU_4R70W = 17,
+
+	TEST_33816 = 18,
 
 	TEST_ROTARY = 19,
 	// Frankenso board
 	FRANKENSO_MIATA_NA6_MAP = 41,
-	MRE_MIATA_94_MAP = 20,
-	MIATA_1996 = 21,
+	MAZDA_MIATA_NC = 20,
+	ET_BOSCH_QUICK_START = 21,
 
-	FORD_ESCORT_GT = 14,
-
-	MITSUBISHI_4G93 = 16,
-
-	TEST_33816 = 18,
-
-
-	SUBARU_2003_WRX = 22,
+  // BMW e36 etc
+	BMW_M52 = 22,
 
 	/**
 	 * microRusEFI used as Body Control Module BCM BCU
 	 */
 	MRE_BODY_CONTROL = 23,
-	BMW_M73_M = 24,
+	ET_TEST_WITH_BOSCH_QUICK_START = 24,
 
 	/**
 	 * See also MRE_SECONDARY_CAN
@@ -86,6 +84,7 @@ enum class engine_type_e : uint16_t {
 
 	TEST_CRANK_ENGINE = 28,
 
+  // two stroke
 	SACHS = 29,
 
 	PROTEUS_ANALOG_PWM_TEST = 30,
@@ -96,9 +95,9 @@ enum class engine_type_e : uint16_t {
 
 	ME17_9_MISC = 33,
 
-	HELLEN_NA6 = 34,
+	MAZDA_MIATA_NA6 = 34,
 
-	CAMARO_4 = 35,
+	POLARIS = 35,
 
 	HELLEN_128_MERCEDES_4_CYL = 36,
 
@@ -108,6 +107,7 @@ enum class engine_type_e : uint16_t {
 
 	PROTEUS_VW_B6 = 39,
 
+  // used by unit tests and HW CI
 	FRANKENSO_BMW_M73_F = 40,
 
 	PROTEUS_QC_TEST_BOARD = 42,
@@ -120,10 +120,7 @@ enum class engine_type_e : uint16_t {
 
 	DODGE_NEON_2003_CRANK = 46,
 
-	/**
-	 * proper NB2 setup, 2003 red test mule car
-	 */
-	FRANKENSO_MAZDA_MIATA_2003 = 47,
+	UNUSED47 = 47,
 
     // todo: add wastegate case into HW CI
 	TEST_DC_WASTEGATE_DISCOVERY = 48,
@@ -137,36 +134,26 @@ enum class engine_type_e : uint16_t {
 
 	TEST_ISSUE_366_BOTH = 52,
 	TEST_ISSUE_366_RISE = 53,
-
 	MAVERICK_X3 = 54,
-
-	MAZDA_MIATA_2003_BOARD_TEST = 55,
-
-	FRANKENSO_MAZDA_MIATA_NA8 = 56,
-
+	ET_UNUSED_55 = 55,
+	FRANKENSO_TEST_TLE9104 = 56,
 	HELLEN_HONDA_BCM = 57,
-
 	ETB_BENCH_ENGINE = 58,
-
 	FRANKENSO_TEST_33810 = 59,
 
 	L9779_BENCH_ENGINE = 60,
-
 	EEPROM_BENCH_ENGINE = 61,
-
 	MRE_VW_B6 = 62,
-
 	PROTEUS_BMW_M73 = 63,
-
 	DODGE_RAM = 64,
-	CITROEN_TU3JP = 65,
+	UNUSED_65 = 65,
+	HONDA_OBD1 = 66,
+	UNUSED67 = 67,
+	MERCEDES_M111 = 68,
 
-	PROTEUS_MIATA_NB2 = 67,
-	MRE_M111 = 68,
+	MAZDA_MIATA_NB2 = 69,
 
-	HELLEN_NB2 = 69,
-
-	SUBARUEG33_DEFAULTS = 70,
+	SUBARU_EG33 = 70,
 
 	HELLEN_121_VAG_4_CYL = 71,
 	HELLEN_121_NISSAN_6_CYL = 72,
@@ -180,17 +167,17 @@ enum class engine_type_e : uint16_t {
 	HELLEN_121_VAG_VR6_CYL = 79,
 	HELLEN_121_VAG_8_CYL = 81,
 
-	HELLEN_NA94 = 80,
+	MAZDA_MIATA_NA94 = 80,
 
     // 82
 	HELLEN_154_HYUNDAI_COUPE_BK1 = 82,
-	HELLEN_NB1 = 83,
+	MAZDA_MIATA_NB1 = 83,
 	// 84
 	HELLEN_121_NISSAN_4_CYL = 84,
 
     HELLEN_121_NISSAN_8_CYL = 85,
 
-	HELLEN_NB2_36 = 86,
+	MAZDA_MIATA_NB2_36 = 86,
 
 	HELLEN_121_NISSAN_ALMERA_N16  = 87,
 
@@ -200,20 +187,19 @@ enum class engine_type_e : uint16_t {
 
 	HONDA_K = 90,
 
-	PROTEUS_HONDA_OBD2A = 91,
+	HONDA_OBD2A = 91,
 
 	SIMULATOR_CONFIG = 92,
 
-	PROTEUS_N73 = 93,
+	TEST_ISSUE_6451 = 93,
 
-    HELLEN_NB1_36 = 94,
+  UNUSED94 = 94,
 
 	HELLEN_154_HYUNDAI_COUPE_BK2 = 95,
 
     WASTEGATE_PROTEUS_TEST = 96,
-    ALPHAX_8CHAN_SBC = 97,
-    PROTEUS_SBC = 98,
-	PROTEUS_M111 = 17,
+    UNUSED_97 = 97,
+    GM_SBC = 98,
 
 	/**
 	 * this configuration has as few pins configured as possible
@@ -223,12 +209,13 @@ enum class engine_type_e : uint16_t {
     // use this in case of emergency without github actions? :)
 	TEST_100 = 100,
 	TEST_101 = 101,
-	TEST_102 = 102,
+	UNUSED102 = 102,
 
 	PROTEUS_NISSAN_VQ35 = 103,
 
     // both Proteus and 4chan/8chan
 	HYUNDAI_PB = 104,
+  FERRARI_F136 = 105,
 };
 
 /**
@@ -267,7 +254,7 @@ typedef enum __attribute__ ((__packed__)) {
 	DBG_24 = 24,
 	DBG_25 = 25,
 	DBG_26 = 26,
-	DBG_MAP = 27,
+	DBG_27 = 27,
 	DBG_METRICS = 28,
 	DBG_29 = 29,
 	DBG_ION = 30,
@@ -305,7 +292,7 @@ enum class trigger_type_e : uint32_t {
 	TT_MAZDA_MIATA_NA = 3,
 	TT_VVT_FORD_COYOTE = 4,
 	TT_GM_7X = 5,
-	TT_DAIHATSU = 6,
+	TT_DAIHATSU_3_CYL = 6,
 	TT_MAZDA_SOHC_4 = 7,
 	// "60/2"
 	// See also TT_ONE_PLUS_TOOTHED_WHEEL_60_2
@@ -321,7 +308,7 @@ enum class trigger_type_e : uint32_t {
 	TT_MAZDA_DOHC_1_4 = 15,
 	//  * "1+1" - one tooth on primary channel, one tooth on secondary channel
 	//  * Note: this trigger is used only by unit tests
-	//  * see also TT_ONE a bit below
+	//  * see also TT_HALF_MOON a bit below
 	TT_ONE_PLUS_ONE = 16,
 	/**
 	 * VVT for 2JZ
@@ -332,8 +319,8 @@ enum class trigger_type_e : uint32_t {
 	TT_HALF_MOON = 18,
 
 	TT_DODGE_RAM = 19,
-	//  * It looks like this is the VR shape if you have your wires flipped
-	TT_60_2_VW = 20,
+	// keeping for compatibility with M73 PnP harnesses which until 2023 were build with VR wires flipped
+	TT_60_2_WRONG_POLARITY = 20,
 	TT_BENELLI_TRE = 21,
 	TT_DODGE_STRATUS = 22,
         // Subaru but also Mazda RX-8, we suspect that it's VR
@@ -344,7 +331,7 @@ enum class trigger_type_e : uint32_t {
 	TT_2JZ_3_34_SIMULATION_ONLY = 25,
 	TT_ROVER_K = 26,
 	// GM 24x with 5/10 degree gaps
-	TT_GM_24x = 27,
+	TT_GM_24x_5 = 27,
 	TT_HONDA_CBR_600 = 28,
 	TT_MITSU_4G9x_CAM = 29,
 	TT_CHRYSLER_NGC_36_2_2 = 30,
@@ -380,7 +367,7 @@ enum class trigger_type_e : uint32_t {
 	TT_VVT_BOSCH_QUICK_START = 47,
 	TT_TOOTHED_WHEEL_36_2 = 48,
 	TT_SUBARU_SVX = 49,
-	TT_1_16 = 50,
+	TT_SUZUKI_K6A = 50,
 	// todo: remove this trigger once we have https://github.com/rusefi/rusefi/issues/2073
 	TT_SUBARU_7_WITHOUT_6 = 51,
 	TT_NISSAN_MR18_CAM_VVT = 52,
@@ -410,10 +397,10 @@ enum class trigger_type_e : uint32_t {
 	TT_36_2_1 = 70,
 	// Mitsubishi 3 cyl and 6 cyl
     TT_36_2_1_1 = 71,
-    UNUSED72 = 72,
+  TT_3_TOOTH_CRANK = 72,
 	TT_VVT_TOYOTA_4_1 = 73,
 	// GM 24x with 3/12 degree gaps
-	TT_GM_24x_2 = 74,
+	TT_GM_24x_3 = 74,
 	// Renault F3R
 	TT_60_2_2_F3R = 75,
 	TT_MITSU_4G63_CRANK = 76,
@@ -425,13 +412,21 @@ enum class trigger_type_e : uint32_t {
 
 	TT_VVT_MITSU_6G72 = 79,
 
+  TT_6_TOOTH_CRANK = 80,
+
+	TT_DAIHATSU_4_CYL = 81,
+
+	TT_VVT_MAZDA_L = 82,
+
+	TT_DEV = 83,
+
 	// do not forget to edit "#define trigger_type_e_enum" line in integration/rusefi_config.txt file to propogate new value to rusefi.ini TS project
 	// do not forget to invoke "gen_config.bat" once you make changes to integration/rusefi_config.txt
 	// todo: one day a hero would integrate some of these things into Makefile in order to reduce manual magic
 	//
 	// Another point: once you add a new trigger, run get_trigger_images.bat which would run rusefi_test.exe from unit_tests
 	//
-	TT_UNUSED = 80, // this is used if we want to iterate over all trigger types
+	TT_UNUSED = 84, // this is used if we want to iterate over all trigger types
 };
 
 typedef enum {
@@ -447,6 +442,16 @@ typedef enum {
     TS_14_9 = 9,
 	TS_WRITE_FLASH = 0x0A,
 	TS_ETB_RESET = 0x0B,
+	TS_ETB_START_AUTOTUNE = 0x0C,
+	TS_TRIGGER_STIMULATOR_ENABLE = 0x0D,
+	TS_ETB_AUTOCAL_0 = 0x0E,
+	TS_TRIGGER_STIMULATOR_DISABLE = 0x0F,
+	TS_ETB_STOP_AUTOTUNE = 0x10,
+	TS_ETB_AUTOCAL_1 = 0x11,
+	TS_WIDEBAND_UPDATE = 0x12,
+	TS_EXTERNAL_TRIGGER_STIMULATOR_ENABLE = 0x13,
+	TS_RESET_MC33810 = 0x14,
+	TS_BURN_WITHOUT_FLASH = 0x15,
 } ts_14_command;
 
 typedef enum {

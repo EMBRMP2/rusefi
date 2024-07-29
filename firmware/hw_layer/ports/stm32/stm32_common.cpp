@@ -10,6 +10,7 @@
 
 #include <rusefi/expected.h>
 #include "hardware.h"
+#include "os_util.h"
 
 #ifdef STM32F4XX
 #include "stm32f4xx_hal_flash.h"
@@ -45,6 +46,7 @@ static void reset_and_jump(void) {
 	NVIC_SystemReset();
 }
 
+#if EFI_DFU_JUMP
 void jump_to_bootloader() {
 	// leave DFU breadcrumb which assembly startup code would check, see [rusefi][DFU] section in assembly code
 
@@ -52,6 +54,7 @@ void jump_to_bootloader() {
 
 	reset_and_jump();
 }
+#endif
 
 void jump_to_openblt() {
 #if EFI_USE_OPENBLT
@@ -109,6 +112,9 @@ void startWatchdog(int timeoutMs) {
 	static WDGConfig wdgcfg;
 	wdgcfg.pr = STM32_IWDG_PR_64;	// t = (1/32768) * 64 = ~2 ms
 	wdgcfg.rlr = STM32_IWDG_RL((uint32_t)((32.768f / 64.0f) * timeoutMs));
+#if 0
+  efiPrintf("[wdgStart]");
+#endif
 	wdgStart(&WDGD1, &wdgcfg);
 #endif // HAL_USE_WDG
 }
@@ -116,6 +122,9 @@ void startWatchdog(int timeoutMs) {
 static efitimems_t watchdogResetPeriodMs = 0;
 
 void setWatchdogResetPeriod(int resetMs) {
+#if 0
+  efiPrintf("[dev] wd %d", resetMs);
+#endif
 	watchdogResetPeriodMs = (efitimems_t)resetMs;
 }
 
@@ -153,7 +162,7 @@ EXTERNC int getRemainingStack(thread_t *otp) {
 	otp->activeStack = r13;
 
 	int remainingStack;
-    if (ch.dbg.isr_cnt > 0) {
+    if (ch0.dbg.isr_cnt > 0) {
 		// ISR context
 		remainingStack = (int)(r13 - 1) - (int)&__main_stack_base__;
 	} else {
@@ -222,7 +231,7 @@ bool isStm32F42x() {
 
 
 // Stubs for per-board low power helpers
-__attribute__((weak)) void boardPrepareForStop() {
+PUBLIC_API_WEAK void boardPrepareForStop() {
 	// Default implementation - wake up on PA0 - boards should override this
 	palEnableLineEvent(PAL_LINE(GPIOA, 0), PAL_EVENT_MODE_RISING_EDGE);
 }
@@ -255,7 +264,7 @@ void boardPreparePA0ForStandby() {
 #endif
 }
 
-__attribute__((weak)) void boardPrepareForStandby() {
+PUBLIC_API_WEAK void boardPrepareForStandby() {
 	boardPreparePA0ForStandby();
 }
 

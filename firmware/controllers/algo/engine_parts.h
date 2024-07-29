@@ -50,7 +50,7 @@ struct warning_t {
 	}
 };
 
-typedef static_vector<warning_t, 8> warningBuffer_t;
+typedef static_vector<warning_t, 24> warningBuffer_t;
 
 class WarningCodeState {
 public:
@@ -70,7 +70,7 @@ public:
 
 struct multispark_state
 {
-	efitick_t delay = 0;
-	efitick_t dwell = 0;
+	efidur_t delay = 0;
+	efidur_t dwell = 0;
 	uint8_t count = 0;
 };

@@ -35,14 +35,14 @@ void StepperMotorBase::initialize(StepperHw *hardware, int totalSteps) {
 void StepperMotorBase::saveStepperPos(int pos) {
 	// use backup-power RTC registers to store the data
 #if EFI_PROD_CODE && EFI_BACKUP_SRAM
-	backupRamSave(BACKUP_STEPPER_POS, pos + 1);
+	backupRamSave(backup_ram_e::StepperPosition, pos + 1);
 #endif
 	postCurrentPosition();
 }
 
 int StepperMotorBase::loadStepperPos() {
 #if EFI_PROD_CODE && EFI_BACKUP_SRAM
-	return (int)backupRamLoad(BACKUP_STEPPER_POS) - 1;
+	return (int)backupRamLoad(backup_ram_e::StepperPosition) - 1;
 #else
 	return 0;
 #endif
@@ -57,7 +57,7 @@ void StepperMotorBase::changeCurrentPosition(bool positive) {
 	postCurrentPosition();
 }
 
-void StepperMotorBase::postCurrentPosition(void) {
+void StepperMotorBase::postCurrentPosition() {
 	if (engineConfiguration->debugMode == DBG_STEPPER_IDLE_CONTROL) {
 #if EFI_TUNER_STUDIO
 		engine->outputChannels.debugIntField5 = m_currentPosition;
@@ -65,7 +65,7 @@ void StepperMotorBase::postCurrentPosition(void) {
 	}
 }
 
-void StepperMotorBase::setInitialPosition(void) {
+void StepperMotorBase::setInitialPosition() {
 	// try to get saved stepper position (-1 for no data)
 	m_currentPosition = loadStepperPos();
 
@@ -87,10 +87,10 @@ void StepperMotorBase::setInitialPosition(void) {
 	efiPrintf("Stepper: savedStepperPos=%d forceStepperParking=%d (tps=%.2f)", m_currentPosition, (forceStepperParking ? 1 : 0), tpsPos);
 
 	if (m_currentPosition < 0 || forceStepperParking) {
-		efiPrintf("Stepper: starting parking...");
+		efiPrintf("Stepper: starting parking time=%lums", getTimeNowMs());
 		// reset saved value
 		saveStepperPos(-1);
-		
+
 		/**
 		 * let's park the motor in a known position to begin with
 		 *
@@ -111,7 +111,8 @@ void StepperMotorBase::setInitialPosition(void) {
 		// set & save zero stepper position after the parking completion
 		m_currentPosition = 0;
 		saveStepperPos(m_currentPosition);
-		efiPrintf("Stepper: parking finished!");
+		// todo: is this a slow operation on the start-up path?
+		efiPrintf("Stepper: parking finished time=%lums", getTimeNowMs());
 	} else {
 		// The initial target position should correspond to the saved stepper position.
 		// Idle thread starts later and sets a new target position.

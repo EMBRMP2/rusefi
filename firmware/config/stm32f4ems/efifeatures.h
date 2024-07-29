@@ -2,12 +2,15 @@
  * @file efifeatures.h
  *
  * @brief In this header we can configure which firmware modules are used.
+ * See config/boards which are often overriding some of the defaults via .mk and/or .env files
  *
  * @date Aug 29, 2013
  * @author Andrey Belomutskiy, (c) 2012-2020
  */
 
 #pragma once
+
+#include <rusefi/true_false.h>
 
 #define EFI_GPIO_HARDWARE TRUE
 
@@ -17,6 +20,18 @@
 
 #ifndef EFI_BOOST_CONTROL
 #define EFI_BOOST_CONTROL TRUE
+#endif
+
+#ifndef EFI_BOSCH_YAW
+#define EFI_BOSCH_YAW FALSE
+#endif
+
+#ifndef EFI_WIFI
+#define EFI_WIFI FALSE
+#endif
+
+#ifndef EFI_WS2812
+#define EFI_WS2812 FALSE
 #endif
 
 #ifndef EFI_DAC
@@ -35,6 +50,10 @@
 #define EFI_BACKUP_SRAM TRUE
 #endif
 
+#ifndef EFI_HELLA_OIL
+#define EFI_HELLA_OIL FALSE
+#endif
+
 #ifndef EFI_USE_OPENBLT
 #define EFI_USE_OPENBLT FALSE
 #endif
@@ -51,7 +70,9 @@
 #define EFI_BOR_LEVEL TRUE
 #endif
 
+#ifndef EFI_DYNO_VIEW
 #define EFI_DYNO_VIEW TRUE
+#endif
 
 #ifndef EFI_CDM_INTEGRATION
 #define EFI_CDM_INTEGRATION FALSE
@@ -61,14 +82,14 @@
 #define EFI_TOOTH_LOGGER TRUE
 #endif
 
+#ifndef EFI_TEXT_LOGGING
 #define EFI_TEXT_LOGGING TRUE
-
-#define EFI_PWM_TESTER FALSE
+#endif
 
 #define EFI_ACTIVE_CONFIGURATION_IN_FLASH FALSE
 
 #ifndef EFI_MC33816
-#define EFI_MC33816 TRUE
+#define EFI_MC33816 FALSE
 #endif
 
 #ifndef EFI_HPFP
@@ -123,6 +144,10 @@
 #define EFI_TUNER_STUDIO TRUE
 #endif
 
+#ifndef EFI_TS_SCATTER
+#define EFI_TS_SCATTER TRUE
+#endif
+
 /**
  * Bluetooth UART setup support.
  */
@@ -158,7 +183,6 @@
 
 #define EFI_SIGNAL_EXECUTOR_SLEEP FALSE
 #define EFI_SIGNAL_EXECUTOR_ONE_TIMER TRUE
-#define EFI_SIGNAL_EXECUTOR_HW_TIMER FALSE
 
 #define FUEL_MATH_EXTREME_LOGGING FALSE
 
@@ -167,10 +191,13 @@
 #define TRIGGER_EXTREME_LOGGING FALSE
 
 #ifndef EFI_STORAGE_INT_FLASH
+// historically we've started with low-level flash access with our own redundancy logic
+// todo: migrate to EFI_STORAGE_MFS which provides same functionality and more!
 #define EFI_STORAGE_INT_FLASH   TRUE
 #endif
 
 #ifndef EFI_STORAGE_MFS
+// todo: this higher level API should replace EFI_STORAGE_INT_FLASH legacy implementation
 #define EFI_STORAGE_MFS         FALSE
 #endif
 
@@ -194,7 +221,9 @@
  * MCP42010 digital potentiometer support. This could be useful if you are stimulating some
  * stock ECU
  */
+#ifndef EFI_POTENTIOMETER
 #define EFI_POTENTIOMETER FALSE
+#endif
 
 #ifndef BOARD_TLE6240_COUNT
 #define BOARD_TLE6240_COUNT         0
@@ -237,8 +266,8 @@
 #define EFI_HIP_9011 FALSE
 #endif
 
-#if !defined(EFI_MEMS)
- #define EFI_MEMS FALSE
+#if !defined(EFI_ONBOARD_MEMS)
+ #define EFI_ONBOARD_MEMS FALSE
 #endif
 
 #ifndef EFI_INTERNAL_ADC
@@ -246,8 +275,6 @@
 #endif
 
 #define EFI_USE_FAST_ADC TRUE
-
-#define EFI_NARROW_EGO_AVERAGING TRUE
 
 #ifndef EFI_CAN_SUPPORT
 #define EFI_CAN_SUPPORT TRUE
@@ -272,7 +299,9 @@
 #define EFI_IDLE_CONTROL TRUE
 #endif
 
+#ifndef EFI_IDLE_PID_CIC
 #define EFI_IDLE_PID_CIC TRUE
+#endif
 
 /**
  * Control the main power relay based on measured ignition voltage (Vbatt)
@@ -281,16 +310,12 @@
 #define EFI_MAIN_RELAY_CONTROL FALSE
 #endif
 
-#ifndef EFI_PWM
-#define EFI_PWM TRUE
-#endif
-
 #ifndef EFI_VEHICLE_SPEED
 #define EFI_VEHICLE_SPEED TRUE
 #endif
 
 #ifndef EFI_TCU
-#define EFI_TCU TRUE
+#define EFI_TCU FALSE
 #endif
 
 #ifndef EFI_ENGINE_EMULATOR
@@ -320,27 +345,31 @@
 #define EFI_CONSOLE_USB_DEVICE SDU1
 
 #if defined(EFI_HAS_EXT_SDRAM)
-    #ifndef ENABLE_PERF_TRACE
-    #define ENABLE_PERF_TRACE TRUE
-    #endif // ENABLE_PERF_TRACE
-    #define LUA_USER_HEAP (1 * 1024 * 1024)
+	#ifndef ENABLE_PERF_TRACE
+	#define ENABLE_PERF_TRACE TRUE
+	#endif // ENABLE_PERF_TRACE
+	#define LUA_USER_HEAP (1 * 1024 * 1024)
 #elif defined(EFI_IS_F42x)
-    // F42x has more memory, so we can:
-    //  - use compressed USB MSD image (requires 32k of memory)
-    //  - use perf trace (requires ~16k of memory)
-	#define EFI_USE_COMPRESSED_INI_MSD
+	// F42x has more memory, so we can:
+	//  - use compressed USB MSD image (requires 32k of memory)
+	//  - use perf trace (requires ~16k of memory)
+	#define EFI_USE_COMPRESSED_INI_MSD TRUE
 	#define ENABLE_PERF_TRACE TRUE
 
 	#define LUA_USER_HEAP 25000
 #else
-    #ifndef ENABLE_PERF_TRACE
+	#ifndef ENABLE_PERF_TRACE
 	// small memory F40x can't fit perf trace
 	#define ENABLE_PERF_TRACE FALSE
-    #endif // ENABLE_PERF_TRACE
+	#endif // ENABLE_PERF_TRACE
 
 	#ifndef LUA_USER_HEAP
 	#define LUA_USER_HEAP 25000
 	#endif
+#endif
+
+#ifndef EFI_USE_COMPRESSED_INI_MSD
+#define EFI_USE_COMPRESSED_INI_MSD FALSE
 #endif
 
 #ifndef EFI_LUA
@@ -372,7 +401,9 @@
 /**
  * Do we need GPS logic?
  */
+#ifndef EFI_UART_GPS
 #define EFI_UART_GPS FALSE
+#endif
 
 #ifndef EFI_ELECTRONIC_THROTTLE_BODY
 #define EFI_ELECTRONIC_THROTTLE_BODY TRUE
@@ -383,7 +414,6 @@
  */
 #ifndef EFI_MALFUNCTION_INDICATOR
 #define EFI_MALFUNCTION_INDICATOR TRUE
-//#define EFI_MALFUNCTION_INDICATOR FALSE
 #endif
 
 #ifndef CONSOLE_MAX_ACTIONS
@@ -400,14 +430,11 @@
 #define EFI_INTERNAL_FAST_ADC_GPT	&GPTD6
 
 #define EFI_SPI1_AF 5
-
 #define EFI_SPI2_AF 5
-
-/**
- * This section is for right-side center SPI
- */
-
 #define EFI_SPI3_AF 6
+#define EFI_SPI4_AF 5
+#define EFI_SPI5_AF 5
+#define EFI_SPI6_AF 6
 
 /**
  * Patched version of ChibiOS/RT support extra details in the system error messages
@@ -432,12 +459,13 @@
  *  PE5
  */
 
-// allow override of EFI_USE_UART_DMA from cmdline passed defs
 #ifndef EFI_USE_UART_DMA
 #define EFI_USE_UART_DMA TRUE
 #endif
 
+#ifndef AUX_SERIAL_DEVICE
 #define AUX_SERIAL_DEVICE (&SD6)
+#endif
 
 #ifndef EFI_CONSOLE_TX_BRAIN_PIN
 #define EFI_CONSOLE_TX_BRAIN_PIN Gpio::C10

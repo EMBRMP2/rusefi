@@ -91,20 +91,11 @@
 #undef EFI_MAIN_RELAY_CONTROL
 #define EFI_MAIN_RELAY_CONTROL		FALSE
 
-#undef EFI_MEMS
-#define EFI_MEMS 					FALSE
+#undef EFI_ONBOARD_MEMS
+#define EFI_ONBOARD_MEMS 			FALSE
 
 #undef EFI_IDLE_PID_CIC
 #define EFI_IDLE_PID_CIC TRUE
 
 #define RPM_LOW_THRESHOLD 			8				// RPM=8 is an empirical lower sensitivity threshold of MAX9926 for 60-2
 #define NO_RPM_EVENTS_TIMEOUT_SECS	5	// (RPM < 12)
-
-#define EFI_NARROW_EGO_AVERAGING		TRUE
-
-/* this board has external QSPI NOR flash */
-#undef EFI_STORAGE_MFS
-#define EFI_STORAGE_MFS				TRUE
-
-#undef EFI_STORAGE_INT_FLASH
-#define EFI_STORAGE_INT_FLASH   	FALSE

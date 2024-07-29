@@ -14,9 +14,6 @@
 #include "can_bench_test.h"
 #include "can_common.h"
 
-// todo: consume from fresh wideband_can.h https://github.com/rusefi/rusefi/issues/5208
-#define WB_ACK 0x727573
-
 typedef float SCRIPT_TABLE_8x8_f32t_linear[SCRIPT_TABLE_8 * SCRIPT_TABLE_8];
 
 #if EFI_CAN_SUPPORT
@@ -26,6 +23,8 @@ typedef float SCRIPT_TABLE_8x8_f32t_linear[SCRIPT_TABLE_8 * SCRIPT_TABLE_8];
 #include "can_sensor.h"
 #include "can_vss.h"
 #include "rusefi_wideband.h"
+#include "wideband_firmware/for_rusefi/wideband_can.h"
+
 
 /**
  * this build-in CAN sniffer is very basic but that's our CAN sniffer
@@ -54,21 +53,43 @@ static void printPacket(const size_t busIndex, const CANRxFrame &rx) {
 	}
 }
 
-volatile float canMap = 0;
+struct CanListenerTailSentinel : public CanListener {
+	CanListenerTailSentinel()
+		: CanListener(0)
+	{
+	}
 
-CanListener *canListeners_head = nullptr;
+	bool acceptFrame(const CANRxFrame&) const override {
+		return false;
+	}
+
+	void decodeFrame(const CANRxFrame&, efitick_t) override {
+		// nothing to do
+	}
+};
+
+static CanListenerTailSentinel tailSentinel;
+CanListener *canListeners_head = &tailSentinel;
 
 void serviceCanSubscribers(const CANRxFrame &frame, efitick_t nowNt) {
 	CanListener *current = canListeners_head;
+	size_t iterationValidationCounter = 0;
 
 	while (current) {
 		current = current->processFrame(frame, nowNt);
+		if (iterationValidationCounter++ > 239) {
+		  criticalError("forever loop canListeners_head");
+		  return;
+		}
 	}
 }
 
 void registerCanListener(CanListener& listener) {
-	listener.setNext(canListeners_head);
-	canListeners_head = &listener;
+	// If the listener already has a next, it's already registered
+	if (!listener.hasNext()) {
+		listener.setNext(canListeners_head);
+		canListeners_head = &listener;
+	}
 }
 
 void registerCanSensor(CanSensorBase& sensor) {
@@ -164,12 +185,16 @@ static void processCanRxImu(const CANRxFrame& frame) {
 
 extern bool verboseRxCan;
 
+PUBLIC_API_WEAK void boardProcessCanRxMessage(const size_t busIndex, const CANRxFrame &frame, efitick_t nowNt) { }
+
 void processCanRxMessage(const size_t busIndex, const CANRxFrame &frame, efitick_t nowNt) {
 	if ((engineConfiguration->verboseCan && busIndex == 0) || verboseRxCan) {
 		printPacket(busIndex, frame);
 	} else if (engineConfiguration->verboseCan2 && busIndex == 1) {
 		printPacket(busIndex, frame);
 	}
+
+	boardProcessCanRxMessage(busIndex, frame, nowNt);
 
     // see AemXSeriesWideband as an example of CanSensorBase/CanListener
 	serviceCanSubscribers(frame, nowNt);
@@ -178,19 +203,15 @@ void processCanRxMessage(const size_t busIndex, const CANRxFrame &frame, efitick
 	//Vss is configurable, should we handle it here:
 	processCanRxVss(frame, nowNt);
 
-	// todo: convert to CanListener or not?
-	processCanRxImu(frame);
+	if (!engineConfiguration->useSpiImu) {
+		// todo: convert to CanListener or not?
+		processCanRxImu(frame);
+	}
 
-	processCanBenchTest(frame);
+	processCanQcBenchTest(frame);
 
 	processLuaCan(busIndex, frame);
 
-#if EFI_CANBUS_SLAVE
-	if (CAN_EID(frame) == engineConfiguration->verboseCanBaseAddress + CAN_SENSOR_1_OFFSET) {
-		int16_t mapScaled = *reinterpret_cast<const int16_t*>(&frame.data8[0]);
-		canMap = mapScaled / (1.0 * PACK_MULT_PRESSURE);
-	} else
-#endif
 	{
 		obdOnCanPacketRx(frame, busIndex);
 	}
@@ -209,7 +230,8 @@ void processCanRxMessage(const size_t busIndex, const CANRxFrame &frame, efitick
 	}
 #endif
 #if EFI_USE_OPENBLT
-	if ((CAN_SID(frame) == 0x667) && (frame.DLC == 2)) {
+#include "openblt/efi_blt_ids.h"
+	if ((CAN_SID(frame) == BOOT_COM_CAN_RX_MSG_ID) && (frame.DLC == 2)) {
 		/* TODO: gracefull shutdown? */
 		if (((busIndex == 0) && (engineConfiguration->canOpenBLT)) ||
 			((busIndex == 1) && (engineConfiguration->can2OpenBLT))) {

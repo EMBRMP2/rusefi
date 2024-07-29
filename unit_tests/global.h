@@ -13,13 +13,15 @@
 #include <time.h>
 
 #include "common_headers.h"
+#include "test_executor.h"
+
+#define EFU_UNIT_TESTS fail("typo please EFU_UNIT_TEST");
 
 typedef uint32_t iomode_t;
 typedef uint32_t ioportid_t;
 typedef uint32_t ioportmask_t;
 
 #define DL_OUTPUT_BUFFER 200
-#define FIRMWARE_ID "UNIT_TEST"
 
 // just a stub implementation for unit tests
 #define getCurrentRemainingStack() (999999)
@@ -51,12 +53,7 @@ void chDbgAssert(int c, char *msg, void *arg);
 }
 #endif /* __cplusplus */
 
-
-#define US_TO_NT_MULTIPLIER 100
-#define VCS_VERSION "321"
 #define RUS_EFI_VERSION_TAG "rusEfiVersion"
-
-#define INLINE inline
 
 #define EFI_ERROR_CODE 0xffffffff
 
@@ -73,7 +70,7 @@ namespace chibios_rt {
 }
 #endif
 
-#define UNIT_TEST_BUSY_WAIT_CALLBACK() { 	timeNowUs++; }
+#define UNIT_TEST_BUSY_WAIT_CALLBACK() { advanceTimeUs(1); }
 
 #define chsnprintf snprintf
 #define chvsnprintf vsnprintf

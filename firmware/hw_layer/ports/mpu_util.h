@@ -26,6 +26,8 @@ bool isStm32F42x();
 
 adc_channel_e getAdcChannel(brain_pin_e pin);
 brain_pin_e getAdcChannelBrainPin(const char *msg, adc_channel_e hwChannel);
+bool adcIsMuxedInput(adc_channel_e hwChannel);
+int getAdcInternalChannel(ADC_TypeDef *adc, adc_channel_e hwChannel);
 
 // deprecated - migrate to 'getAdcChannelBrainPin'
 ioportid_t getAdcChannelPort(const char *msg, adc_channel_e hwChannel);
@@ -60,6 +62,7 @@ void initSpiModule(SPIDriver *driver, brain_pin_e sck, brain_pin_e miso,
 		int mosiMode,
 		int misoMode);
 
+void initSpiCsNoOccupy(SPIConfig *spiConfig, brain_pin_e csPin);
 void initSpiCs(SPIConfig *spiConfig, brain_pin_e csPin);
 void turnOnSpi(spi_device_e device);
 #endif // HAL_USE_SPI

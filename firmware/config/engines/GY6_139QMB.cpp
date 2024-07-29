@@ -17,11 +17,12 @@
 #include "advance_map.h"
 
 void setGy6139qmbDefaultEngineConfiguration() {
+//        engineConfiguration->map.sensor.type = MT_3V_SENSOR;
 	engineConfiguration->rpmHardLimit = 9000;
 	engineConfiguration->cranking.rpm = 1100;
 	setTargetRpmCurve(2000);
 	engineConfiguration->analogInputDividerCoefficient = 1;
-	engineConfiguration->globalTriggerAngleOffset = 45;
+	engineConfiguration->globalTriggerAngleOffset = Gy6139_globalTriggerAngleOffset;
 	engineConfiguration->displacement = 0.072; // 72cc
 	engineConfiguration->cylindersCount = 1;
 	setCrankOperationMode();

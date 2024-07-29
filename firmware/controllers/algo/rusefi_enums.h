@@ -16,7 +16,6 @@
 #include <rusefi/true_false.h>
 #include "efifeatures.h"
 #include "obd_error_codes.h"
-#include "live_data_ids.h"
 #include "engine_types.h"
 // we do not want to start the search for header from current folder so we use brackets here
 // https://stackoverflow.com/questions/21593/what-is-the-difference-between-include-filename-and-include-filename
@@ -28,7 +27,9 @@
 
 /* diagnostic for brain pins
  * can be combination of few bits
- * defined as bit mask */
+ * defined as bit mask
+ * PIN_UNKNOWN is reported for pins with no diagnostic support, like on-chip gpio
+ */
 typedef enum __attribute__ ((__packed__))
 {
 	PIN_OK = 0,
@@ -38,7 +39,7 @@ typedef enum __attribute__ ((__packed__))
 	PIN_OVERLOAD =	0x08,
 	PIN_DRIVER_OVERTEMP = 0x10,
 	PIN_DRIVER_OFF = 0x20,
-	PIN_INVALID = 0x80
+	PIN_UNKNOWN = 0x80
 } brain_pin_diag_e;
 
 // see also PWM_PHASE_MAX_WAVE_PER_PWM
@@ -112,7 +113,13 @@ typedef enum  __attribute__ ((__packed__)) {
 
 	VVT_FORD_COYOTE = 19,
 
-    VVT_MITSUBISHI_6G72 = 20,
+  VVT_MITSUBISHI_6G72 = 20,
+
+  VVT_HONDA_CBR_600 = 21,
+
+  VVT_MAZDA_L = 22,
+
+  VVT_DEV = 23,
 
 } vvt_mode_e;
 
@@ -157,6 +164,16 @@ typedef enum  __attribute__ ((__packed__)) {
 } tle8888_mode_e;
 
 typedef enum __attribute__ ((__packed__)) {
+	DWELL_2MS = 0,
+	DWELL_4MS = 1,
+	DWELL_8MS = 2,
+	DWELL_16MS = 3,
+	DWELL_32MS = 4,
+	DWELL_64MS = 5,
+
+} mc33810maxDwellTimer_e;
+
+typedef enum __attribute__ ((__packed__)) {
 	/**
 	 * In auto mode we currently have some pid-like-but-not really PID logic which is trying
 	 * to get idle RPM to desired value by dynamically adjusting idle valve position.
@@ -182,6 +199,20 @@ enum class CanGpioType : uint8_t {
 	NONE = 0,
 	DRT = 1,
 	MS = 2,
+};
+
+enum class MsIoBoxId : uint8_t {
+	OFF = 0,
+	ID200 = 1,
+	ID220 = 2,
+	ID240 = 3
+};
+
+enum class MsIoBoxVss : uint8_t {
+	OFF = 0,
+	VR12 = 1,
+	HALL34 = 2,
+	ALL1234 = 3
 };
 
 enum class UiMode : uint8_t {
@@ -250,6 +281,10 @@ typedef enum {
 	// without a missing tooth, plus a single tooth cam channel to resolve the engine phase.
 	FOUR_STROKE_TWELVE_TIMES_CRANK_SENSOR = 6,
 
+	/**
+	 * Same pattern repeated six times on crank wheel like 1995 Lamborghini Diablo
+	 */
+	FOUR_STROKE_SIX_TIMES_CRANK_SENSOR = 7,
 } operation_mode_e;
 
 /**
@@ -325,7 +360,11 @@ typedef enum __attribute__ ((__packed__)) {
 	SPI_DEVICE_2 = 2,
 	SPI_DEVICE_3 = 3,
 	SPI_DEVICE_4 = 4,
+	SPI_DEVICE_5 = 5,
+	SPI_DEVICE_6 = 6,
 } spi_device_e;
+
+#define SPI_TOTAL_COUNT 6
 
 typedef enum __attribute__ ((__packed__)) {
 	BMW_e46 = 0,
@@ -370,8 +409,6 @@ typedef enum __attribute__ ((__packed__)) {
 	 * 5v->20.0afr
 	 */
 	ES_14Point7_Free = 2,
-
-	ES_NarrowBand = 3,
 
 	ES_PLX = 4,
 
@@ -542,6 +579,7 @@ typedef enum __attribute__ ((__packed__)) {
 	SWITCH_INPUT_LAUNCH = 0,
 	CLUTCH_INPUT_LAUNCH = 1,
 	ALWAYS_ACTIVE_LAUNCH = 2,
+	STOP_INPUT_LAUNCH = 3,
 } launchActivationMode_e;
 
 typedef enum __attribute__ ((__packed__)) {
@@ -576,6 +614,11 @@ typedef enum __attribute__ ((__packed__)) {
 	GPPWM_LuaGauge2 = 23,
 	GPPWM_Rpm = 24,
 	GPPWM_DetectedGear = 25,
+	GPPWM_BaroPressure = 26,
+	GPPWM_Egt1 = 27,
+	GPPWM_Egt2 = 28,
+	// remember to manually sync 'pwmAxisLabels' in tunerstudio.template.ini
+	// todo: rename 'pwmAxisLabels' and maybe even gppwm_channel_e since we now use wider than just 'gppwm'?
 } gppwm_channel_e;
 
 typedef enum __attribute__ ((__packed__)) {
@@ -611,6 +654,8 @@ typedef enum __attribute__ ((__packed__)) {
 	DC_None = 0,
 	DC_Throttle1 = 1,
 	DC_Throttle2 = 2,
+	// this is about SINGLE DC-motor idle valve like 90s volkswagen/earlier M111 engines
+	// NOT to be used in dual H-bridge stepper control
 	DC_IdleValve = 3,
 	DC_Wastegate = 4,
 } dc_function_e;
@@ -676,13 +721,15 @@ enum class TsCalMode : uint8_t {
 enum class GearControllerMode : uint8_t {
 	None = 0,
 	ButtonShift = 1,
-	Generic = 2,
+	Automatic = 2,
+	Generic = 3,
 };
 
 enum class TransmissionControllerMode : uint8_t {
 	None = 0,
 	SimpleTransmissionController = 1,
-	Gm4l6x = 2,
+	Generic4 = 2,
+	Gm4l6x = 3,
 };
 
 enum class InjectionTimingMode : uint8_t {

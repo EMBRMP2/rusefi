@@ -9,7 +9,8 @@
 #include "pch.h"
 
 #if HAL_USE_SPI
-bool isSpiInitialized[5] = { false, false, false, false, false };
+/* zero index is SPI_NONE */
+bool isSpiInitialized[SPI_TOTAL_COUNT + 1] = { true, false, false, false, false, false, false };
 
 struct af_pairs {
 	brain_pin_e pin;
@@ -147,49 +148,6 @@ static int getSpiMosiAf(SPIDriver *driver, brain_pin_e pin)
 	return findAfForPin(af->mosi, pin);
 }
 
-/* these are common adapters for engineConfiguration access, move to some common file? */
-brain_pin_e getMisoPin(spi_device_e device) {
-	switch(device) {
-	case SPI_DEVICE_1:
-		return engineConfiguration->spi1misoPin;
-	case SPI_DEVICE_2:
-		return engineConfiguration->spi2misoPin;
-	case SPI_DEVICE_3:
-		return engineConfiguration->spi3misoPin;
-	default:
-		break;
-	}
-	return Gpio::Unassigned;
-}
-
-brain_pin_e getMosiPin(spi_device_e device) {
-	switch(device) {
-	case SPI_DEVICE_1:
-		return engineConfiguration->spi1mosiPin;
-	case SPI_DEVICE_2:
-		return engineConfiguration->spi2mosiPin;
-	case SPI_DEVICE_3:
-		return engineConfiguration->spi3mosiPin;
-	default:
-		break;
-	}
-	return Gpio::Unassigned;
-}
-
-brain_pin_e getSckPin(spi_device_e device) {
-	switch(device) {
-	case SPI_DEVICE_1:
-		return engineConfiguration->spi1sckPin;
-	case SPI_DEVICE_2:
-		return engineConfiguration->spi2sckPin;
-	case SPI_DEVICE_3:
-		return engineConfiguration->spi3sckPin;
-	default:
-		break;
-	}
-	return Gpio::Unassigned;
-}
-
 void turnOnSpi(spi_device_e device) {
 	if (isSpiInitialized[device])
 		return; // already initialized
@@ -273,12 +231,23 @@ void initSpiModule(SPIDriver *driver, brain_pin_e sck, brain_pin_e miso,
 		PAL_MODE_ALTERNATE(misoAf) | misoMode | PAL_STM32_OSPEED_HIGHEST | PAL_STM32_PUPDR_PULLUP);
 }
 
-void initSpiCs(SPIConfig *spiConfig, brain_pin_e csPin) {
-	spiConfig->end_cb = nullptr;
+void initSpiCsNoOccupy(SPIConfig *spiConfig, brain_pin_e csPin) {
 	ioportid_t port = getHwPort("spi", csPin);
 	ioportmask_t pin = getHwPin("spi", csPin);
 	spiConfig->ssport = port;
 	spiConfig->sspad = pin;
+}
+
+void initSpiCs(SPIConfig *spiConfig, brain_pin_e csPin) {
+	/* TODO: why this is here? */
+#ifdef _CHIBIOS_RT_CONF_VER_6_1_
+	spiConfig->end_cb = nullptr;
+#else
+	spiConfig->data_cb = nullptr;
+	spiConfig->error_cb = nullptr;
+#endif
+
+	initSpiCsNoOccupy(spiConfig, csPin);
 	efiSetPadMode("chip select", csPin, PAL_STM32_MODE_OUTPUT);
 }
 
@@ -291,7 +260,13 @@ void initSpiCs(SPIConfig *spiConfig, brain_pin_e csPin) {
 // Fast mode is 54 or 27 MHz (technically out of spec, needs testing!)
 SPIConfig mmc_hs_spicfg = {
 		.circular = false,
-		.end_cb = NULL,
+#ifdef _CHIBIOS_RT_CONF_VER_6_1_
+	.end_cb = NULL,
+#else
+        .slave = false,
+        .data_cb = NULL,
+        .error_cb = NULL,
+#endif
 		.ssport = NULL,
 		.sspad = 0,
 		.cr1 = SPI_BaudRatePrescaler_2,

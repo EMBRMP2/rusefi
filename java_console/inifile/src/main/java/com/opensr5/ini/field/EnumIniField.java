@@ -10,10 +10,7 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.management.ObjectName;
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class EnumIniField extends IniField {
@@ -58,7 +55,7 @@ public class EnumIniField extends IniField {
         ordinal = getBitRange(ordinal, bitPosition, bitSize0 + 1);
 
         if (ordinal >= enums.size())
-            throw new IllegalStateException("Ordinal out of range " + ordinal + " in " + getName());
+            throw new IllegalStateException("Ordinal out of range " + ordinal + " in " + getName() + " while " + enums.size() + " " + type);
         return "\"" + enums.get(ordinal) + "\"";
     }
 
@@ -159,7 +156,7 @@ public class EnumIniField extends IniField {
 
     public static class EnumKeyValueMap {
         private static final String STARTS_WITH_NUMBERS_OPTIONAL_SPACES_AND_EQUALS = "^\\d+\\s*=.*";
-        private static Pattern IS_KEY_VALUE_SYNTAX = Pattern.compile(STARTS_WITH_NUMBERS_OPTIONAL_SPACES_AND_EQUALS);
+        private static final Pattern IS_KEY_VALUE_SYNTAX = Pattern.compile(STARTS_WITH_NUMBERS_OPTIONAL_SPACES_AND_EQUALS);
 
         private final Map<Integer, String> keyValues;
 
@@ -170,10 +167,7 @@ public class EnumIniField extends IniField {
         public static EnumKeyValueMap valueOf(String rawText, IniFileModel iniFileModel) {
             Map<Integer, String> keyValues = new TreeMap<>();
 
-            int interestingIndex = EnumIniField.ordinalIndexOf(rawText, ",", 4);
-            // yes that could have been done with a regex as well
-            String interestingPart = rawText.substring(interestingIndex + /*skipping comma*/1).trim();
-            boolean isKeyValueSyntax = IS_KEY_VALUE_SYNTAX.matcher(interestingPart).matches();
+            boolean isKeyValueSyntax = isKeyValueSyntax(rawText);
             int offset = 5;
             String[] tokens = IniFileReader.splitTokens(rawText);
 
@@ -185,8 +179,11 @@ public class EnumIniField extends IniField {
 
             } else {
                 String firstValue = tokens[offset];
-                if (firstValue.trim().startsWith("$")) {
-                    List<String> elements = iniFileModel.defines.get(firstValue.substring(1));
+                String trimmed = firstValue.trim();
+                if (trimmed.startsWith("$")) {
+                    String key = trimmed.substring(1);
+                    List<String> elements = iniFileModel.defines.get(key);
+                    Objects.requireNonNull(elements, "Elements for " + key);
                     for (int i = 0; i < elements.size(); i++) {
                         keyValues.put(i, elements.get(i));
                     }
@@ -199,6 +196,11 @@ public class EnumIniField extends IniField {
 
 
             return new EnumKeyValueMap(keyValues);
+        }
+
+        public static boolean isKeyValueSyntax(String rawText) {
+            String interestingPart = getEnumValuesSection(rawText);
+            return IS_KEY_VALUE_SYNTAX.matcher(interestingPart).matches();
         }
 
         public int size() {
@@ -216,5 +218,12 @@ public class EnumIniField extends IniField {
             }
             throw new IllegalArgumentException("Nothing for " + value);
         }
+    }
+
+    @NotNull
+    public static String getEnumValuesSection(String rawText) {
+        int interestingIndex = EnumIniField.ordinalIndexOf(rawText, ",", 4);
+        // yes that could have been done with a regex as well
+        return rawText.substring(interestingIndex + /*skipping comma*/1).trim();
     }
 }

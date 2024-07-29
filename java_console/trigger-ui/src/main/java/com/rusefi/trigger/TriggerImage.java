@@ -58,10 +58,10 @@ public class TriggerImage {
                 return "Honda K 1/12";
             case TT_SUBARU_7_6:
                 return "Subaru 7/6";
-            case TT_GM_24x:
-                return "GM 24x";
-            case TT_GM_24x_2:
-                return "GM 24x 2";
+            case TT_GM_24x_3:
+                return "GM 24x 3";
+            case TT_GM_24x_5:
+                return "GM 24x 5";
             case TT_DODGE_NEON_1995:
                 return "Dodge Neon 1995";
             case TT_DODGE_NEON_1995_ONLY_CRANK:
@@ -167,6 +167,8 @@ public class TriggerImage {
         triggerPanel.tdcPosition = triggerWheelInfo.getTdcPosition();
         triggerPanel.gaps = triggerWheelInfo.getGaps();
         triggerPanel.syncEdge = triggerWheelInfo.getSyncEdge();
+        triggerPanel.isKnown = triggerWheelInfo.isKnownOperationMode();
+        triggerPanel.isCrankBased = triggerWheelInfo.isCrankBased();
 
         EngineReport re0 = new EngineReport(waves.get(0).list, MIN_TIME, 720 * (1 + EXTRA_COUNT));
         System.out.println(re0);
@@ -333,6 +335,8 @@ public class TriggerImage {
         // angle
         public double tdcPosition;
         public String syncEdge;
+        public boolean isKnown;
+        public boolean isCrankBased;
         public UpDownImage image;
         public TriggerWheelInfo.TriggerGaps gaps;
 
@@ -379,6 +383,11 @@ public class TriggerImage {
             for (int i = 0; i < gaps.gapFrom.length; i++) {
                 String message = "Sync " + (i + 1) + ": From " + gaps.gapFrom[i] + " to " + gaps.gapTo[i];
                 g.drawString(prefix + "       " + message, 0, y);
+                y += tdcFontSize;
+            }
+
+            if (isKnown) {
+                g.drawString(prefix + (isCrankBased ? "On crankshaft" : "On camshaft"), 0, y);
                 y += tdcFontSize;
             }
 

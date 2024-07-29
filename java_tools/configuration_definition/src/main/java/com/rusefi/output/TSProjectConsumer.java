@@ -4,6 +4,7 @@ import com.rusefi.*;
 import com.rusefi.util.LazyFileImpl;
 import com.rusefi.util.Output;
 import com.rusefi.util.SystemOut;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
 
@@ -13,15 +14,17 @@ import static com.rusefi.util.IoUtils.CHARSET;
  * [Constants]
  */
 public class TSProjectConsumer implements ConfigurationConsumer {
-    private static final String TS_FILE_INPUT_NAME = "rusefi.input";
+    private static final String TS_FILE_INPUT_NAME = "tunerstudio.template.ini";
     private static final String CONFIG_DEFINITION_START = "CONFIG_DEFINITION_START";
     private static final String CONFIG_DEFINITION_END = "CONFIG_DEFINITION_END";
     private static final String TS_CONDITION = "@@if_";
     public static final String SETTING_CONTEXT_HELP_END = "SettingContextHelpEnd";
     public static final String SETTING_CONTEXT_HELP = "SettingContextHelp";
+    public static final String TS_DROP_TEMPLATE_COMMENTS = "ts_drop_template_comments";
 
     private final String tsPath;
     private final ReaderStateImpl state;
+    private boolean dropComments;
     private int totalTsSize;
     private final TsOutput tsOutput;
 
@@ -41,7 +44,7 @@ public class TSProjectConsumer implements ConfigurationConsumer {
         SystemOut.println("Got " + tsContent.getPrefix().length() + "/" + tsContent.getPostfix().length() + " of " + TS_FILE_INPUT_NAME);
 
         // File.getPath() would eliminate potential separator at the end of the path
-        String fileName = getTsFileOutputName(new File(tsPath).getPath());
+        String fileName = getTsFileOutputName(new File(ConfigDefinitionRootOutputFolder.getValue() + tsPath).getPath());
         Output tsHeader = new LazyFileImpl(fileName);
         writeContent(fieldsSection, tsContent, tsHeader);
     }
@@ -50,7 +53,9 @@ public class TSProjectConsumer implements ConfigurationConsumer {
         tsHeader.write(tsContent.getPrefix());
 
         tsHeader.write("; " + CONFIG_DEFINITION_START + ToolUtil.EOL);
-        tsHeader.write("; this section " + state.getHeader() + ToolUtil.EOL + ToolUtil.EOL);
+        if (!dropComments) {
+            tsHeader.write("; this section " + state.getHeader() + ToolUtil.EOL + ToolUtil.EOL);
+        }
         tsHeader.write("pageSize            = " + totalTsSize + ToolUtil.EOL);
         tsHeader.write("page = 1" + ToolUtil.EOL);
         tsHeader.write(fieldsSection);
@@ -65,15 +70,23 @@ public class TSProjectConsumer implements ConfigurationConsumer {
     }
 
     /**
-     * rusefi.input has all the content of the future .ini file with the exception of data page
+     * tunerstudio.template.ini has all the content of the future .ini file with the exception of data page
      * TODO: start generating [outputs] section as well
      */
     private TsFileContent readTsTemplateInputFile(String tsPath) throws IOException {
         String fileName = getTsFileInputName(tsPath);
-        BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(fileName), CHARSET.name()));
+        FileInputStream in = new FileInputStream(fileName);
+        return getTsFileContent(in);
+    }
+
+    @NotNull
+    public TsFileContent getTsFileContent(InputStream in) throws IOException {
+        BufferedReader r = new BufferedReader(new InputStreamReader(in, CHARSET));
 
         StringBuilder prefix = new StringBuilder();
         StringBuilder postfix = new StringBuilder();
+
+        dropComments = Boolean.valueOf(state.getVariableRegistry().get(TS_DROP_TEMPLATE_COMMENTS));
 
         boolean isBeforeStartTag = true;
         boolean isAfterEndTag = false;
@@ -87,6 +100,8 @@ public class TSProjectConsumer implements ConfigurationConsumer {
                 isAfterEndTag = true;
                 continue;
             }
+            if (line.trim().startsWith(";") && dropComments)
+                continue;
 
             if (line.contains(TS_CONDITION)) {
                 String token = getToken(line);

@@ -1,12 +1,14 @@
 package com.rusefi.ldmp;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static com.rusefi.AssertCompatibility.assertEquals;
 
 public class StateDictionaryGeneratorTest {
     @Test
@@ -24,10 +26,11 @@ public class StateDictionaryGeneratorTest {
                 "    java: FuelComputer.java\n" +
                 "    folder: controllers/algo/fuel\n" +
                 "    constexpr: \"engine->fuelComputer\"\n" +
+            "    output_name: [ \"wb1\", \"wb2\" ]\n" +
                 "    conditional_compilation: \"EFI_ENGINE_CONTROL\"\n";
 
 
-        Map<String, Object> data = LiveDataProcessor.getStringObjectMap(new StringReader(testYaml));
+        ArrayList<LinkedHashMap> data = LiveDataProcessor.getStringObjectMap(new StringReader(testYaml));
 
         TestFileCaptor captor = new TestFileCaptor();
         LiveDataProcessor liveDataProcessor = new LiveDataProcessor("test", fileName -> new StringReader(""), captor);
@@ -35,6 +38,8 @@ public class StateDictionaryGeneratorTest {
         assertEquals("number of outputs", 14, captor.fileCapture.size());
 
         assertEquals("        stateDictionary.register(live_data_e.LDS_output_channels, TsOutputs.VALUES, \"status_loop\");\n" +
-                "        stateDictionary.register(live_data_e.LDS_fuel_computer, FuelComputer.VALUES, \"fuel_computer\");\n", liveDataProcessor.stateDictionaryGenerator.content.toString());
+            "        stateDictionary.register(live_data_e.LDS_fuel_computer0, FuelComputer.VALUES, \"fuel_computer\");\n" +
+            "        stateDictionary.register(live_data_e.LDS_fuel_computer1, FuelComputer.VALUES, \"fuel_computer\");\n",
+            liveDataProcessor.stateDictionaryGenerator.content.toString());
     }
 }

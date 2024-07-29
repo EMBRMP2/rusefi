@@ -167,7 +167,7 @@ event 24 0 1 650.00 nan
 event 25 0 0 650.00 nan
 event 26 0 1 660.00 nan
 event 27 0 0 660.00 nan
-TRIGGERTYPE 6 8 TT_DAIHATSU 0.00
+TRIGGERTYPE 6 8 TT_DAIHATSU_3_CYL 690.00
 knownOperationMode=true
 crankBased=false
 hasSecondChannel=false
@@ -771,7 +771,7 @@ event 30 1 1 647.30 nan
 event 31 1 0 650.00 nan
 event 32 1 1 692.30 nan
 event 33 1 0 695.00 nan
-TRIGGERTYPE 20 232 TT_60_2_VW 0.00
+TRIGGERTYPE 20 232 TT_60_2_WRONG_POLARITY 0.00
 knownOperationMode=true
 crankBased=true
 hasSecondChannel=false
@@ -1609,7 +1609,7 @@ event 124 0 1 690.00 nan
 event 125 0 0 690.00 nan
 event 126 0 1 700.00 nan
 event 127 0 0 700.00 nan
-TRIGGERTYPE 27 96 TT_GM_24x 50.00
+TRIGGERTYPE 27 96 TT_GM_24x_5 50.00
 knownOperationMode=true
 crankBased=true
 hasSecondChannel=false
@@ -1721,72 +1721,24 @@ event 92 0 1 690.00 nan
 event 93 0 0 695.00 nan
 event 94 0 1 700.00 nan
 event 95 0 0 710.00 nan
-TRIGGERTYPE 28 54 TT_HONDA_CBR_600 470.00
+TRIGGERTYPE 28 6 TT_HONDA_CBR_600 0.00
 knownOperationMode=true
 crankBased=false
-hasSecondChannel=true
+hasSecondChannel=false
 isSecondWheelCam=false
 cycleDuration=720
 gapsCount=1
 syncEdge=RiseOnly
 isSynchronizationNeeded=1
-gapFrom.0=5.000000
-gapTo.0=9.000000
+gapFrom.0=3.900000
+gapTo.0=8.000000
 # end of meta section
 event 0 0 1 0.00 6.000000
-event 1 1 0 0.00 nan
-event 2 1 1 15.00 nan
-event 3 1 0 15.00 nan
-event 4 1 1 45.00 nan
-event 5 1 0 45.00 nan
-event 6 1 1 75.00 nan
-event 7 1 0 75.00 nan
-event 8 1 1 105.00 nan
-event 9 1 0 105.00 nan
-event 10 1 1 135.00 nan
-event 11 1 0 135.00 nan
-event 12 1 1 165.00 nan
-event 13 1 0 165.00 nan
-event 14 1 1 195.00 nan
-event 15 1 0 195.00 nan
-event 16 1 1 225.00 nan
-event 17 1 0 225.00 nan
-event 18 1 1 255.00 nan
-event 19 1 0 255.00 nan
-event 20 1 1 285.00 nan
-event 21 0 0 285.00 nan
-event 22 0 1 300.00 0.833333
-event 23 1 0 300.00 nan
-event 24 1 1 315.00 nan
-event 25 1 0 315.00 nan
-event 26 1 1 345.00 nan
-event 27 0 0 345.00 nan
-event 28 1 0 360.00 0.200000
-event 29 0 1 360.00 nan
-event 30 1 1 375.00 nan
-event 31 1 0 375.00 nan
-event 32 1 1 405.00 nan
-event 33 1 0 405.00 nan
-event 34 1 1 435.00 nan
-event 35 1 0 435.00 nan
-event 36 1 1 465.00 nan
-event 37 1 0 465.00 nan
-event 38 1 1 495.00 nan
-event 39 1 0 495.00 nan
-event 40 1 1 525.00 nan
-event 41 1 0 525.00 nan
-event 42 1 1 555.00 nan
-event 43 1 0 555.00 nan
-event 44 1 1 585.00 nan
-event 45 1 0 585.00 nan
-event 46 1 1 615.00 nan
-event 47 1 0 615.00 nan
-event 48 1 1 645.00 nan
-event 49 1 0 645.00 nan
-event 50 1 1 675.00 nan
-event 51 1 0 675.00 nan
-event 52 1 1 705.00 nan
-event 53 0 0 705.00 nan
+event 1 0 0 0.00 nan
+event 2 0 1 300.00 0.833333
+event 3 0 0 300.00 nan
+event 4 0 1 360.00 0.200000
+event 5 0 0 360.00 nan
 TRIGGERTYPE 29 4 TT_MITSU_4G9x_CAM 0.00
 knownOperationMode=true
 crankBased=false
@@ -1799,7 +1751,7 @@ isSynchronizationNeeded=1
 gapFrom.0=2.000000
 gapTo.0=5.000000
 gapFrom.1=0.200000
-gapTo.1=0.800000
+gapTo.1=0.950000
 # end of meta section
 event 0 0 1 0.00 3.000000
 event 1 0 0 180.00 0.666667
@@ -2003,7 +1955,7 @@ isSynchronizationNeeded=1
 gapFrom.0=2.000000
 gapTo.0=5.000000
 gapFrom.1=0.200000
-gapTo.1=0.800000
+gapTo.1=0.950000
 # end of meta section
 event 0 0 1 0.00 3.000000
 event 1 0 0 180.00 0.666667
@@ -2049,13 +2001,15 @@ crankBased=false
 hasSecondChannel=true
 isSecondWheelCam=false
 cycleDuration=720
-gapsCount=2
+gapsCount=3
 syncEdge=RiseOnly
 isSynchronizationNeeded=1
 gapFrom.0=4.897500
-gapTo.0=13.000000
-gapFrom.1=0.600000
+gapTo.0=15.000000
+gapFrom.1=0.300000
 gapTo.1=1.250000
+gapFrom.2=0.080000
+gapTo.2=0.300000
 # end of meta section
 event 0 0 1 0.00 11.000000
 event 1 0 0 0.00 nan
@@ -3049,53 +3003,7 @@ event 46 1 0 680.00 nan
 event 47 1 1 705.00 nan
 event 48 1 0 710.00 nan
 event 49 0 1 715.00 nan
-TRIGGERTYPE 50 34 TT_1_16 0.00
-knownOperationMode=true
-crankBased=false
-hasSecondChannel=true
-isSecondWheelCam=false
-cycleDuration=720
-gapsCount=1
-syncEdge=RiseOnly
-isSynchronizationNeeded=0
-gapFrom.0=1.500000
-gapTo.0=2.500000
-# end of meta section
-event 0 0 1 0.00 3.000000
-event 1 0 0 0.00 nan
-event 2 1 1 21.50 nan
-event 3 1 0 21.50 nan
-event 4 1 1 66.50 nan
-event 5 1 0 66.50 nan
-event 6 1 1 111.50 nan
-event 7 1 0 111.50 nan
-event 8 1 1 156.50 nan
-event 9 1 0 156.50 nan
-event 10 1 1 201.50 nan
-event 11 1 0 201.50 nan
-event 12 1 1 246.50 nan
-event 13 1 0 246.50 nan
-event 14 1 1 291.50 nan
-event 15 1 0 291.50 nan
-event 16 1 1 336.50 nan
-event 17 1 0 336.50 nan
-event 18 1 1 381.50 nan
-event 19 1 0 381.50 nan
-event 20 1 1 426.50 nan
-event 21 1 0 426.50 nan
-event 22 1 1 471.50 nan
-event 23 1 0 471.50 nan
-event 24 1 1 516.50 nan
-event 25 1 0 516.50 nan
-event 26 1 1 561.50 nan
-event 27 1 0 561.50 nan
-event 28 1 1 606.50 nan
-event 29 1 0 606.50 nan
-event 30 1 1 651.50 nan
-event 31 1 0 651.50 nan
-event 32 1 1 696.50 nan
-event 33 1 0 696.50 nan
-TRIGGERTYPE 51 14 TT_SUBARU_7_WITHOUT_6 520.00
+TRIGGERTYPE 50 20 TT_SUZUKI_K6A 0.00
 knownOperationMode=true
 crankBased=false
 hasSecondChannel=false
@@ -3104,10 +3012,46 @@ cycleDuration=720
 gapsCount=2
 syncEdge=RiseOnly
 isSynchronizationNeeded=1
+gapFrom.0=3.352500
+gapTo.0=5.587500
+gapFrom.1=0.487500
+gapTo.1=0.812500
+# end of meta section
+event 0 0 1 0.00 4.466667
+event 1 0 0 0.00 nan
+event 2 0 1 30.00 0.223881
+event 3 0 0 30.00 nan
+event 4 0 1 86.00 1.866633
+event 5 0 0 86.00 nan
+event 6 0 1 250.00 2.928642
+event 7 0 0 250.00 nan
+event 8 0 1 270.00 0.121950
+event 9 0 0 270.00 nan
+event 10 0 1 326.00 2.800000
+event 11 0 0 326.00 nan
+event 12 0 1 480.00 2.750000
+event 13 0 0 480.00 nan
+event 14 0 1 510.00 0.194805
+event 15 0 0 510.00 nan
+event 16 0 1 556.00 1.533333
+event 17 0 0 556.00 nan
+event 18 0 1 586.00 0.652174
+event 19 0 0 586.00 nan
+TRIGGERTYPE 51 14 TT_SUBARU_7_WITHOUT_6 520.00
+knownOperationMode=true
+crankBased=false
+hasSecondChannel=false
+isSecondWheelCam=false
+cycleDuration=720
+gapsCount=3
+syncEdge=RiseOnly
+isSynchronizationNeeded=1
 gapFrom.0=4.897500
-gapTo.0=13.000000
-gapFrom.1=0.600000
+gapTo.0=15.000000
+gapFrom.1=0.300000
 gapTo.1=1.250000
+gapFrom.2=0.080000
+gapTo.2=0.300000
 # end of meta section
 event 0 0 1 0.00 11.000000
 event 1 0 0 0.00 nan
@@ -5063,148 +5007,32 @@ event 124 0 1 680.00 nan
 event 125 0 0 680.00 nan
 event 126 0 1 690.00 nan
 event 127 0 0 690.00 nan
-TRIGGERTYPE 72 128 UNUSED72 585.00
+TRIGGERTYPE 72 12 TT_3_TOOTH_CRANK 0.00
 knownOperationMode=true
 crankBased=true
 hasSecondChannel=false
 isSecondWheelCam=false
-cycleDuration=180
+cycleDuration=120
 gapsCount=2
 syncEdge=RiseOnly
 isSynchronizationNeeded=1
-gapFrom.0=0.247500
-gapTo.0=0.412500
-gapFrom.1=2.250000
-gapTo.1=3.750000
+gapFrom.0=0.200000
+gapTo.0=3.400000
+gapFrom.1=0.200000
+gapTo.1=3.400000
 # end of meta section
-event 0 0 1 0.00 0.333333
+event 0 0 1 0.00 1.000000
 event 1 0 0 0.00 nan
-event 2 0 1 10.00 1.000000
-event 3 0 0 10.00 nan
-event 4 0 1 20.00 1.000000
-event 5 0 0 20.00 nan
-event 6 0 1 30.00 1.000000
-event 7 0 0 30.00 nan
-event 8 0 1 40.00 1.000000
-event 9 0 0 40.00 nan
-event 10 0 1 50.00 1.000000
-event 11 0 0 50.00 nan
-event 12 0 1 60.00 1.000000
-event 13 0 0 60.00 nan
-event 14 0 1 70.00 1.000000
-event 15 0 0 70.00 nan
-event 16 0 1 80.00 1.000000
-event 17 0 0 80.00 nan
-event 18 0 1 90.00 1.000000
-event 19 0 0 90.00 nan
-event 20 0 1 100.00 1.000000
-event 21 0 0 100.00 nan
-event 22 0 1 110.00 1.000000
-event 23 0 0 110.00 nan
-event 24 0 1 120.00 1.000000
-event 25 0 0 120.00 nan
-event 26 0 1 130.00 1.000000
-event 27 0 0 130.00 nan
-event 28 0 1 140.00 1.000000
-event 29 0 0 140.00 nan
-event 30 0 1 170.00 3.000000
-event 31 0 0 170.00 nan
-event 32 0 1 180.00 nan
-event 33 0 0 180.00 nan
-event 34 0 1 190.00 nan
-event 35 0 0 190.00 nan
-event 36 0 1 200.00 nan
-event 37 0 0 200.00 nan
-event 38 0 1 210.00 nan
-event 39 0 0 210.00 nan
-event 40 0 1 220.00 nan
-event 41 0 0 220.00 nan
-event 42 0 1 230.00 nan
-event 43 0 0 230.00 nan
-event 44 0 1 240.00 nan
-event 45 0 0 240.00 nan
-event 46 0 1 250.00 nan
-event 47 0 0 250.00 nan
-event 48 0 1 260.00 nan
-event 49 0 0 260.00 nan
-event 50 0 1 270.00 nan
-event 51 0 0 270.00 nan
-event 52 0 1 280.00 nan
-event 53 0 0 280.00 nan
-event 54 0 1 290.00 nan
-event 55 0 0 290.00 nan
-event 56 0 1 300.00 nan
-event 57 0 0 300.00 nan
-event 58 0 1 310.00 nan
-event 59 0 0 310.00 nan
-event 60 0 1 320.00 nan
-event 61 0 0 320.00 nan
-event 62 0 1 350.00 nan
-event 63 0 0 350.00 nan
-event 64 0 1 360.00 nan
-event 65 0 0 360.00 nan
-event 66 0 1 370.00 nan
-event 67 0 0 370.00 nan
-event 68 0 1 380.00 nan
-event 69 0 0 380.00 nan
-event 70 0 1 390.00 nan
-event 71 0 0 390.00 nan
-event 72 0 1 400.00 nan
-event 73 0 0 400.00 nan
-event 74 0 1 410.00 nan
-event 75 0 0 410.00 nan
-event 76 0 1 420.00 nan
-event 77 0 0 420.00 nan
-event 78 0 1 430.00 nan
-event 79 0 0 430.00 nan
-event 80 0 1 440.00 nan
-event 81 0 0 440.00 nan
-event 82 0 1 450.00 nan
-event 83 0 0 450.00 nan
-event 84 0 1 460.00 nan
-event 85 0 0 460.00 nan
-event 86 0 1 470.00 nan
-event 87 0 0 470.00 nan
-event 88 0 1 480.00 nan
-event 89 0 0 480.00 nan
-event 90 0 1 490.00 nan
-event 91 0 0 490.00 nan
-event 92 0 1 500.00 nan
-event 93 0 0 500.00 nan
-event 94 0 1 530.00 nan
-event 95 0 0 530.00 nan
-event 96 0 1 540.00 nan
-event 97 0 0 540.00 nan
-event 98 0 1 550.00 nan
-event 99 0 0 550.00 nan
-event 100 0 1 560.00 nan
-event 101 0 0 560.00 nan
-event 102 0 1 570.00 nan
-event 103 0 0 570.00 nan
-event 104 0 1 580.00 nan
-event 105 0 0 580.00 nan
-event 106 0 1 590.00 nan
-event 107 0 0 590.00 nan
-event 108 0 1 600.00 nan
-event 109 0 0 600.00 nan
-event 110 0 1 610.00 nan
-event 111 0 0 610.00 nan
-event 112 0 1 620.00 nan
-event 113 0 0 620.00 nan
-event 114 0 1 630.00 nan
-event 115 0 0 630.00 nan
-event 116 0 1 640.00 nan
-event 117 0 0 640.00 nan
-event 118 0 1 650.00 nan
-event 119 0 0 650.00 nan
-event 120 0 1 660.00 nan
-event 121 0 0 660.00 nan
-event 122 0 1 670.00 nan
-event 123 0 0 670.00 nan
-event 124 0 1 680.00 nan
-event 125 0 0 680.00 nan
-event 126 0 1 710.00 nan
-event 127 0 0 710.00 nan
+event 2 0 1 120.00 nan
+event 3 0 0 120.00 nan
+event 4 0 1 240.00 nan
+event 5 0 0 240.00 nan
+event 6 0 1 360.00 nan
+event 7 0 0 360.00 nan
+event 8 0 1 480.00 nan
+event 9 0 0 480.00 nan
+event 10 0 1 600.00 nan
+event 11 0 0 600.00 nan
 TRIGGERTYPE 73 6 TT_VVT_TOYOTA_4_1 0.00
 knownOperationMode=false
 crankBased=false
@@ -5225,7 +5053,7 @@ event 2 0 1 180.00 0.500000
 event 3 0 0 180.00 nan
 event 4 0 1 360.00 1.000000
 event 5 0 0 360.00 nan
-TRIGGERTYPE 74 96 TT_GM_24x_2 48.00
+TRIGGERTYPE 74 96 TT_GM_24x_3 48.00
 knownOperationMode=true
 crankBased=true
 hasSecondChannel=false
@@ -5669,3 +5497,121 @@ event 4 0 1 300.00 0.666667
 event 5 0 0 420.00 nan
 event 6 0 1 540.00 2.000000
 event 7 0 0 600.00 nan
+TRIGGERTYPE 80 24 TT_6_TOOTH_CRANK 0.00
+knownOperationMode=true
+crankBased=false
+hasSecondChannel=false
+isSecondWheelCam=false
+cycleDuration=60
+gapsCount=2
+syncEdge=RiseOnly
+isSynchronizationNeeded=1
+gapFrom.0=0.200000
+gapTo.0=3.400000
+gapFrom.1=0.200000
+gapTo.1=3.400000
+# end of meta section
+event 0 0 1 0.00 1.000000
+event 1 0 0 0.00 nan
+event 2 0 1 60.00 nan
+event 3 0 0 60.00 nan
+event 4 0 1 120.00 nan
+event 5 0 0 120.00 nan
+event 6 0 1 180.00 nan
+event 7 0 0 180.00 nan
+event 8 0 1 240.00 nan
+event 9 0 0 240.00 nan
+event 10 0 1 300.00 nan
+event 11 0 0 300.00 nan
+event 12 0 1 360.00 nan
+event 13 0 0 360.00 nan
+event 14 0 1 420.00 nan
+event 15 0 0 420.00 nan
+event 16 0 1 480.00 nan
+event 17 0 0 480.00 nan
+event 18 0 1 540.00 nan
+event 19 0 0 540.00 nan
+event 20 0 1 600.00 nan
+event 21 0 0 600.00 nan
+event 22 0 1 660.00 nan
+event 23 0 0 660.00 nan
+TRIGGERTYPE 81 10 TT_DAIHATSU_4_CYL 690.00
+knownOperationMode=true
+crankBased=false
+hasSecondChannel=false
+isSecondWheelCam=false
+cycleDuration=720
+gapsCount=1
+syncEdge=RiseOnly
+isSynchronizationNeeded=1
+gapFrom.0=0.127500
+gapTo.0=0.212500
+# end of meta section
+event 0 0 1 0.00 0.166667
+event 1 0 0 0.00 nan
+event 2 0 1 150.00 5.000000
+event 3 0 0 150.00 nan
+event 4 0 1 330.00 1.200000
+event 5 0 0 330.00 nan
+event 6 0 1 510.00 1.000000
+event 7 0 0 510.00 nan
+event 8 0 1 690.00 1.000000
+event 9 0 0 690.00 nan
+TRIGGERTYPE 82 12 TT_VVT_MAZDA_L 0.00
+knownOperationMode=true
+crankBased=false
+hasSecondChannel=false
+isSecondWheelCam=false
+cycleDuration=720
+gapsCount=3
+syncEdge=RiseOnly
+isSynchronizationNeeded=1
+gapFrom.0=0.320000
+gapTo.0=0.800000
+gapFrom.1=1.500000
+gapTo.1=2.500000
+gapFrom.2=0.320000
+gapTo.2=0.800000
+# end of meta section
+event 0 0 1 0.00 0.500000
+event 1 0 0 0.00 nan
+event 2 0 1 180.00 3.000000
+event 3 0 0 180.00 nan
+event 4 0 1 360.00 1.000000
+event 5 0 0 360.00 nan
+event 6 0 1 480.00 0.666667
+event 7 0 0 480.00 nan
+event 8 0 1 540.00 0.500000
+event 9 0 0 540.00 nan
+event 10 0 1 660.00 2.000000
+event 11 0 0 660.00 nan
+TRIGGERTYPE 83 14 TT_DEV 0.00
+knownOperationMode=true
+crankBased=false
+hasSecondChannel=false
+isSecondWheelCam=false
+cycleDuration=720
+gapsCount=3
+syncEdge=RiseOnly
+isSynchronizationNeeded=1
+gapFrom.0=0.470000
+gapTo.0=0.700000
+gapFrom.1=0.950000
+gapTo.1=1.590000
+gapFrom.2=0.950000
+gapTo.2=1.590000
+# end of meta section
+event 0 0 1 0.00 0.500000
+event 1 0 0 0.00 nan
+event 2 0 1 120.00 2.000000
+event 3 0 0 120.00 nan
+event 4 0 1 180.00 0.500000
+event 5 0 0 180.00 nan
+event 6 0 1 360.00 3.000000
+event 7 0 0 360.00 nan
+event 8 0 1 450.00 0.500000
+event 9 0 0 450.00 nan
+event 10 0 1 540.00 1.000000
+event 11 0 0 540.00 nan
+event 12 0 1 660.00 1.333333
+event 13 0 0 660.00 nan

@@ -163,7 +163,7 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
@@ -213,10 +213,33 @@ MRE_INJ_4,
 MRE_LS_1,
 };
 
+static Gpio M111_OUTPUTS[] = {
+MRE_INJ_1, // green
+MRE_INJ_2, // white
+MRE_INJ_3, // blue
+MRE_INJ_4, //
+#if HW_MICRO_RUSEFI
+MRE_AV9_REUSE, // brown boost control
+MRE_LS_1, // VVT
+MRE_LS_2, // SC clutch
+//MRE_GPOUT_3, // SC Bypass
+#endif // HW_MICRO_RUSEFI
+};
+
 int getBoardMetaOutputsCount() {
+    if (engineConfiguration->engineType == engine_type_e::MERCEDES_M111) {
+        return efi::size(M111_OUTPUTS);
+    }
     return efi::size(MRE_OUTPUTS);
 }
 
 Gpio* getBoardMetaOutputs() {
+    if (engineConfiguration->engineType == engine_type_e::MERCEDES_M111) {
+        return M111_OUTPUTS;
+    }
     return MRE_OUTPUTS;
+}
+
+int getBoardMetaDcOutputsCount() {
+    return 1;
 }

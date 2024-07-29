@@ -133,6 +133,11 @@ static void setupSdCard() {
 	engineConfiguration->spi3sckPin = Gpio::C10;
 	engineConfiguration->spi3misoPin = Gpio::C11;
 	engineConfiguration->spi3mosiPin = Gpio::C12;
+
+	engineConfiguration->is_enabled_spi_5 = true;
+	engineConfiguration->spi5sckPin = Gpio::F7;
+	engineConfiguration->spi5misoPin = Gpio::F8;
+	engineConfiguration->spi5mosiPin = Gpio::F9;
 }
 
 void setBoardConfigOverrides() {
@@ -159,7 +164,7 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
@@ -192,8 +197,11 @@ void boardPrepareForStop() {
 }
 
 #if HW_PROTEUS
-static Gpio PROTEUS_ME17_ADAPTER_OUTPUTS[] = {
-    Gpio::PROTEUS_LS_1,
+static Gpio PROTEUS_SLINGSHOT_OUTPUTS[] = {
+    Gpio::PROTEUS_LS_1, // inj 1
+    Gpio::PROTEUS_LS_2, // inj 2
+    Gpio::PROTEUS_LS_3, // inj 3
+    Gpio::PROTEUS_LS_4, // inj 4
 };
 
 static Gpio PROTEUS_SBC_OUTPUTS[] = {
@@ -207,6 +215,27 @@ static Gpio PROTEUS_SBC_OUTPUTS[] = {
     Gpio::PROTEUS_LS_15, // inj 4 four times
     Gpio::PROTEUS_LS_15, // inj 4 four times
 
+};
+
+static Gpio PROTEUS_M73_OUTPUTS[] = {
+    Gpio::PROTEUS_LS_1, // inj 1
+    Gpio::PROTEUS_LS_2, // inj 2
+    Gpio::PROTEUS_LS_3,
+    Gpio::PROTEUS_LS_4,
+    Gpio::PROTEUS_LS_5,
+    Gpio::PROTEUS_LS_6,
+    Gpio::PROTEUS_LS_7,
+    Gpio::PROTEUS_LS_8,
+    Gpio::PROTEUS_LS_9, // inj 9
+    Gpio::PROTEUS_LS_10, // inj 10
+    Gpio::PROTEUS_LS_11, // inj 11
+    Gpio::PROTEUS_LS_12, // inj 12
+    Gpio::PROTEUS_LS_14, // starter control or aux output
+    Gpio::PROTEUS_LS_15, // radiator fan relay output white
+
+
+    //Gpio::PROTEUS_LS_13, // main relay
+    //Gpio::PROTEUS_LS_16, // main relay
 };
 
 static Gpio PROTEUS_CANAM_OUTPUTS[] = {
@@ -235,10 +264,13 @@ int getBoardMetaLowSideOutputsCount() {
     if (engineConfiguration->engineType == engine_type_e::MAVERICK_X3) {
         return getBoardMetaOutputsCount();
     }
-    if (engineConfiguration->engineType == engine_type_e::PROTEUS_HARLEY) {
+    if (engineConfiguration->engineType == engine_type_e::HARLEY) {
         return getBoardMetaOutputsCount();
     }
-    if (engineConfiguration->engineType == engine_type_e::PROTEUS_SBC) {
+    if (engineConfiguration->engineType == engine_type_e::GM_SBC) {
+        return getBoardMetaOutputsCount();
+    }
+    if (engineConfiguration->engineType == engine_type_e::ME17_9_MISC) {
         return getBoardMetaOutputsCount();
     }
     return 16;
@@ -284,36 +316,49 @@ int getBoardMetaOutputsCount() {
         return efi::size(PROTEUS_CANAM_OUTPUTS);
     }
     if (engineConfiguration->engineType == engine_type_e::ME17_9_MISC) {
-        return efi::size(PROTEUS_ME17_ADAPTER_OUTPUTS);
+        return efi::size(PROTEUS_SLINGSHOT_OUTPUTS);
     }
-    if (engineConfiguration->engineType == engine_type_e::PROTEUS_HARLEY) {
+    if (engineConfiguration->engineType == engine_type_e::HARLEY) {
         return efi::size(PROTEUS_HARLEY_OUTPUTS);
     }
-    if (engineConfiguration->engineType == engine_type_e::PROTEUS_SBC) {
+    if (engineConfiguration->engineType == engine_type_e::GM_SBC) {
         return efi::size(PROTEUS_SBC_OUTPUTS);
+    }
+    if (engineConfiguration->engineType == engine_type_e::PROTEUS_BMW_M73) {
+        return efi::size(PROTEUS_M73_OUTPUTS);
     }
     return efi::size(PROTEUS_OUTPUTS);
 }
 
 int getBoardMetaDcOutputsCount() {
+    if (engineConfiguration->engineType == engine_type_e::PROTEUS_BMW_M73) {
+        return 2;
+    }
     if (engineConfiguration->engineType == engine_type_e::ME17_9_MISC ||
-        engineConfiguration->engineType == engine_type_e::PROTEUS_HARLEY ||
+        engineConfiguration->engineType == engine_type_e::HARLEY ||
         engineConfiguration->engineType == engine_type_e::MAVERICK_X3
         ) {
         return 1;
     }
-    return 2;
+    return 1;
+/*    return 2; proteus has two h-b ridges but stim board is short on channels to test :( */
 }
 
 Gpio* getBoardMetaOutputs() {
     if (engineConfiguration->engineType == engine_type_e::MAVERICK_X3) {
         return PROTEUS_CANAM_OUTPUTS;
     }
-    if (engineConfiguration->engineType == engine_type_e::PROTEUS_HARLEY) {
+    if (engineConfiguration->engineType == engine_type_e::ME17_9_MISC) {
+        return PROTEUS_SLINGSHOT_OUTPUTS;
+    }
+    if (engineConfiguration->engineType == engine_type_e::HARLEY) {
         return PROTEUS_HARLEY_OUTPUTS;
     }
-    if (engineConfiguration->engineType == engine_type_e::PROTEUS_SBC) {
+    if (engineConfiguration->engineType == engine_type_e::GM_SBC) {
         return PROTEUS_SBC_OUTPUTS;
+    }
+    if (engineConfiguration->engineType == engine_type_e::PROTEUS_BMW_M73) {
+        return PROTEUS_M73_OUTPUTS;
     }
     return PROTEUS_OUTPUTS;
 }

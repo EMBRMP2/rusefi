@@ -5,10 +5,7 @@ import com.rusefi.enum_reader.Value;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -59,11 +56,20 @@ public class VariableRegistry {
         return token;
     }
 
-    public void readPrependValues(String prependFile) throws IOException {
-        readPrependValues(new FileReader(RootHolder.ROOT + prependFile));
+    static boolean looksLikeDefineLine(String line) {
+        return ToolUtil.startsWithToken(line, DEFINE);
     }
 
-    public void readPrependValues(Reader fileReader) throws IOException {
+    public void readPrependValues(String prependFile, boolean ignoreUnexpectedLined) {
+        File file = new File(RootHolder.ROOT + prependFile);
+        try {
+            readPrependValues(new FileReader(file), ignoreUnexpectedLined);
+        } catch (Throwable e) {
+            throw new IllegalStateException("While reading from " + file.getAbsolutePath(), e);
+        }
+    }
+
+    public void readPrependValues(Reader fileReader, boolean ignoreUnexpectedLined) throws IOException {
         BufferedReader definitionReader = new BufferedReader(fileReader);
         String line;
         while ((line = definitionReader.readLine()) != null) {
@@ -75,8 +81,14 @@ public class VariableRegistry {
                 continue;
             if (ToolUtil.startsWithToken(line, DEFINE)) {
                 processDefine(line.substring(DEFINE.length()).trim());
+            } else if (!ignoreUnexpectedLined) {
+                throw new IllegalStateException("Unexpected line while prepending: [" + line + "]");
             }
         }
+    }
+
+    void processLine(String line) {
+        processDefine(line.substring(VariableRegistry.DEFINE.length()).trim());
     }
 
     void processDefine(String line) {

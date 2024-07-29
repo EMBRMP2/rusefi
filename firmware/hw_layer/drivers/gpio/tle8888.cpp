@@ -248,9 +248,6 @@ struct Tle8888 : public GpioChip {
 	systime_t					wwd_ts;
 	systime_t					fwd_ts;
 
-	/* chip needs reintialization due to some critical issue */
-	bool						need_init;
-
 	/* main relay output */
 	bool						mr_manual;
 
@@ -258,7 +255,6 @@ struct Tle8888 : public GpioChip {
 	int							por_cnt;
 	int							wdr_cnt;
 	int							comfe_cnt;
-	int							init_cnt;
 	int							init_req_cnt;
 	int							spi_cnt;
 	uint16_t					recentTx;
@@ -619,9 +615,7 @@ static brain_pin_diag_e tle8888_2b_to_diag_with_temp(unsigned int bits)
 }
 
 int Tle8888::chip_reset() {
-	int ret;
-
-	ret = spi_rw(CMD_SR, NULL);
+	int ret = spi_rw(CMD_SR, NULL);
 	/**
 	 * Table 8. Reset Times. All reset times not more than 20uS
 	 */
@@ -660,7 +654,7 @@ int Tle8888::chip_init()
 		 * not to affect analog inputs.
 		 * Disable open load detection and set short to bat
 		 * thresholt to 125 mV (default) for OUTPUT8..13 */
-		CMD_OUTCONFIG(2, (0x0 << 6) | 0x00),	
+		CMD_OUTCONFIG(2, (0x0 << 6) | 0x00),
 #else
 		/* Enable open load detection and set short to bat
 		 * thresholt to 125 mV (default) for OUTPUT8..13 */
@@ -977,7 +971,7 @@ int Tle8888::readPad(size_t pin) {
 
 brain_pin_diag_e Tle8888::getOutputDiag(size_t pin) {
 	if (diagResponse.hasElapsedMs(500)) {
-		// has been to long since we've recieved diagnostics
+		// has been too long since we've received diagnostics
 		return PIN_DRIVER_OFF;
 	}
 	/* OUT1..OUT4, indexes 0..3 */
@@ -1046,7 +1040,7 @@ brain_pin_diag_e Tle8888::getInputDiag(unsigned int pin)
 brain_pin_diag_e Tle8888::getDiag(size_t pin)
 {
 	if (pin >= TLE8888_SIGNALS)
-		return PIN_INVALID;
+		return PIN_UNKNOWN;
 
 	if (pin < TLE8888_OUTPUTS)
 		return getOutputDiag(pin);

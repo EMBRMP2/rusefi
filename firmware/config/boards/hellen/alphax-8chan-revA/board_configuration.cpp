@@ -38,30 +38,6 @@ static void setInjectorPins() {
 	engineConfiguration->malfunctionIndicatorPin = Gpio::Unassigned;
 }
 
-static void setupEtb() {
-	// TLE9201 driver
-	// This chip has three control pins:
-	// DIR - sets direction of the motor
-	// PWM - pwm control (enable high, coast low)
-	// DIS - disables motor (enable low)
-
-	// PWM pin
-	engineConfiguration->etbIo[0].controlPin = Gpio::H144_OUT_PWM2;
-	// DIR pin
-	engineConfiguration->etbIo[0].directionPin1 = H144_GP1;
-	// Disable pin
-	engineConfiguration->etbIo[0].disablePin = H144_GP5;
-
-	// PWM pin
-	engineConfiguration->etbIo[1].controlPin = H144_GP4;
-	// DIR pin
-	engineConfiguration->etbIo[1].directionPin1 = Gpio::H144_GP3;
-	// Disable pin
-	engineConfiguration->etbIo[1].disablePin = Gpio::Unassigned;
-	// we only have pwm/dir, no dira/dirb
-	engineConfiguration->etb_use_two_wires = false;
-}
-
 static void setIgnitionPins() {
 	engineConfiguration->ignitionPins[0] = Gpio::H144_IGN_1;
 	engineConfiguration->ignitionPins[1] = Gpio::H144_IGN_2;
@@ -112,17 +88,15 @@ void boardInitHardware() {
 }
 
 void boardOnConfigurationChange(engine_configuration_s * /*previousConfiguration*/) {
-	alphaTachPullUp.setValue(engineConfiguration->boardUseTachPullUp);
-	alphaTempPullUp.setValue(engineConfiguration->boardUseTempPullUp);
-	alphaCrankPPullUp.setValue(engineConfiguration->boardUseCrankPullUp);
-	alpha2stepPullDown.setValue(engineConfiguration->boardUse2stepPullDown);
-	alphaCamPullDown.setValue(engineConfiguration->boardUseCamPullDown);
-	//alphaCamVrPullUp.setValue(engineConfiguration->boardUseCamVrPullUp);
+	alphaTachPullUp.setValue(config->boardUseTachPullUp);
+	alphaTempPullUp.setValue(config->boardUseTempPullUp);
+	alphaCrankPPullUp.setValue(config->boardUseCrankPullUp);
+	alpha2stepPullDown.setValue(config->boardUse2stepPullDown);
+	alphaCamPullDown.setValue(config->boardUseCamPullDown);
 
-	alphaD2PullDown.setValue(engineConfiguration->boardUseD2PullDown);
-	alphaD3PullDown.setValue(engineConfiguration->boardUseD3PullDown);
-	alphaD4PullDown.setValue(engineConfiguration->boardUseD4PullDown);
-	//alphaD5PullDown.setValue(engineConfiguration->boardUseD5PullDown);
+	alphaD2PullDown.setValue(config->boardUseD2PullDown);
+	alphaD3PullDown.setValue(config->boardUseD3PullDown);
+	alphaD4PullDown.setValue(config->boardUseD4PullDown);
 }
 
 void setBoardConfigOverrides() {
@@ -140,12 +114,15 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
-	setupEtb();
+
+	setupTLE9201(/*controlPin*/Gpio::H144_OUT_PWM2, Gpio::H144_GP_IO1, Gpio::H144_GP_IO5);
+	setupTLE9201(/*controlPin*/Gpio::H144_GP_IO4, Gpio::H144_GP_IO3, Gpio::Unassigned, 1);
+
 	engineConfiguration->vvtPins[0] = Gpio::H144_OUT_PWM7;
 	engineConfiguration->vvtPins[1] = Gpio::H144_OUT_PWM8;
 

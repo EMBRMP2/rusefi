@@ -2,14 +2,9 @@
 
 echo "This batch files reads rusefi_enums.h and produces auto_generated_enums.* files"
 
-cd ../java_tools
-./gradlew :config_definition:shadowJar
-./gradlew :enum_to_string:shadowJar
-cd ../firmware
-
 rm gen_enum_to_string.log
 
-ENUM_JAR=../java_tools/enum_to_string/build/libs/enum_to_string.jar
+ENUM_JAR=../java_tools/enum_to_string/build/libs/enum_to_string-all.jar
 
 java -DSystemOut.name=logs/gen_java_enum -cp ${ENUM_JAR} com.rusefi.ToJavaEnum -enumInputFile controllers/sensors/sensor_type.h -outputPath ../java_console/io/src/main/java/com/rusefi/enums
 [ $? -eq 0 ] || { echo "ERROR generating sensors"; exit 1; }
@@ -85,5 +80,3 @@ cd ../../../..
 cd config/boards/cypress/config
 ./hellen_cypress_gen_enum_to_string.sh
 cd ../../../..
-
-bash config/boards/subaru_eg33/config/gen_enum_to_string.sh

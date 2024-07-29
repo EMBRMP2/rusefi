@@ -1,6 +1,6 @@
 package com.rusefi.config.generated;
 
-// this file was generated automatically by rusEFI tool config_definition_base.jar based on (unknown script) controllers/actuators/ac_control.txt Mon Nov 27 20:20:53 UTC 2023
+// this file was generated automatically by rusEFI tool config_definition_base-all.jar based on (unknown script) controllers/actuators/ac_control.txt Fri Jul 19 23:44:20 UTC 2024
 
 // by class com.rusefi.output.FileJavaFieldsConsumer
 import com.rusefi.config.*;
@@ -17,6 +17,7 @@ public class AcControl {
 	public static final String GAUGE_CATEGORY_SYNC = "Sync";
 	public static final String GAUGE_CATEGORY_TIMING = "Timing";
 	public static final String GAUGE_COIL_DWELL_TIME = "Ignition: coil charge time";
+	public static final String GAUGE_NAME_AC_PRESSURE = "A/C pressure";
 	public static final String GAUGE_NAME_ACCEL_LAT = "Accel: Lateral";
 	public static final String GAUGE_NAME_ACCEL_LON = "Accel: Longitudinal";
 	public static final String GAUGE_NAME_ACCEL_VERT = "Accel: Vertical";
@@ -74,8 +75,10 @@ public class AcControl {
 	public static final String GAUGE_NAME_FUEL_FLOW = "Fuel: Flow rate";
 	public static final String GAUGE_NAME_FUEL_IAT_CORR = "Fuel: IAT correction";
 	public static final String GAUGE_NAME_FUEL_INJ_DUTY = "Fuel: injector duty cycle";
+	public static final String GAUGE_NAME_FUEL_INJ_DUTY_STAGE_2 = "Fuel: injector duty cycle stage 2";
 	public static final String GAUGE_NAME_FUEL_INJECTION_TIMING = "Fuel: Injection timing SOI";
 	public static final String GAUGE_NAME_FUEL_LAST_INJECTION = "Fuel: Last inj pulse width";
+	public static final String GAUGE_NAME_FUEL_LAST_INJECTION_STAGE_2 = "Fuel: Last inj pulse width stg 2";
 	public static final String GAUGE_NAME_FUEL_LEVEL = "Fuel level";
 	public static final String GAUGE_NAME_FUEL_LOAD = "Fuel: Load";
 	public static final String GAUGE_NAME_FUEL_PRESSURE_HIGH = "Fuel pressure (high)";
@@ -102,11 +105,12 @@ public class AcControl {
 	public static final String GAUGE_NAME_INJECTOR_LAG = "Fuel: injector lag";
 	public static final String GAUGE_NAME_ISS = "TCU: Input Shaft Speed";
 	public static final String GAUGE_NAME_KNOCK_COUNTER = "Knock: Count";
+	public static final String GAUGE_NAME_KNOCK_FREQ = "knock: frequency";
 	public static final String GAUGE_NAME_KNOCK_LEVEL = "Knock: Current level";
 	public static final String GAUGE_NAME_KNOCK_RETARD = "Knock: Retard";
 	public static final String GAUGE_NAME_LAMBDA = "Lambda";
 	public static final String GAUGE_NAME_LAMBDA2 = "Lambda 2";
-	public static final String GAUGE_NAME_LAST_ERROR = "Last error";
+	public static final String GAUGE_NAME_LAST_ERROR = "Warning: last";
 	public static final String GAUGE_NAME_MAF = "MAF";
 	public static final String GAUGE_NAME_MAP = "MAP";
 	public static final String GAUGE_NAME_OIL_PRESSURE = "Oil Pressure";
@@ -148,12 +152,13 @@ public class AcControl {
 	public static final String INDICATOR_NAME_CLUTCH_DOWN = "Clutch: down";
 	public static final String INDICATOR_NAME_CLUTCH_UP = "Clutch: up";
 	public static final int LUA_ANALOG_INPUT_COUNT = 8;
-	public static final int LUA_GAUGE_COUNT = 2;
+	public static final int LUA_GAUGE_COUNT = 8;
 	public static final int MAX_CYLINDER_COUNT = 12;
 	public static final int PACK_ADD_TEMPERATURE = 40;
 	public static final int PACK_MULT_AFR = 1000;
 	public static final int PACK_MULT_AFR_CFG = 10;
 	public static final int PACK_MULT_ANGLE = 50;
+	public static final int PACK_MULT_EGTEMPERATURE = 4;
 	public static final int PACK_MULT_FLEX = 2;
 	public static final int PACK_MULT_FUEL_FLOW = 200;
 	public static final int PACK_MULT_FUEL_MASS = 100;
@@ -167,21 +172,24 @@ public class AcControl {
 	public static final int PACK_MULT_TEMPERATURE = 100;
 	public static final int PACK_MULT_VOLTAGE = 1000;
 	public static final int PACK_MULT_VSS = 100;
+	public static final int STFT_BANK_COUNT = 2;
 	public static final int TCU_GEAR_COUNT = 10;
 	public static final int TPS_2_BYTE_PACKING_MULT = 100;
 	public static final int VE_BLEND_COUNT = 4;
-	public static final Field ACBUTTONSTATE = Field.create("ACBUTTONSTATE", 0, FieldType.INT8).setScale(1.0).setBaseOffset(1020);
-	public static final Field ALIGNMENTFILL_AT_1 = Field.create("ALIGNMENTFILL_AT_1", 1, FieldType.INT8).setScale(1.0).setBaseOffset(1020);
-	public static final Field M_ACENABLED = Field.create("M_ACENABLED", 4, FieldType.BIT, 0).setBaseOffset(1020);
-	public static final Field ENGINETOOSLOW = Field.create("ENGINETOOSLOW", 4, FieldType.BIT, 1).setBaseOffset(1020);
-	public static final Field ENGINETOOFAST = Field.create("ENGINETOOFAST", 4, FieldType.BIT, 2).setBaseOffset(1020);
-	public static final Field NOCLT = Field.create("NOCLT", 4, FieldType.BIT, 3).setBaseOffset(1020);
-	public static final Field ENGINETOOHOT = Field.create("ENGINETOOHOT", 4, FieldType.BIT, 4).setBaseOffset(1020);
-	public static final Field TPSTOOHIGH = Field.create("TPSTOOHIGH", 4, FieldType.BIT, 5).setBaseOffset(1020);
-	public static final Field ISDISABLEDBYLUA = Field.create("ISDISABLEDBYLUA", 4, FieldType.BIT, 6).setBaseOffset(1020);
-	public static final Field ACCOMPRESSORSTATE = Field.create("ACCOMPRESSORSTATE", 4, FieldType.BIT, 7).setBaseOffset(1020);
-	public static final Field LATEST_USAGE_AC_CONTROL = Field.create("LATEST_USAGE_AC_CONTROL", 8, FieldType.INT).setScale(1.0).setBaseOffset(1020);
-	public static final Field ACSWITCHLASTCHANGETIMEMS = Field.create("ACSWITCHLASTCHANGETIMEMS", 12, FieldType.INT).setScale(1.0).setBaseOffset(1020);
+	public static final Field ACBUTTONSTATE = Field.create("ACBUTTONSTATE", 0, FieldType.INT8).setScale(1.0).setBaseOffset(1080);
+	public static final Field ALIGNMENTFILL_AT_1 = Field.create("ALIGNMENTFILL_AT_1", 1, FieldType.INT8).setScale(1.0).setBaseOffset(1080);
+	public static final Field M_ACENABLED = Field.create("M_ACENABLED", 4, FieldType.BIT, 0).setBaseOffset(1080);
+	public static final Field ENGINETOOSLOW = Field.create("ENGINETOOSLOW", 4, FieldType.BIT, 1).setBaseOffset(1080);
+	public static final Field ENGINETOOFAST = Field.create("ENGINETOOFAST", 4, FieldType.BIT, 2).setBaseOffset(1080);
+	public static final Field NOCLT = Field.create("NOCLT", 4, FieldType.BIT, 3).setBaseOffset(1080);
+	public static final Field ENGINETOOHOT = Field.create("ENGINETOOHOT", 4, FieldType.BIT, 4).setBaseOffset(1080);
+	public static final Field TPSTOOHIGH = Field.create("TPSTOOHIGH", 4, FieldType.BIT, 5).setBaseOffset(1080);
+	public static final Field ISDISABLEDBYLUA = Field.create("ISDISABLEDBYLUA", 4, FieldType.BIT, 6).setBaseOffset(1080);
+	public static final Field ACCOMPRESSORSTATE = Field.create("ACCOMPRESSORSTATE", 4, FieldType.BIT, 7).setBaseOffset(1080);
+	public static final Field ACPRESSURETOOLOW = Field.create("ACPRESSURETOOLOW", 4, FieldType.BIT, 8).setBaseOffset(1080);
+	public static final Field ACPRESSURETOOHIGH = Field.create("ACPRESSURETOOHIGH", 4, FieldType.BIT, 9).setBaseOffset(1080);
+	public static final Field LATEST_USAGE_AC_CONTROL = Field.create("LATEST_USAGE_AC_CONTROL", 8, FieldType.INT).setScale(1.0).setBaseOffset(1080);
+	public static final Field ACSWITCHLASTCHANGETIMEMS = Field.create("ACSWITCHLASTCHANGETIMEMS", 12, FieldType.INT).setScale(1.0).setBaseOffset(1080);
 	public static final Field[] VALUES = {
 	ACBUTTONSTATE,
 	ALIGNMENTFILL_AT_1,
@@ -193,6 +201,8 @@ public class AcControl {
 	TPSTOOHIGH,
 	ISDISABLEDBYLUA,
 	ACCOMPRESSORSTATE,
+	ACPRESSURETOOLOW,
+	ACPRESSURETOOHIGH,
 	LATEST_USAGE_AC_CONTROL,
 	ACSWITCHLASTCHANGETIMEMS,
 	};

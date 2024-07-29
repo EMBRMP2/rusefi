@@ -12,8 +12,10 @@
 #include "mazda_miata_na8.h"
 #include "custom_engine.h"
 #include "mazda_miata_1_6.h"
+#include "table_helper.h"
 
-static void commonNA8() {
+void setMazdaMiata96() {
+	miataNAcommonEngineSettings();
 	/**
 	 * http://miataturbo.wikidot.com/fuel-injectors
 	 * 94-97 (tan) - #195500-2180
@@ -39,10 +41,9 @@ static void commonNA8() {
 
 	engineConfiguration->iacByTpsTaper = 6;
 	engineConfiguration->useIdleTimingPidControl = true;
-	engineConfiguration->engineChartSize = 300;
 
 	engineConfiguration->wwaeTau = 0.1;
-	engineConfiguration->targetVBatt = 14.2;
+	setTable(config->alternatorVoltageTargetTable, 14.2);
 	engineConfiguration->crankingIACposition = 36;
 	engineConfiguration->afterCrankingIACtaperDuration = 189;
 
@@ -55,35 +56,6 @@ static void commonNA8() {
 	strcpy(engineConfiguration->engineCode, "NA8");
 
 	engineConfiguration->injectionMode = IM_SEQUENTIAL;
-}
 
-/**
- * 1994, 1995 NA
- * Note that ODB-II car have different wiring!
- *
- * https://rusefi.com/wiki/index.php?title=Vehicle:Mazda_Miata_1994
- *
- * See also setMiataNA_1_6_Configuration
- */
-void setFrankensoMazdaMiataNA8Configuration() {
-	setMiataNA6_MAP_Frankenso();
-	commonNA8();
-
-	// blue jumper wire to W45 bottom jumper, not OEM
-	engineConfiguration->map.sensor.hwChannel = EFI_ADC_7;
-
-
-	engineConfiguration->vbattDividerCoeff = 9.75;// ((float) (8.2 + 33)) / 8.2 * 2;
-
-
-	engineConfiguration->injectionPins[0] = Gpio::D3; // #1 pin 3U
-	engineConfiguration->injectionPins[1] = Gpio::E2; // #2 pin 3V
-	engineConfiguration->injectionPins[2] = Gpio::B8; // #3 pin 3Y
-	engineConfiguration->injectionPins[3] = Gpio::B7; // #4 pin 3Z
-}
-
-void setHellenMiata96() {
-	miataNAcommonEngineSettings();
-	commonNA8();
-    engineConfiguration->map.sensor.type = MT_MPXH6400;
+  engineConfiguration->map.sensor.type = MT_MPXH6400;
 }

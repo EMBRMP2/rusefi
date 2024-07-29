@@ -35,9 +35,6 @@ float getOutputValueByName(const char *name) {
 // isFan2On
 		case -333212891:
 			return engine->outputChannels.isFan2On;
-// acrActive
-		case -1548941801:
-			return engine->outputChannels.acrActive;
 // toothLogReady
 		case -1662199734:
 			return engine->outputChannels.toothLogReady;
@@ -89,6 +86,12 @@ float getOutputValueByName(const char *name) {
 // dfcoActive
 		case -622949795:
 			return engine->outputChannels.dfcoActive;
+// sd_active_wr
+		case 1301677887:
+			return engine->outputChannels.sd_active_wr;
+// sd_active_rd
+		case 1301677708:
+			return engine->outputChannels.sd_active_rd;
 // RPMValue
 		case 1699696209:
 			return engine->outputChannels.RPMValue;
@@ -152,9 +155,9 @@ float getOutputValueByName(const char *name) {
 // injectorDutyCycle
 		case -354325031:
 			return engine->outputChannels.injectorDutyCycle;
-// veValue
-		case 1933507837:
-			return engine->outputChannels.veValue;
+// tempLogging1
+		case -679828717:
+			return engine->outputChannels.tempLogging1;
 // injectionOffset
 		case -243031057:
 			return engine->outputChannels.injectionOffset;
@@ -206,6 +209,9 @@ float getOutputValueByName(const char *name) {
 // tuneCrc16
 		case -1158359776:
 			return engine->outputChannels.tuneCrc16;
+// veValue
+		case 1933507837:
+			return engine->outputChannels.veValue;
 // seconds
 		case -1962923820:
 			return engine->outputChannels.seconds;
@@ -254,6 +260,12 @@ float getOutputValueByName(const char *name) {
 // highFuelPressure
 		case -1973799222:
 			return engine->outputChannels.highFuelPressure;
+// tempLogging3
+		case -679828715:
+			return engine->outputChannels.tempLogging3;
+// tempLogging4
+		case -679828714:
+			return engine->outputChannels.tempLogging4;
 // calibrationValue
 		case -1560670902:
 			return engine->outputChannels.calibrationValue;
@@ -317,9 +329,6 @@ float getOutputValueByName(const char *name) {
 // rawTps1Primary
 		case -1051397637:
 			return engine->outputChannels.rawTps1Primary;
-// rawPpsPrimary
-		case -347083354:
-			return engine->outputChannels.rawPpsPrimary;
 // rawClt
 		case 417946098:
 			return engine->outputChannels.rawClt;
@@ -329,15 +338,24 @@ float getOutputValueByName(const char *name) {
 // rawOilPressure
 		case 2070002124:
 			return engine->outputChannels.rawOilPressure;
+// rawAcPressure
+		case 2079600300:
+			return engine->outputChannels.rawAcPressure;
 // fuelClosedLoopBinIdx
 		case 1342844099:
 			return engine->outputChannels.fuelClosedLoopBinIdx;
-// tcuCurrentGear
-		case -559761101:
-			return engine->outputChannels.tcuCurrentGear;
+// rawPpsPrimary
+		case -347083354:
+			return engine->outputChannels.rawPpsPrimary;
 // rawPpsSecondary
 		case -1798336054:
 			return engine->outputChannels.rawPpsSecondary;
+// rawRawPpsPrimary
+		case 347493808:
+			return engine->outputChannels.rawRawPpsPrimary;
+// rawRawPpsSecondary
+		case -1318050732:
+			return engine->outputChannels.rawRawPpsSecondary;
 // idlePositionSensor
 		case 782384530:
 			return engine->outputChannels.idlePositionSensor;
@@ -419,15 +437,6 @@ float getOutputValueByName(const char *name) {
 // luaLastCycleDuration
 		case 823476017:
 			return engine->outputChannels.luaLastCycleDuration;
-// tcu_currentRange
-		case -518694176:
-			return engine->outputChannels.tcu_currentRange;
-// tcRatio
-		case -732434245:
-			return engine->outputChannels.tcRatio;
-// lastShiftTime
-		case 174310950:
-			return engine->outputChannels.lastShiftTime;
 // vssEdgeCounter
 		case 385418550:
 			return engine->outputChannels.vssEdgeCounter;
@@ -695,6 +704,9 @@ float getOutputValueByName(const char *name) {
 // mafMeasured2
 		case 1663359009:
 			return engine->outputChannels.mafMeasured2;
+// schedulingUsedCount
+		case 967311941:
+			return engine->outputChannels.schedulingUsedCount;
 // vehicleSpeedKph
 		case -1925174695:
 			return engine->outputChannels.vehicleSpeedKph;
@@ -737,6 +749,63 @@ float getOutputValueByName(const char *name) {
 // afr2GasolineScale
 		case 2029444810:
 			return engine->outputChannels.afr2GasolineScale;
+// wheelSlipRatio
+		case 398495089:
+			return engine->outputChannels.wheelSlipRatio;
+// actualLastInjectionStage2
+		case -1434098660:
+			return engine->outputChannels.actualLastInjectionStage2;
+// injectorDutyCycleStage2
+		case -1337459841:
+			return engine->outputChannels.injectorDutyCycleStage2;
+// fastAdcErrorsCount
+		case -805019103:
+			return engine->outputChannels.fastAdcErrorsCount;
+// deviceUid
+		case 540029591:
+			return engine->outputChannels.deviceUid;
+// mc33810spiErrorCounter
+		case -1225980502:
+			return engine->outputChannels.mc33810spiErrorCounter;
+// sadDwellRatioCounter
+		case -2146292012:
+			return engine->outputChannels.sadDwellRatioCounter;
+// injectionPrimingCounter
+		case 1526237246:
+			return engine->outputChannels.injectionPrimingCounter;
+// tempLogging2
+		case -679828716:
+			return engine->outputChannels.tempLogging2;
+// acPressure
+		case 1644550754:
+			return engine->outputChannels.acPressure;
+// rawAuxAnalog1
+		case 98140608:
+			return engine->outputChannels.rawAuxAnalog1;
+// rawAuxAnalog2
+		case 98140609:
+			return engine->outputChannels.rawAuxAnalog2;
+// rawAuxAnalog3
+		case 98140610:
+			return engine->outputChannels.rawAuxAnalog3;
+// rawAuxAnalog4
+		case 98140611:
+			return engine->outputChannels.rawAuxAnalog4;
+// fastAdcErrorCallbackCount
+		case -2045395013:
+			return engine->outputChannels.fastAdcErrorCallbackCount;
+// slowAdcErrorsCount
+		case -276658792:
+			return engine->outputChannels.slowAdcErrorsCount;
+// rawAuxTemp1
+		case -801974332:
+			return engine->outputChannels.rawAuxTemp1;
+// rawAuxTemp2
+		case -801974331:
+			return engine->outputChannels.rawAuxTemp2;
+// rawAmbientTemp
+		case 1781305509:
+			return engine->outputChannels.rawAmbientTemp;
 // totalFuelCorrection
 #if EFI_ENGINE_CONTROL
 		case -1779658835:
@@ -812,6 +881,11 @@ float getOutputValueByName(const char *name) {
 		case -1453554940:
 			return engine->fuelComputer.brokenInjector;
 #endif
+// idealEngineTorque
+#if EFI_ENGINE_CONTROL
+		case -791713926:
+			return engine->fuelComputer.idealEngineTorque;
+#endif
 // injectorHwIssue
 #if EFI_ENGINE_CONTROL
 		case -1237512821:
@@ -823,9 +897,9 @@ float getOutputValueByName(const char *name) {
 // sparkDwell
 		case -903101570:
 			return engine->ignitionState.sparkDwell;
-// dwellAngle
-		case -1573373756:
-			return engine->ignitionState.dwellAngle;
+// dwellDurationAngle
+		case -1208021110:
+			return engine->ignitionState.dwellDurationAngle;
 // cltTimingCorrection
 		case 256951528:
 			return engine->ignitionState.cltTimingCorrection;
@@ -841,6 +915,9 @@ float getOutputValueByName(const char *name) {
 // correctedIgnitionAdvance
 		case 352421907:
 			return engine->ignitionState.correctedIgnitionAdvance;
+// tractionAdvanceDrop
+		case -899895696:
+			return engine->ignitionState.tractionAdvanceDrop;
 // dwellVoltageCorrection
 		case -80612537:
 			return engine->ignitionState.dwellVoltageCorrection;
@@ -868,6 +945,89 @@ float getOutputValueByName(const char *name) {
 // m_maximumRetard
 		case 164334513:
 			return ___engine.module<KnockController>()->m_maximumRetard;
+// m_knockFrequency
+		case -249826215:
+			return ___engine.module<KnockController>()->m_knockFrequency;
+// m_deadtime
+#if EFI_PROD_CODE && EFI_IDLE_CONTROL
+		case -1167844818:
+			return ___engine.module<InjectorModelPrimary>()->m_deadtime;
+#endif
+// pressureDelta
+#if EFI_PROD_CODE && EFI_IDLE_CONTROL
+		case -376325528:
+			return ___engine.module<InjectorModelPrimary>()->pressureDelta;
+#endif
+// pressureRatio
+#if EFI_PROD_CODE && EFI_IDLE_CONTROL
+		case -359858019:
+			return ___engine.module<InjectorModelPrimary>()->pressureRatio;
+#endif
+// retardThresholdRpm
+#if EFI_LAUNCH_CONTROL
+		case -1374156957:
+			return engine->launchController.retardThresholdRpm;
+#endif
+// launchActivatePinState
+#if EFI_LAUNCH_CONTROL
+		case 1928406809:
+			return engine->launchController.launchActivatePinState;
+#endif
+// isPreLaunchCondition
+#if EFI_LAUNCH_CONTROL
+		case -1872098102:
+			return engine->launchController.isPreLaunchCondition;
+#endif
+// isLaunchCondition
+#if EFI_LAUNCH_CONTROL
+		case -1959120957:
+			return engine->launchController.isLaunchCondition;
+#endif
+// isSwitchActivated
+#if EFI_LAUNCH_CONTROL
+		case 1699495432:
+			return engine->launchController.isSwitchActivated;
+#endif
+// isClutchActivated
+#if EFI_LAUNCH_CONTROL
+		case 1569151513:
+			return engine->launchController.isClutchActivated;
+#endif
+// isBrakePedalActivated
+#if EFI_LAUNCH_CONTROL
+		case 781025153:
+			return engine->launchController.isBrakePedalActivated;
+#endif
+// isValidInputPin
+#if EFI_LAUNCH_CONTROL
+		case -978523544:
+			return engine->launchController.isValidInputPin;
+#endif
+// activateSwitchCondition
+#if EFI_LAUNCH_CONTROL
+		case 1265600943:
+			return engine->launchController.activateSwitchCondition;
+#endif
+// rpmLaunchCondition
+#if EFI_LAUNCH_CONTROL
+		case 859283926:
+			return engine->launchController.rpmLaunchCondition;
+#endif
+// rpmPreLaunchCondition
+#if EFI_LAUNCH_CONTROL
+		case -774592003:
+			return engine->launchController.rpmPreLaunchCondition;
+#endif
+// speedCondition
+#if EFI_LAUNCH_CONTROL
+		case 1722712413:
+			return engine->launchController.speedCondition;
+#endif
+// tpsCondition
+#if EFI_LAUNCH_CONTROL
+		case 827982787:
+			return engine->launchController.tpsCondition;
+#endif
 // isTpsInvalid
 #if EFI_BOOST_CONTROL
 		case -575666209:
@@ -917,6 +1077,11 @@ float getOutputValueByName(const char *name) {
 #if EFI_BOOST_CONTROL
 		case -304796912:
 			return ___engine.module<BoostController>()->isPlantValid;
+#endif
+// isBoostControlled
+#if EFI_BOOST_CONTROL
+		case -1074908546:
+			return ___engine.module<BoostController>()->isBoostControlled;
 #endif
 // luaTargetAdd
 #if EFI_BOOST_CONTROL
@@ -980,6 +1145,12 @@ float getOutputValueByName(const char *name) {
 // acCompressorState
 		case -1015278697:
 			return engine->module<AcController>()->acCompressorState;
+// acPressureTooLow
+		case -1208328954:
+			return engine->module<AcController>()->acPressureTooLow;
+// acPressureTooHigh
+		case -1220300524:
+			return engine->module<AcController>()->acPressureTooHigh;
 // latest_usage_ac_control
 		case 1630756809:
 			return engine->module<AcController>()->latest_usage_ac_control;
@@ -1007,6 +1178,15 @@ float getOutputValueByName(const char *name) {
 // cold
 		case 2090155911:
 			return ___engine.module<FanControl1>()->cold;
+// disabledBySpeed
+		case 2105103113:
+			return ___engine.module<FanControl1>()->disabledBySpeed;
+// tempAlive
+		case -1017204596:
+			return ___engine.module<FanControl1>()->tempAlive;
+// tempCode
+		case -291050474:
+			return ___engine.module<FanControl1>()->tempCode;
 // isPrime
 		case -1429286498:
 			return engine->module<FuelPumpController>()->isPrime;
@@ -1040,6 +1220,15 @@ float getOutputValueByName(const char *name) {
 // lua.luaIgnCut
 		case -802271455:
 			return engine->engineState.lua.luaIgnCut;
+// lua.luaFuelCut
+		case 252935343:
+			return engine->engineState.lua.luaFuelCut;
+// lua.clutchDownState
+		case 133427185:
+			return engine->engineState.lua.clutchDownState;
+// lua.disableDecelerationFuelCutOff
+		case 1680936043:
+			return engine->engineState.lua.disableDecelerationFuelCutOff;
 // sd.tCharge
 		case -893334680:
 			return engine->engineState.sd.tCharge;
@@ -1076,12 +1265,21 @@ float getOutputValueByName(const char *name) {
 // startStopState
 		case 897099930:
 			return engine->engineState.startStopState;
+// smartChipState
+		case -517673231:
+			return engine->engineState.smartChipState;
+// smartChipRestartCounter
+		case 1192769173:
+			return engine->engineState.smartChipRestartCounter;
+// smartChipAliveCounter
+		case -1945673215:
+			return engine->engineState.smartChipAliveCounter;
 // startStopPhysicalState
 		case -1943724937:
 			return engine->engineState.startStopPhysicalState;
-// acrStateDup
-		case -793662747:
-			return engine->engineState.acrStateDup;
+// acrActive
+		case -1548941801:
+			return engine->engineState.acrActive;
 // acrEngineMovedRecently
 		case -791147982:
 			return engine->engineState.acrEngineMovedRecently;
@@ -1103,21 +1301,24 @@ float getOutputValueByName(const char *name) {
 // startStopStateToggleCounter
 		case -960645892:
 			return engine->engineState.startStopStateToggleCounter;
-// egtValue1
-		case -244414221:
-			return engine->engineState.egtValue1;
-// egtValue2
-		case -244414220:
-			return engine->engineState.egtValue2;
+// luaSoftSparkSkip
+		case -1117430949:
+			return engine->engineState.luaSoftSparkSkip;
+// luaHardSparkSkip
+		case -1498397570:
+			return engine->engineState.luaHardSparkSkip;
+// tractionControlSparkSkip
+		case -1555684830:
+			return engine->engineState.tractionControlSparkSkip;
 // desiredRpmLimit
 		case -505351565:
 			return engine->engineState.desiredRpmLimit;
 // fuelInjectionCounter
 		case -1839290700:
 			return engine->engineState.fuelInjectionCounter;
-// sparkCounter
-		case -1515591290:
-			return engine->engineState.sparkCounter;
+// globalSparkCounter
+		case 642962903:
+			return engine->engineState.globalSparkCounter;
 // fuelingLoad
 		case 583799407:
 			return engine->engineState.fuelingLoad;
@@ -1127,6 +1328,15 @@ float getOutputValueByName(const char *name) {
 // veTableYAxis
 		case 1568071542:
 			return engine->engineState.veTableYAxis;
+// overDwellCounter
+		case 1513852665:
+			return engine->engineState.overDwellCounter;
+// overDwellNotScheduledCounter
+		case 1629214715:
+			return engine->engineState.overDwellNotScheduledCounter;
+// sparkOutOfOrderCounter
+		case -1595596945:
+			return engine->engineState.sparkOutOfOrderCounter;
 // vvtCamCounter
 #if EFI_SHAFT_POSITION_INPUT
 		case 477303734:
@@ -1176,6 +1386,11 @@ float getOutputValueByName(const char *name) {
 #if EFI_SHAFT_POSITION_INPUT
 		case 756216589:
 			return engine->triggerCentral.isDecodingMapCam;
+#endif
+// triggerElapsedUs
+#if EFI_SHAFT_POSITION_INPUT
+		case 767689023:
+			return engine->triggerCentral.triggerElapsedUs;
 #endif
 // idleState
 #if EFI_PROD_CODE && EFI_IDLE_CONTROL

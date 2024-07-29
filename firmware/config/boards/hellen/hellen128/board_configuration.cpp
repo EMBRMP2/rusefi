@@ -66,25 +66,27 @@ static void setHellen128ETBConfig() {
 	if (isFirstInvocation) {
 		isFirstInvocation = false;
 		m_i2c.init(Gpio::B10, Gpio::B11);
+
+		/* TODO: release pis for LPS25 */
 	}
 	// looks like we support PCF8575 i2c I/O expander
 	m_i2c.read(/*address*/0x20, variant, sizeof(variant));
 
-	efiPrintf("BoardID [%02x%02x] ", variant[0], variant[1]);
-
 	//Rev C is different then Rev A/B
 	if ((variant[0] == 0x63) && (variant[1] == 0x00)) {
+	  efiPrintf("rev C Board Detected");
 		// TLE9201 driver
 		// This chip has three control pins:
 		// DIR - sets direction of the motor
 		// PWM - pwm control (enable high, coast low)
 		// DIS - disables motor (enable low)
-		
+
 		//ETB1
 		// PWM pin
 		engineConfiguration->etbIo[0].controlPin = H176_OUT_PWM3;
 		// DIR pin
 		engineConfiguration->etbIo[0].directionPin1 = H176_OUT_PWM2;
+		engineConfiguration->etbIo[0].directionPin2 = Gpio::Unassigned;
 		// Disable pin
 		engineConfiguration->etbIo[0].disablePin = H176_OUT_PWM1;
 
@@ -100,12 +102,14 @@ static void setHellen128ETBConfig() {
 		engineConfiguration->etb_use_two_wires = false;
 
 	} else {
+	  efiPrintf("A/B BoardID [%02x%02x] ", variant[0], variant[1]);
 		//Set default ETB config
 		engineConfiguration->etbIo[0].directionPin1 = H176_OUT_PWM2;
 		engineConfiguration->etbIo[0].directionPin2 = H176_OUT_PWM3;
 		engineConfiguration->etbIo[0].controlPin = H176_OUT_PWM1; // ETB_EN
+		engineConfiguration->etbIo[0].disablePin = Gpio::Unassigned;
 		engineConfiguration->etb_use_two_wires = true;
-	}	
+	}
 }
 
 #include "hellen_leds_176.cpp"
@@ -129,13 +133,11 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
-
-	engineConfiguration->enableSoftwareKnock = true;
 
 	engineConfiguration->fuelPumpPin = Gpio::D15;
 	engineConfiguration->idle.solenoidPin = Gpio::Unassigned;
@@ -149,7 +151,7 @@ void setBoardDefaultConfiguration() {
 	// "required" hardware is done - set some reasonable defaults
 	setupDefaultSensorInputs();
 
-    setM111EngineConfiguration();
+  setMercedesM111EngineConfiguration();
 
 	/**
 	 * Jimmy best tune

@@ -19,10 +19,6 @@
 #include "injector_model.h"
 #include "tunerstudio.h"
 
-#if EFI_PROD_CODE
-#include "svnversion.h"
-#endif
-
 #if ! EFI_UNIT_TEST
 #include "status_loop.h"
 #endif
@@ -82,11 +78,28 @@ bool WarningCodeState::isWarningNow(ObdCode code) const {
 }
 
 EngineState::EngineState() {
-	timeSinceLastTChargeK = getTimeNowNt();
+	timeSinceLastTChargeK.reset(getTimeNowNt());
 }
 
 void EngineState::updateSlowSensors() {
 }
+
+void EngineState::updateSparkSkip() {
+#if EFI_LAUNCH_CONTROL
+		engine->softSparkLimiter.updateTargetSkipRatio(luaSoftSparkSkip, tractionControlSparkSkip);
+		engine->hardSparkLimiter.updateTargetSkipRatio(
+			luaHardSparkSkip,
+			tractionControlSparkSkip,
+			/*
+			 * We are applying launch controller spark skip ratio only for hard skip limiter (see
+			 * https://github.com/rusefi/rusefi/issues/6566#issuecomment-2153149902).
+			 */
+			engine->launchController.getSparkSkipRatio()
+		);
+#endif // EFI_LAUNCH_CONTROL
+}
+
+#define MAKE_HUMAN_READABLE_ADVANCE(advance) (advance > getEngineState()->engineCycle / 2 ? advance - getEngineState()->engineCycle : advance)
 
 void EngineState::periodicFastCallback() {
 	ScopePerf perf(PE::EngineStatePeriodicFastCallback);
@@ -96,7 +109,7 @@ void EngineState::periodicFastCallback() {
 		warning(ObdCode::CUSTOM_SLOW_NOT_INVOKED, "Slow not invoked yet");
 	}
 	efitick_t nowNt = getTimeNowNt();
-	
+
 	if (engine->rpmCalculator.isCranking()) {
 		crankingTimer.reset(nowNt);
 	}
@@ -107,7 +120,7 @@ void EngineState::periodicFastCallback() {
 
 	int rpm = Sensor::getOrZero(SensorType::Rpm);
 	engine->ignitionState.sparkDwell = engine->ignitionState.getSparkDwell(rpm);
-	engine->ignitionState.dwellAngle = cisnan(rpm) ? NAN :  engine->ignitionState.sparkDwell / getOneDegreeTimeMs(rpm);
+	engine->ignitionState.dwellDurationAngle = std::isnan(rpm) ? NAN :  engine->ignitionState.sparkDwell / getOneDegreeTimeMs(rpm);
 
 	// todo: move this into slow callback, no reason for IAT corr to be here
 	engine->fuelComputer.running.intakeTemperatureCoefficient = getIatFuelCorrection();
@@ -141,41 +154,54 @@ void EngineState::periodicFastCallback() {
 	float untrimmedInjectionMass = getInjectionMass(rpm) * engine->engineState.lua.fuelMult + engine->engineState.lua.fuelAdd;
 	auto clResult = fuelClosedLoopCorrection();
 
+	injectionStage2Fraction = getStage2InjectionFraction(rpm, engine->fuelComputer.afrTableYAxis);
+	float stage2InjectionMass = untrimmedInjectionMass * injectionStage2Fraction;
+	float stage1InjectionMass = untrimmedInjectionMass - stage2InjectionMass;
+
 	// Store the pre-wall wetting injection duration for scheduling purposes only, not the actual injection duration
-	engine->engineState.injectionDuration = engine->module<InjectorModel>()->getInjectionDuration(untrimmedInjectionMass);
+	engine->engineState.injectionDuration = engine->module<InjectorModelPrimary>()->getInjectionDuration(stage1InjectionMass);
+	engine->engineState.injectionDurationStage2 =
+		engineConfiguration->enableStagedInjection
+		? engine->module<InjectorModelSecondary>()->getInjectionDuration(stage2InjectionMass)
+		: 0;
 
 	float fuelLoad = getFuelingLoad();
 	injectionOffset = getInjectionOffset(rpm, fuelLoad);
 	engine->lambdaMonitor.update(rpm, fuelLoad);
 
+#if EFI_LAUNCH_CONTROL
+	engine->launchController.update();
+#endif //EFI_LAUNCH_CONTROL
+
 	float l_ignitionLoad = getIgnitionLoad();
-	float baseAdvance = getAdvance(rpm, l_ignitionLoad) * engine->ignitionState.luaTimingMult + engine->ignitionState.luaTimingAdd;
+	float baseAdvance = getWrappedAdvance(rpm, l_ignitionLoad);
 	float correctedIgnitionAdvance = baseAdvance
 			// Pull any extra timing for knock retard
 			- engine->module<KnockController>()->getKnockRetard()
 			// Degrees of timing REMOVED from actual timing during soft RPM limit window
 			- getLimpManager()->getLimitingTimingRetard();
 	// these fields are scaled_channel so let's only use for observability, with a local variables holding value while it matters locally
-	engine->ignitionState.baseIgnitionAdvance = baseAdvance;
-	engine->ignitionState.correctedIgnitionAdvance = correctedIgnitionAdvance;
+	engine->ignitionState.baseIgnitionAdvance = MAKE_HUMAN_READABLE_ADVANCE(baseAdvance);
+	engine->ignitionState.correctedIgnitionAdvance = MAKE_HUMAN_READABLE_ADVANCE(correctedIgnitionAdvance);
 
 
 	// compute per-bank fueling
 	for (size_t i = 0; i < STFT_BANK_COUNT; i++) {
 		float corr = clResult.banks[i];
-		engine->stftCorrection[i] = corr;
+		// todo: move to engine_state.txt and get rid of fuelPidCorrection in output_channels.txt?
+		engine->engineState.stftCorrection[i] = corr;
 	}
 
 	// Now apply that to per-cylinder fueling and timing
 	for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
 		uint8_t bankIndex = engineConfiguration->cylinderBankSelect[i];
-		auto bankTrim = engine->stftCorrection[bankIndex];
+		auto bankTrim = engine->engineState.stftCorrection[bankIndex];
 		auto cylinderTrim = getCylinderFuelTrim(i, rpm, fuelLoad);
 
 		// Apply both per-bank and per-cylinder trims
 		engine->engineState.injectionMass[i] = untrimmedInjectionMass * bankTrim * cylinderTrim;
 
-		timingAdvance[i] = correctedIgnitionAdvance + getCombinedCylinderIgnitionTrim(i, rpm, l_ignitionLoad);
+		timingAdvance[i] = correctedIgnitionAdvance + getCylinderIgnitionTrim(i, rpm, l_ignitionLoad);
 	}
 
 	shouldUpdateInjectionTiming = getInjectorDutyCycle(rpm) < 90;
@@ -184,10 +210,6 @@ void EngineState::periodicFastCallback() {
 	trailingSparkAngle = engineConfiguration->trailingSparkAngle;
 
 	multispark.count = getMultiSparkCount(rpm);
-
-#if EFI_LAUNCH_CONTROL
-	engine->launchController.update();
-#endif //EFI_LAUNCH_CONTROL
 
 #if EFI_ANTILAG_SYSTEM
 	engine->antilagController.update();
@@ -198,20 +220,15 @@ void EngineState::periodicFastCallback() {
 #if EFI_ENGINE_CONTROL
 void EngineState::updateTChargeK(int rpm, float tps) {
 	float newTCharge = engine->fuelComputer.getTCharge(rpm, tps);
-	// convert to microsecs and then to seconds
-	efitick_t curTime = getTimeNowNt();
-	float secsPassed = (float)NT2US(curTime - timeSinceLastTChargeK) / US_PER_SECOND_F;
-	if (!cisnan(newTCharge)) {
+	if (!std::isnan(newTCharge)) {
 		// control the rate of change or just fill with the initial value
+		efitick_t nowNt = getTimeNowNt();
+		float secsPassed = timeSinceLastTChargeK.getElapsedSeconds(nowNt);
 		sd.tCharge = (sd.tChargeK == 0) ? newTCharge : limitRateOfChange(newTCharge, sd.tCharge, engineConfiguration->tChargeAirIncrLimit, engineConfiguration->tChargeAirDecrLimit, secsPassed);
 		sd.tChargeK = convertCelsiusToKelvin(sd.tCharge);
-		timeSinceLastTChargeK = curTime;
+		timeSinceLastTChargeK.reset(nowNt);
 	}
 }
-#endif
-
-#if EFI_SIMULATOR
-#define VCS_VERSION "123"
 #endif
 
 void TriggerConfiguration::update() {

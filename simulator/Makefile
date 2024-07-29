@@ -7,21 +7,27 @@
 # As of Sep 2019, this is known to compile on Linux
 # in my case I had to
 # sudo apt-get install gcc-multilib g++-multilib
-# 
+#
 # todo: automatically execute that command same as we automatically fetch submodules?
-# 
-
+#
 
 
 CHIBIOS = ../firmware/ChibiOS
-CHIBIOS_CONTRIB= ../firmware/ChibiOS-Contrib
+CHIBIOS_CONTRIB = ../firmware/ChibiOS-Contrib
 RULESPATH = $(CHIBIOS)/os/common/startup/SIMIA32/compilers/GCC
-RULESFILE = $(RULESPATH)/rules.mk
+
+US_TO_NT_MULTIPLIER = 100
 
 PROJECT_CPU=simulator
 
+ifneq ($(BOARD_DIR),)
+ifneq ("$(wildcard ../firmware/$(BOARD_DIR)/default_tune.cpp)","")
+  BOARDCPPSRC += ../firmware/$(BOARD_DIR)/default_tune.cpp
+endif
+endif
+
 include ../firmware/rusefi.mk
-RULESFILE = ../firmware/rusefi_rules.mk
+include ../firmware/rusefi_rules.mk
 
 # Configure precompiled header
 PCH_DIR = $(PROJECT_DIR)/pch
@@ -45,6 +51,7 @@ endif
 # Compiler options here.
 ifeq ($(USE_OPT),)
   USE_OPT = -Wall -Wno-error=implicit-fallthrough -Wno-error=write-strings -Wno-error=strict-aliasing -Werror=nonnull
+  USE_OPT += -D US_TO_NT_MULTIPLIER=$(US_TO_NT_MULTIPLIER)
 
   ifeq ($(OS),Windows_NT)
     USE_OPT += -DEFI_SIM_IS_WINDOWS=1
@@ -54,7 +61,12 @@ ifeq ($(USE_OPT),)
 endif
 
 # Pretend we are all different hardware so that all canned engine configs are included
+# [CannedTunes]
 USE_OPT += -DHW_HELLEN_HYUNDAI=1
+USE_OPT += -DHW_HELLEN_NISSAN=1
+USE_OPT += -DHW_HELLEN_NB1=1
+USE_OPT += -DHW_HELLEN_NB2=1
+USE_OPT += -DHW_HELLEN=1
 USE_OPT += -DHW_PROTEUS=1
 USE_OPT += -DHW_MICRO_RUSEFI=1
 
@@ -85,7 +97,7 @@ endif
 
 # Linker extra options here.
 ifeq ($(USE_LDOPT),)
-  USE_LDOPT = 
+  USE_LDOPT =
 endif
 
 # Enable this if you want link time optimizations (LTO)
@@ -169,6 +181,7 @@ CSRC =  $(ALLCSRC) \
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
 CPPSRC = $(ALLCPPSRC) \
+  $(BOARDCPPSRC) \
   $(CHIBIOS)/os/various/cpp_wrappers/ch.cpp \
   $(HW_LAYER_DRIVERS_CPP) \
   $(HW_LAYER_DRIVERS_CORE_CPP) \
@@ -177,6 +190,7 @@ CPPSRC = $(ALLCPPSRC) \
   simulator/rusEfiFunctionalTest.cpp \
   simulator/can/hal_can_lld.cpp \
   simulator/framework.cpp \
+  simulator/system/signal_executor_sleep.cpp \
   simulator/boards.cpp \
   $(TEST_SRC_CPP) \
   $(RUSEFI_LIB_CPP) \
@@ -186,7 +200,12 @@ CPPSRC = $(ALLCPPSRC) \
 # List ASM source files here
 ASMSRC = $(PORTASM)
 
-INCDIR = . \
+ifneq ($(BOARD_DIR),)
+  # used by custom board custom live data
+  INCDIR += $(BOARD_DIR)/firmware
+endif
+
+INCDIR += . \
   $(PCH_DIR) \
   $(ALLINC) \
   $(CHIBIOS)/os/various/cpp_wrappers \
@@ -195,6 +214,7 @@ INCDIR = . \
   $(PROJECT_DIR)/development/hw_layer \
   $(CHIBIOS)/os/hal/lib/streams \
   $(RUSEFI_LIB_INC) \
+  simulator/system \
   simulator/can \
   simulator
 
@@ -214,13 +234,13 @@ $(info OS is [${OS}])
 
 ifeq ($(OS),Windows_NT)
   # ChibiOS seem to require 32 bit compiler at least on Windows
-  # base 32-bit Cygwin is needed with mingw64 32-bit version 
+  # base 32-bit Cygwin is needed with mingw64 32-bit version
   # Cygwin64 would not debug if used with mingw64 32-bit version
   # 32 bit GDB available at http://www.equation.com/servlet/equation.cmd?fa=gdb
 
   TRGT = i686-w64-mingw32-
 else
-  TRGT = 
+  TRGT =
 endif
 
 CC   = $(TRGT)gcc
@@ -254,7 +274,7 @@ CPPWARN = -Wall -Wextra -Wundef
 
 # List all user C define here, like -D_DEBUG=1
 UDEFS = -DSIMULATOR
-DDEFS += -DFIRMWARE_ID=\"simulator\" -DSHORT_BOARD_NAME=f407-discovery
+DDEFS += -DFIRMWARE_ID=\"simulator\" -DSHORT_BOARD_NAME=$(SHORT_BOARD_NAME)
 
 
 # Define ASM defines here
@@ -283,5 +303,28 @@ endif
 
 include $(RULESPATH)/rules.mk
 
+ifneq (yes,$(SUBMAKE))
+ifeq ($(SHORT_BOARD_NAME),)
+  SHORT_BOARD_NAME = f407-discovery
+endif
+include $(PROJECT_DIR)/rusefi_config.mk
+endif
+
 # Enable precompiled header
 include $(PROJECT_DIR)/rusefi_pch.mk
+
+$(OBJS): .os-sentinel
+
+.os-sentinel: .FORCE
+	if [ "$$(cat $@ 2>/dev/null)" != $(OS) ]; then \
+	echo $(OS) >$@; fi
+
+.FORCE:
+
+.PHONY: CLEAN_RULE_HOOK CLEAN_PCH_HOOK
+
+CLEAN_RULE_HOOK: CLEAN_PCH_HOOK
+	@echo Cleaning Simulator
+	rm -rf build
+	rm -rf .dep
+	@echo Done Cleaning Simulator

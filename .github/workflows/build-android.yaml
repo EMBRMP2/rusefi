@@ -39,11 +39,6 @@ jobs:
         working-directory: .
         run: gcc -v
 
-      - name: Build Native Unit Tests as shared library
-        working-directory: ./unit_tests/
-        # we have a unit test of JNI thus we need to build shared library
-        run: make -j4 SANITIZE=no build/lib_rusefi_test
-
       - name: Build Android
         env:
           RUSEFI_ANDROID_KEYPASS: ${{ secrets.RUSEFI_ANDROID_KEYPASS }}
@@ -57,14 +52,14 @@ jobs:
 
       - name: Upload APK - release
         if: ${{ github.event_name == 'push' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rusEFI-release
           path: ./android/app/build/outputs/apk/release/rusEFI-release.apk
 
       - name: Upload APK - unsigned
         if: ${{ github.event_name != 'push' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rusEFI-release-unsigned
           path: ./android/app/build/outputs/bundle/debug/rusEFI-debug.aab

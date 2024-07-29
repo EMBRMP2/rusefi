@@ -113,11 +113,17 @@ float getMcuTemperature() {
 }
 
 // See https://github.com/rusefi/rusefi/issues/976 for discussion on these values
+#ifndef ADC_SAMPLING_SLOW
 #define ADC_SAMPLING_SLOW ADC_SAMPLE_56
-#define ADC_SAMPLING_FAST ADC_SAMPLE_28
+#endif
+// see also ADC_SAMPLING_FAST in adc_inputs.cpp
 
 // Slow ADC has 16 channels we can sample, or 32 if ADC mux mode is enabled.
 constexpr size_t adcChannelCount = 16;
+
+static void slowAdcErrorCB(ADCDriver *, adcerror_t err) {
+	engine->outputChannels.slowAdcErrorsCount++;
+}
 
 // Conversion group for slow channels
 // This simply samples every channel in sequence
@@ -125,7 +131,7 @@ static constexpr ADCConversionGroup convGroupSlow = {
 	.circular			= FALSE,
 	.num_channels		= adcChannelCount,
 	.end_cb				= nullptr,
-	.error_cb			= nullptr,
+	.error_cb			= slowAdcErrorCB,
 	/* HW dependent part.*/
 	.cr1				= 0,
 	.cr2				= ADC_CR2_SWSTART,
@@ -199,26 +205,24 @@ bool readSlowAnalogInputs(adcsample_t* convertedSamples) {
 
 #if EFI_USE_FAST_ADC
 
-#include "AdcConfiguration.h"
+#include "AdcDevice.h"
 
 extern AdcDevice fastAdc;
 
-static constexpr FastAdcToken invalidToken = (FastAdcToken)(-1);
-
-FastAdcToken enableFastAdcChannel(const char*, adc_channel_e channel) {
+AdcToken enableFastAdcChannel(const char*, adc_channel_e channel) {
 	if (!isAdcChannelValid(channel)) {
-		return invalidToken;
+		return invalidAdcToken;
 	}
 
-	return fastAdc.internalAdcIndexByHardwareIndex[static_cast<size_t>(channel)];
+	return fastAdc.getAdcChannelToken(channel);
 }
 
-adcsample_t getFastAdc(FastAdcToken token) {
-	if (token == invalidToken) {
+adcsample_t getFastAdc(AdcToken token) {
+	if (token == invalidAdcToken) {
 		return 0;
 	}
 
-	return fastAdc.samples[token];
+	return fastAdc.getAdcValueByToken(token);
 }
 
 #endif

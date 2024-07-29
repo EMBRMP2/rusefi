@@ -20,7 +20,6 @@ bit needBurn;
 
 bit sd_msd;SD: MSD
 bit isFan2On;Radiator Fan 2
-bit acrActive;Harley ACR Active
 bit toothLogReady;Tooth Logger Ready
 bit isTpsError;Error: TPS
 bit isCltError;Error: CLT
@@ -37,7 +36,12 @@ bit injectorFault;Injector Fault
 bit ignitionFault;Ignition Fault
 bit isMainRelayOn;
 bit isUsbConnected;isUsbConnected\nOriginal reason for this is to check if USB is connected from Lua
-bit dfcoActive
+bit dfcoActive;
+
+bit sd_active_wr;SD card writing
+bit sd_active_rd;SD card reading
+
+! 3 unused bits left here
 
 
 uint16_t RPMValue;@@GAUGE_NAME_RPM@@;"RPM",1, 0, 0, 8000, 0
@@ -75,7 +79,7 @@ int16_t rpmAcceleration;dRPM;"RPM acceleration",1, 0, 0, 5, 2
 
 
 	uint8_t autoscale injectorDutyCycle;@@GAUGE_NAME_FUEL_INJ_DUTY@@;"%",{1/2}, 0, 0, 0, 0
-	uint8_t autoscale veValue;@@GAUGE_NAME_FUEL_VE@@;"ratio",{1/2}, 0, 0, 0, 1
+	uint8_t tempLogging1
 	int16_t injectionOffset;@@GAUGE_NAME_FUEL_INJECTION_TIMING@@;"deg", 1, 0, 0, 0, 0
 
 !  Corrections
@@ -105,6 +109,7 @@ int16_t rpmAcceleration;dRPM;"RPM acceleration",1, 0, 0, 5, 2
 
 	int16_t autoscale TPS2Value;@@GAUGE_NAME_TPS2@@;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 2
 	uint16_t tuneCrc16;@@GAUGE_NAME_TUNE_CRC16@@;"crc16", 1, 0, 0, 0, 0
+	uint16_t autoscale veValue;@@GAUGE_NAME_FUEL_VE@@;"ratio",{1/10}, 0, 0, 0, 1
 
 ! integration magic: TS requires exact 'seconds' name
 	uint32_t seconds;@@GAUGE_NAME_UPTIME@@;"sec", 1, 0, 0, 0, 0
@@ -130,7 +135,8 @@ int16_t rpmAcceleration;dRPM;"RPM acceleration",1, 0, 0, 5, 2
 
 	int16_t autoscale wastegatePositionSensor;@@GAUGE_NAME_WG_POSITION@@;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 2
 	int16_t autoscale highFuelPressure;@@GAUGE_NAME_FUEL_PRESSURE_HIGH@@;"bar",{1/@@PACK_MULT_HIGH_PRESSURE@@}, 0, 0, 0, 0
-
+	uint8_t tempLogging3
+	uint8_t tempLogging4
 
 	! These two fields indicate to TS that we'd like to set a particular field to a particular value
 	! We use a maintainConstantValue in TS for each field we'd like to set, like this:
@@ -157,7 +163,7 @@ int16_t rpmAcceleration;dRPM;"RPM acceleration",1, 0, 0, 5, 2
 	uint16_t warningCounter;@@GAUGE_NAME_WARNING_COUNTER@@;"count",1, 0, 0, 0, 0
 	uint16_t lastErrorCode;@@GAUGE_NAME_WARNING_LAST@@;"error",1, 0, 0, 0, 0
 
-	uint16_t[8 iterate] recentErrorCode;;"error", 1, 0, 0, 0, 0
+	uint16_t[8 iterate] recentErrorCode;Warning code;"error", 1, 0, 0, 0, 0
 
 ! todo: re-implement enableLogDebugChannels
 	float debugFloatField1;;"val", 1, 0, 0, 0, 3
@@ -174,18 +180,26 @@ int16_t rpmAcceleration;dRPM;"RPM acceleration",1, 0, 0, 5, 2
 	int16_t debugIntField4;;"val", 1, 0, 0, 0, 0
 	int16_t debugIntField5;;"val", 1, 0, 0, 0, 0
 
-	uint16_t[EGT_CHANNEL_COUNT iterate] egt;EGT;"deg C", 1, 0, 0, 0, 0
+	int16_t[EGT_CHANNEL_COUNT iterate] autoscale egt;EGT;"deg C",{1/@@PACK_MULT_EGTEMPERATURE@@}, 0, 0, 0, 2
 
 	int16_t autoscale rawTps1Primary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
-	int16_t autoscale rawPpsPrimary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
 	int16_t autoscale rawClt;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
 	int16_t autoscale rawIat;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
 	int16_t autoscale rawOilPressure;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+	int16_t autoscale rawAcPressure;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
 
 	uint8_t fuelClosedLoopBinIdx;;"", 1, 0, 0, 0, 0
-	int8_t tcuCurrentGear;@@GAUGE_NAME_CURRENT_GEAR@@;"gear", 1, 0, -1, 10, 0
 
-	int16_t autoscale rawPpsSecondary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+!	int16_t autoscale rawPpsPrimary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+!	int16_t autoscale rawPpsSecondary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+!	int16_t autoscale rawRawPpsPrimary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+!	int16_t autoscale rawRawPpsSecondary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+! special extra precision treatment see https://github.com/rusefi/rusefi/issues/6376
+	float rawPpsPrimary;;"V",1, 0, 0, 5, 3
+	float rawPpsSecondary;;"V",1, 0, 0, 5, 3
+	float rawRawPpsPrimary;;"V",1, 0, 0, 5, 3
+	float rawRawPpsSecondary;;"V",1, 0, 0, 5, 3
+
 
 	int16_t autoscale idlePositionSensor;@@GAUGE_NAME_IDLE_POSITION@@;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 2
 
@@ -199,7 +213,7 @@ int16_t rpmAcceleration;dRPM;"RPM acceleration",1, 0, 0, 5, 2
 	int16_t autoscale vvtPositionB2I;@@GAUGE_NAME_VVT_B2I@@;"deg",{1/@@PACK_MULT_ANGLE@@}, 0, 0, 0, 1
 	int16_t autoscale vvtPositionB2E;@@GAUGE_NAME_VVT_B2E@@;"deg",{1/@@PACK_MULT_ANGLE@@}, 0, 0, 0, 1
 
-	int16_t[2 iterate] autoscale fuelPidCorrection;Fuel: Trim bank;"%",{1/@@PACK_MULT_PERCENT@@}, 0, -20, 20, 2
+	int16_t[STFT_BANK_COUNT iterate] autoscale fuelPidCorrection;Fuel: Trim bank;"%",{1/@@PACK_MULT_PERCENT@@}, 0, -20, 20, 2
 
 	int16_t autoscale rawTps1Secondary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
 	int16_t autoscale rawTps2Primary;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
@@ -243,16 +257,11 @@ int16_t rpmAcceleration;dRPM;"RPM acceleration",1, 0, 0, 5, 2
 	uint32_t luaInvocationCounter;Lua: Tick counter;"count",1, 0, 0, 0, 0
 	uint32_t luaLastCycleDuration;Lua: Last tick duration;"nt",1, 0, 0, 0, 0
 
-	uint8_t tcu_currentRange;"TCU: Current Range";"", 1, 0, 0, 0, 0
-
-	uint16_t autoscale tcRatio;@@GAUGE_NAME_TC_RATIO@@;"value",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 0
-	float lastShiftTime
-
 	uint32_t vssEdgeCounter
 	uint32_t issEdgeCounter
 
-	int16_t autoscale auxLinear1;@@GAUGE_NAME_AUX_LINEAR_1@@;"", 0.01, 0, 0, 0, 2
-	int16_t autoscale auxLinear2;@@GAUGE_NAME_AUX_LINEAR_2@@;"", 0.01, 0, 0, 0, 2
+	float auxLinear1;@@GAUGE_NAME_AUX_LINEAR_1@@;"", 1, 0, 0, 0, 2
+	float auxLinear2;@@GAUGE_NAME_AUX_LINEAR_2@@;"", 1, 0, 0, 0, 2
 
 
 	uint16_t autoscale fallbackMap;;"kPa", 0.1, 0, 0, 1000, 1
@@ -354,6 +363,7 @@ float mapFast
 	uint16_t autoscale rawMaf2;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
 	uint16_t autoscale mafMeasured2;@@GAUGE_NAME_AIR_FLOW_MEASURED_2@@;"kg/h",{1/@@PACK_MULT_MASS_FLOW@@}, 0, 0, 0, 1
 
+	uint16_t schedulingUsedCount;;"",1,0,0,0,0
 	uint16_t autoscale vehicleSpeedKph;@@GAUGE_NAME_VVS@@;"kph",{1/@@PACK_MULT_VSS@@}, 0, 0, 0, 2
 
 	uint16_t autoscale Gego;;"%",0.01,0,50,150,2
@@ -375,5 +385,38 @@ float mapFast
 	uint16_t autoscale afrGasolineScale;@@GAUGE_NAME_AFR_GAS_SCALE@@;"AFR",{1/@@PACK_MULT_AFR@@}, 0, 0, 0, 2
 	uint16_t autoscale afr2GasolineScale;@@GAUGE_NAME_AFR2_GAS_SCALE@@;"AFR",{1/@@PACK_MULT_AFR@@}, 0, 0, 0, 2
 
-	uint8_t[120 iterate] unusedAtTheEnd;;"",1, 0, 0, 0, 0
+	float wheelSlipRatio
+
+	uint8_t[MAX_CYLINDER_COUNT iterate] ignitorDiagnostic
+	uint8_t[MAX_CYLINDER_COUNT iterate] injectorDiagnostic
+
+	uint16_t autoscale actualLastInjectionStage2;@@GAUGE_NAME_FUEL_LAST_INJECTION_STAGE_2@@;"ms",{1/@@PACK_MULT_MS@@}, 0, 0, 0, 3
+
+	uint8_t autoscale injectorDutyCycleStage2;@@GAUGE_NAME_FUEL_INJ_DUTY_STAGE_2@@;"%",{1/2}, 0, 0, 0, 0
+	uint8_t unusedByteHere
+
+	uint8_t fastAdcErrorsCount
+	uint8_t deviceUid
+	uint16_t mc33810spiErrorCounter
+
+	uint8_t sadDwellRatioCounter
+	uint8_t injectionPrimingCounter
+	uint8_t tempLogging2
+
+	float acPressure;@@GAUGE_NAME_AC_PRESSURE@@;"kPa", 1, 0, 0, 0, 0
+
+ 	int16_t autoscale rawAuxAnalog1;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+ 	int16_t autoscale rawAuxAnalog2;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+ 	int16_t autoscale rawAuxAnalog3;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+ 	int16_t autoscale rawAuxAnalog4;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+
+  uint8_t fastAdcErrorCallbackCount
+  uint8_t slowAdcErrorsCount
+
+	int16_t autoscale rawAuxTemp1;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+	int16_t autoscale rawAuxTemp2;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+
+	int16_t autoscale rawAmbientTemp;;"V",{1/@@PACK_MULT_VOLTAGE@@}, 0, 0, 5, 3
+
+	uint8_t[60 iterate] unusedAtTheEnd;;"",1, 0, 0, 0, 0
 end_struct

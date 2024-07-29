@@ -2,7 +2,7 @@
  * @file	can_msg_tx.cpp
  *
  * CAN message transmission
- * 
+ *
  * @date Mar 13, 2020
  * @author Matthew Kennedy, (c) 2012-2020
  */
@@ -81,9 +81,9 @@ CanTxMessage::~CanTxMessage() {
 		        getCanCategory(category),
 				busIndex,
 #ifndef STM32H7XX
-				(m_frame.IDE == CAN_IDE_EXT) ? CAN_EID(m_frame) : CAN_SID(m_frame),
+				(unsigned int)((m_frame.IDE == CAN_IDE_EXT) ? CAN_EID(m_frame) : CAN_SID(m_frame)),
 #else
-						  m_frame.common.XTD ? CAN_EID(m_frame) : CAN_SID(m_frame),
+				(unsigned int)(m_frame.common.XTD ? CAN_EID(m_frame) : CAN_SID(m_frame)),
 #endif
 				m_frame.DLC,
 				m_frame.data8[0], m_frame.data8[1],
@@ -113,9 +113,16 @@ void CanTxMessage::setBus(size_t bus) {
 	busIndex = bus;
 }
 
+// LSB Little-endian System, "Intel"
 void CanTxMessage::setShortValue(uint16_t value, size_t offset) {
 	m_frame.data8[offset] = value & 0xFF;
 	m_frame.data8[offset + 1] = value >> 8;
+}
+
+// MOTOROLA order, MSB (Most Significant Byte/Big Endian) comes first.
+void CanTxMessage::setShortValueMsb(uint16_t value, size_t offset) {
+	m_frame.data8[offset] = value >> 8;
+	m_frame.data8[offset + 1] = value & 0xFF;
 }
 
 void CanTxMessage::setBit(size_t byteIdx, size_t bitIdx) {

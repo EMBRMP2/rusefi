@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "hellen_meta.h"
+#include "adc_subscription.h"
 
 void hellenWbo() {
 	engineConfiguration->enableAemXSeries = true;
@@ -9,6 +10,16 @@ void hellenWbo() {
 void setHellenCan() {
 	engineConfiguration->canTxPin = H176_CAN_TX;
 	engineConfiguration->canRxPin = H176_CAN_RX;
+}
+
+static void init5vpDiag() {
+#ifdef DIAG_5VP_PIN
+static bool is5vpInit = false;
+  if (!is5vpInit) {
+    efiSetPadMode("5VP_STATE", DIAG_5VP_PIN, PAL_MODE_INPUT);
+    is5vpInit = true;
+  }
+#endif // DIAG_5VP_PIN
 }
 
 void setHellenVbatt() {
@@ -22,6 +33,8 @@ void setHellenVbatt() {
 	engineConfiguration->vbattAdcChannel = H144_IN_VBATT;
 
 	engineConfiguration->adcVcc = 3.29f;
+
+  init5vpDiag(); // piggy back on popular 'setHellenVbatt' method
 }
 
 void setHellen64Can() {
@@ -31,18 +44,51 @@ void setHellen64Can() {
 
 static OutputPin megaEn;
 
-void setHellenEnPin(Gpio pin) {
-    static bool initialized = false;
-    if (!initialized) {
-        initialized = true;
+// newer Hellen boards with megamodule have power management for SD cards etc, older Hellen board do not have that
+PUBLIC_API_WEAK bool isBoardWithPowerManagement() {
+  return false;
+}
+
+bool getHellenBoardEnabled() {
+  return !isBoardWithPowerManagement() || megaEn.getLogicValue();
+}
+
+bool boardEnableSendWidebandInfo() {
+  // when board is powered down we should be more CANbus silent
+    return getHellenBoardEnabled();
+}
+
+static bool hellenEnPinInitialized = false;
+
+/*PUBLIC_API_WEAK*/ bool fansDisabledByBoardStatus() {
+  return !getHellenBoardEnabled();
+}
+
+void hellenEnableEn(const char *msg) {
+  efiPrintf("Turning board ON [%s]", msg);
+	    megaEn.setValue(1, /*isForce*/ true);
+  AdcSubscription::ResetFilters();
+}
+
+void hellenDisableEn(const char *msg) {
+  efiPrintf("Turning board off [%s]", msg);
+	    megaEn.setValue(0, /*isForce*/ true);
+  AdcSubscription::ResetFilters();
+}
+
+void setHellenEnPin(Gpio pin, bool enableBoardOnStartUp) {
+    if (!hellenEnPinInitialized) {
+        hellenEnPinInitialized = true;
 	    megaEn.initPin("EN", pin);
-	    megaEn.setValue(1);
+	    if (enableBoardOnStartUp) {
+	      hellenEnableEn("start-up");
+	    }
 	}
 }
 
-void setHellenMegaEnPin() {
-    // H144_GP8 matches MM100_GP8 is used as PWR_EN on early mm100
-    setHellenEnPin(H144_GP8); // OUT_PWR_EN
+void setHellenMegaEnPin(bool enableBoardOnStartUp) {
+    // H144_GP8 matches MM100_GP8 which is used as PWR_EN on early mm100
+    setHellenEnPin(H144_GP8, enableBoardOnStartUp); // OUT_PWR_EN
 }
 
 void setHellen64MegaEnPin() {
@@ -51,22 +97,34 @@ void setHellen64MegaEnPin() {
 
 void hellenBoardStandBy() {
     // we need to turn 'megaEn' and pause for a bit to make sure that WBO is off and does not wake main firmware right away
-    megaEn.setValue(0);
+    hellenDisableEn();
     // todo: 200ms is totally random what's the science for this sleep duration?
     chThdSleepMilliseconds(200);
 }
 
 /**
- * dirty hack
+ * We need to make sure that accelerometer device which physically exists does not conflict with SD card
+ * in case of shared SPI.
+ * We reply on specific order of execution here:
+ * 1) accelerometer pre-initialization into safe CS pin state
+ * 2) SD card initialization
+ * 3) accelerometer main initialization if accelerometer feature is desired
  */
-void configureHellenMegaAccCS2Pin() {
-    static bool initialized = false;
-    static OutputPin cs2pin;
-    if (!initialized) {
-        initialized = true;
-	    cs2pin.initPin("mm-CS2", Gpio::H_SPI1_CS2);
-	    cs2pin.setValue(1);
+extern OutputPin accelerometerChipSelect;
+
+void hellenMegaSdWithAccelerometer() {
+		setHellenSdCardSpi1();
+		// weird order of operations? i guess it does not really matter
+		hellenMegaAccelerometerPreInitCS2Pin();
+}
+
+void hellenMegaAccelerometerPreInitCS2Pin() {
+#if EFI_ONBOARD_MEMS
+    if (!accelerometerChipSelect.isInitialized()) {
+	    accelerometerChipSelect.initPin("mm-CS2", Gpio::H_SPI1_CS2);
+	    accelerometerChipSelect.setValue(1);
 	}
+#endif // EFI_ONBOARD_MEMS
 }
 
 void configureHellenCanTerminator() {
@@ -80,5 +138,25 @@ void configureHellenCanTerminator() {
 }
 
 void detectHellenBoardType() {
-	engine->engineState.hellenBoardId = detectHellenBoardId();
+#ifndef EFI_BOOTLOADER
+	engine->engineState.hellenBoardId = hackHellenBoardId(detectHellenBoardId());
+#endif /* EFI_BOOTLOADER */
+}
+
+void setupTLE9201(Gpio controlPin, Gpio direction, Gpio disable, int dcIndex) {
+	// TLE9201 driver
+	// This chip has three control pins:
+	// DIR - sets direction of the motor
+	// PWM - pwm control (enable high, coast low)
+	// DIS - disables motor (enable low)
+
+	// PWM pin
+	engineConfiguration->etbIo[0].controlPin = controlPin;
+	// DIR pin
+	engineConfiguration->etbIo[0].directionPin1 = direction;
+	// Disable pin
+	engineConfiguration->etbIo[0].disablePin = disable;
+
+	// we only have pwm/dir, no dira/dirb
+	engineConfiguration->etb_use_two_wires = false;
 }

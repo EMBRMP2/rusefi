@@ -12,57 +12,18 @@
 
 void configureHondaCbr600(TriggerWaveform *s) {
 	s->initialize(FOUR_STROKE_CAM_SENSOR, SyncEdge::RiseOnly);
-	s->useOnlyPrimaryForSync = true;
-	s->setTriggerSynchronizationGap(6);
 
-    s->tdcPosition = 470; // todo: hard-code TDC position once we know it
-    s->setTriggerSynchronizationGap2(/*from*/5, /*to*/9);
+  s->tdcPosition = 0; // todo: hard-code TDC position once we know it
+  s->setTriggerSynchronizationGap2(/*from*/3.9, /*to*/8);
 
-	int totalTeethCount = 24;
-	int skippedCount = 0;
+	s->addEvent720(350.0f, TriggerValue::FALL);
+	s->addEvent720(360.0f, TriggerValue::RISE);
 
-	addSkippedToothTriggerEvents(TriggerWheel::T_SECONDARY, s, totalTeethCount, skippedCount, 0.5, 0, 720,
-	0, 349);
+	s->addEvent720(650.0f, TriggerValue::FALL);
+	s->addEvent720(660.0f, TriggerValue::RISE);
 
-	s->addEvent720(350.0f, TriggerValue::FALL, TriggerWheel::T_PRIMARY);
-	s->addEvent720(360.0f, TriggerValue::RISE, TriggerWheel::T_PRIMARY);
-
-	s->addEvent720(360 + 0.2, TriggerValue::FALL, TriggerWheel::T_SECONDARY);
-
-	addSkippedToothTriggerEvents(TriggerWheel::T_SECONDARY, s, totalTeethCount, skippedCount, 0.5, 0, 720,
-	361, 649);
-
-	s->addEvent720(650.0f, TriggerValue::FALL, TriggerWheel::T_PRIMARY);
-	s->addEvent720(660.0f, TriggerValue::RISE, TriggerWheel::T_PRIMARY);
-
-	s->addEvent720(660 + 0.2, TriggerValue::FALL, TriggerWheel::T_SECONDARY);
-
-	addSkippedToothTriggerEvents(TriggerWheel::T_SECONDARY, s, totalTeethCount, skippedCount, 0.5, 0, 720,
-	661, 709);
-
-	s->addEvent720(710.0f, TriggerValue::FALL, TriggerWheel::T_PRIMARY);
-
-	s->addEvent720(720.0f - 1, TriggerValue::FALL, TriggerWheel::T_SECONDARY);
-
-	s->addEvent720(720.0f, TriggerValue::RISE, TriggerWheel::T_PRIMARY);
-}
-
-// todo: what is this 1+16 trigger about? should it have been defined as skipped + cam or else?
-void configureOnePlus16(TriggerWaveform *s) {
-	s->initialize(FOUR_STROKE_CAM_SENSOR, SyncEdge::RiseOnly);
-
-	int count = 16;
-	float tooth = s->getCycleDuration() / 2 / count;
-	float width = tooth / 2; // for VR we only handle rises so width does not matter much
-
-	s->addEventAngle(1, TriggerValue::RISE, TriggerWheel::T_PRIMARY);
-	s->addEventAngle(5, TriggerValue::FALL, TriggerWheel::T_PRIMARY);
-
-	for (int i = 1; i <= count; i++) {
-		s->addToothRiseFall(tooth * i, width, TriggerWheel::T_SECONDARY);
-	}
-
-	s->isSynchronizationNeeded = false;
+	s->addEvent720(710.0f, TriggerValue::FALL);
+	s->addEvent720(720.0f, TriggerValue::RISE);
 }
 
 // TT_HONDA_K_CRANK_12_1

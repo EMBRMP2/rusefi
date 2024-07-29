@@ -87,8 +87,8 @@ static void runChprintfTest() {
 		LoggingWithStorage testLogging("test");
 		testLogging.appendPrintf( "a%.2fb%fc", -1.2, -3.4);
 		// different compilers produce different 8th digit
-		testLogging.buffer[strlen(testLogging.buffer) - 1] = 'X';
-		assertString(testLogging.buffer, "a-1.20b-3.400000095X");
+		testLogging.buffer[strlen(testLogging.buffer) - 2] = 'X';
+		assertString(testLogging.buffer, "a-1.20b-3.40000009Xc");
 	}
 
 }
@@ -165,7 +165,7 @@ static void writeEngineTypeDefaultConfig(engine_type_e type) {
 	writeSimulatorTune(fileName);
 }
 
-void rusEfiFunctionalTest(void) {
+void rusEfiFunctionalTest() {
 	printToConsole("Running rusEFI simulator version:");
 	static char versionBuffer[20];
 	itoa10(versionBuffer, (int)getRusEfiVersion());
@@ -182,13 +182,24 @@ void rusEfiFunctionalTest(void) {
 
 	initFlash();
 
+  // [CannedTunes] at the moment we manually sync this list with WriteSimulatorConfiguration.java
 	for (auto const type : {
+			engine_type_e::MERCEDES_M111,
+			engine_type_e::BMW_M52,
+			engine_type_e::MAZDA_MIATA_NA6,
+			engine_type_e::MAZDA_MIATA_NA94,
+			engine_type_e::MAZDA_MIATA_NA96,
+			engine_type_e::MAZDA_MIATA_NB1,
+			engine_type_e::MAZDA_MIATA_NB2,
+			engine_type_e::HONDA_OBD1,
+			engine_type_e::HONDA_K,
+			engine_type_e::HELLEN_121_NISSAN_6_CYL,
 			engine_type_e::HELLEN_154_HYUNDAI_COUPE_BK1,
 			engine_type_e::HELLEN_154_HYUNDAI_COUPE_BK2,
-			engine_type_e::MRE_M111,
+			engine_type_e::POLARIS_RZR,
 			engine_type_e::HYUNDAI_PB,
-			engine_type_e::HONDA_K,
-
+			engine_type_e::MAVERICK_X3,
+			engine_type_e::HARLEY,
 	} ) {
 		writeEngineTypeDefaultConfig(type);
 	}
@@ -232,7 +243,7 @@ void rusEfiFunctionalTest(void) {
 	main_loop_started = true;
 }
 
-void printPendingMessages(void) {
+void printPendingMessages() {
 	updateDevConsoleState();
 #if EFI_ENGINE_SNIFFER
 	waveChart.publishIfFull();
@@ -241,11 +252,11 @@ void printPendingMessages(void) {
 
 int isSerialOverTcpReady;
 
-bool isCommandLineConsoleReady(void) {
+bool isCommandLineConsoleReady() {
 	return isSerialOverTcpReady;
 }
 
-void applyNewConfiguration(void) {
+void applyNewConfiguration() {
 }
 
 void onFatalError(const char *msg, const char * file, int line) {
@@ -335,7 +346,7 @@ void handleWrapCan(TsChannelBase* tsChannel, char *data, int incomingPacketSize)
     	CANTxFrame f = txCanBuffer.get();
     	// filter out CAN packets
 		for (int eid : responseEids) {
-    		if (f.EID == eid) { 
+    		if (f.EID == eid) {
 		        void *frame = (void *)&f;
 		        memcpy((void*)(wrapOutBuffer + outputSize), frame, sizeof(CANTxFrame));
 		        outputSize += sizeof(CANTxFrame);

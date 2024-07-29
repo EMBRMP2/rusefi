@@ -1,13 +1,13 @@
 package com.rusefi.test;
 
 import com.rusefi.VariableRegistry;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
 
 import static com.rusefi.VariableRegistry.unquote;
-import static org.junit.Assert.assertEquals;
+import static com.rusefi.AssertCompatibility.assertEquals;
 
 public class output_pin_e_enumTest {
     @Test

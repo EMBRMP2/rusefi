@@ -3,13 +3,14 @@
 #include "defaults.h"
 #include "vr_pwm.h"
 #include "kline.h"
+#include <rusefi/manifest.h>
 #if HW_PROTEUS
 #include "proteus_meta.h"
 #endif // HW_PROTEUS
 
 #if EFI_ALTERNATOR_CONTROL
 static void setDefaultAlternatorParameters() {
-	engineConfiguration->targetVBatt = 14;
+	setTable(config->alternatorVoltageTargetTable, 14);
 
 	engineConfiguration->alternatorControl.offset = 0;
 	engineConfiguration->alternatorControl.pFactor = 30;
@@ -18,6 +19,7 @@ static void setDefaultAlternatorParameters() {
 #endif // EFI_ALTERNATOR_CONTROL
 
 void setGDIFueling() {
+  setGdiWallWetting();
 	// Use high pressure sensor
 	engineConfiguration->injectorPressureType = IPT_High;
 	// Automatic compensation of injector flow based on rail pressure
@@ -35,6 +37,7 @@ void setGDIFueling() {
 /* Cylinder to bank mapping */
 void setLeftRightBanksNeedBetterName() {
     for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
+      // zero-based index
 	    engineConfiguration->cylinderBankSelect[i] = i % 2;
     }
 }
@@ -46,7 +49,7 @@ static void setDefaultHPFP() {
 #endif
 
 // todo: would be nice for unit tests to be happy about these defaults
-#if EFI_PROD_CODE
+#if EFI_PROD_CODE || EFI_SIMULATOR
 	engineConfiguration->hpfpPumpVolume = 0.290;
 #endif
 	engineConfiguration->hpfpMinAngle = 10;
@@ -57,32 +60,65 @@ static void setDefaultHPFP() {
 	engineConfiguration->hpfpPeakPos = 10;
 }
 
+static void mc33810defaults() {
+  engineConfiguration->mc33810Nomi = 5.5;
+  engineConfiguration->mc33810Maxi = 14;
+}
+
 void setDefaultBaseEngine() {
 	// Base Engine Settings
 	engineConfiguration->displacement = 2;
 	setInline4();
 
+  for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
+    // one knock sensor by default. See also 'setLeftRightBanksNeedBetterName()'
+    // zero-based index
+    engineConfiguration->cylinderBankSelect[i] = 0;
+  }
+
 	engineConfiguration->compressionRatio = 9;
 	engineConfiguration->vssFilterReciprocal = VSS_FILTER_MIN;
 	engineConfiguration->boardUseCanTerminator = true;
+	engineConfiguration->acLowRpmLimit = 500;
 
-    setDefaultHPFP();
+#ifdef EFI_KLINE
+  engineConfiguration->kLinePeriodUs = 300 /* us*/;
+  engineConfiguration->kLineDoHondaSend = true;
+#endif
 
-    engineConfiguration->fan1ExtraIdle = 2;
-    engineConfiguration->fan2ExtraIdle = 2;
+  setDefaultHPFP();
 
-    engineConfiguration->acrRevolutions = 5;
+  // it's useful to know what starting point is given tune based on
+  engineConfiguration->calibrationBirthday = compilationYear() * 10000 + compilationMonth() * 100 + compilationDay();
+
+  engineConfiguration->enableExtendedCanBroadcast = true;
+
+  engineConfiguration->fan1ExtraIdle = 2;
+  engineConfiguration->fan2ExtraIdle = 2;
+
+  engineConfiguration->auxSpeed1Multiplier = 1;
+  engineConfiguration->magicNumberAvailableForDevTricks = 1;
+
+  engineConfiguration->acrRevolutions = 5;
 
     engineConfiguration->watchOutForLinearTime = true;
 
+  setLinearCurve(engineConfiguration->tractionControlSlipBins, /*from*/0.9, /*to*/1.2, 0.05);
+	setLinearCurve(engineConfiguration->tractionControlSpeedBins, /*from*/10, /*to*/120, 5);
+
 	engineConfiguration->turbochargerFilter = 0.01f;
+
+	mc33810defaults();
 
 	engineConfiguration->fuelAlgorithm = LM_SPEED_DENSITY;
 	// let's have valid default while we still have the field
-	engineConfiguration->debugMode = DBG_MAP;
+	engineConfiguration->debugMode = DBG_EXECUTOR;
 
 	engineConfiguration->boostCutPressure = 300;
 	engineConfiguration->boostCutPressureHyst = 20;
+  engineConfiguration->boostControlMinRpm = 2000;
+  engineConfiguration->boostControlMinTps = 30;
+  engineConfiguration->boostControlMinMap = 110;
 
 	engineConfiguration->primingDelay = 0.5;
 	engineConfiguration->vvtControlMinRpm = 500.0;
@@ -97,8 +133,13 @@ void setDefaultBaseEngine() {
 	engineConfiguration->cutSparkOnHardLimit = true;
 	engineConfiguration->etbRevLimitRange = 250;
 
+  engineConfiguration->tpsAccelFractionDivisor = 1;
+
+  engineConfiguration->rpmSoftLimitWindowSize = 200;
+  engineConfiguration->rpmSoftLimitTimingRetard = 4;
+
 	// CLT RPM limit table - just the X axis
-	copyArray(engineConfiguration->cltRevLimitRpmBins, { -20, 0, 40, 80 });
+	copyArray(config->cltRevLimitRpmBins, { -20, 0, 40, 80 });
 
 	engineConfiguration->ALSMinRPM = 400;
 	engineConfiguration->ALSMaxRPM = 3200;
@@ -109,13 +150,16 @@ void setDefaultBaseEngine() {
 	engineConfiguration->alsEtbPosition = 30;
 	engineConfiguration->ALSMaxTPS = 5;
 
+    engineConfiguration->knockRetardAggression = 20;
+    engineConfiguration->knockRetardReapplyRate = 3;
+
 	// Trigger
 	engineConfiguration->trigger.type = trigger_type_e::TT_TOOTHED_WHEEL_60_2;
 
 #if EFI_SIMULATOR
 	engineConfiguration->vvtMode[0] = VVT_SINGLE_TOOTH;
 	engineConfiguration->vvtOffsets[0] = 450;
-	engineConfiguration->vvtPins[0] = Gpio::I0; // a random unused pin needed to unblock startSimplePwmExt()
+	engineConfiguration->vvtPins[0] = Gpio::A0; // a random unused pin needed to unblock startSimplePwmExt()
 #endif // EFI_SIMULATOR
 
 #if EFI_SIMULATOR
@@ -206,6 +250,7 @@ void setDefaultBaseEngine() {
 #endif /* EFI_ALTERNATOR_CONTROL */
 
 	// Fuel pump
+	// todo: maybe change to 2s as default?
 	engineConfiguration->startUpFuelPumpDuration = 4;
 
 	engineConfiguration->kLineBaudRate = KLINE_BAUD_RATE;
@@ -215,8 +260,8 @@ void setDefaultBaseEngine() {
 	engineConfiguration->benchTestCount = 3;
 
 	// Fans
-	engineConfiguration->fanOnTemperature = 95;
-	engineConfiguration->fanOffTemperature = 91;
+	engineConfiguration->fanOnTemperature = 92;
+	engineConfiguration->fanOffTemperature = 88;
 	engineConfiguration->fan2OnTemperature = 95;
 	engineConfiguration->fan2OffTemperature = 91;
 
@@ -231,6 +276,11 @@ void setDefaultBaseEngine() {
 
 	engineConfiguration->tcuInputSpeedSensorTeeth = 1;
 	engineConfiguration->issFilterReciprocal = 2;
+
+	//knock
+#ifdef KNOCK_SPECTROGRAM
+	engineConfiguration->enableKnockSpectrogram = false;
+#endif
 
 	// Check engine light
 #if EFI_PROD_CODE

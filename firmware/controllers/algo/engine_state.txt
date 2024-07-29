@@ -9,6 +9,9 @@ struct_no_prefix engine_state_s
 		bit acRequestState
 		bit luaDisableEtb
 		bit luaIgnCut
+		bit luaFuelCut
+		bit clutchDownState
+		bit disableDecelerationFuelCutOff
 	end_struct
 
 	struct speed_density_s
@@ -38,8 +41,11 @@ struct_no_prefix engine_state_s
 	int8_t clutchDownState;@@INDICATOR_NAME_CLUTCH_DOWN@@
 	int8_t brakePedalState;@@INDICATOR_NAME_BRAKE_DOWN@@
 	int8_t startStopState
+	int8_t smartChipState
+	int8_t smartChipRestartCounter
+	int8_t smartChipAliveCounter
 	bit startStopPhysicalState
-	bit acrStateDup
+  bit acrActive;Harley ACR Active
 	bit acrEngineMovedRecently
 	! same field is used for narrow band heater enable and wide band enable via CAN
 	bit heaterControlEnabled
@@ -49,13 +55,14 @@ struct_no_prefix engine_state_s
 	bit luaDigitalState3
 	uint32_t startStopStateToggleCounter
 
-	float egtValue1
-	float egtValue2
+	float luaSoftSparkSkip
+	float luaHardSparkSkip
+	float tractionControlSparkSkip
 
 	int16_t desiredRpmLimit;User-defined RPM hard limit;"rpm", 1, 0, 0, 30000, 0
 
 	uint32_t fuelInjectionCounter;Fuel: Injection counter
-	uint32_t sparkCounter;Ign: Spark counter
+	uint32_t globalSparkCounter;Ign: Spark counter
 
 	! Values used for load axes for fuel/ign tables
 	! These may or may not be the same value, depending on mode
@@ -63,6 +70,9 @@ struct_no_prefix engine_state_s
 	float ignitionLoad;@@GAUGE_NAME_IGNITION_LOAD@@
 
 	uint16_t autoscale veTableYAxis;;"%",{1/100}, 0, 0, 0, 0
+	uint8_t overDwellCounter
+	uint8_t overDwellNotScheduledCounter
+	uint8_t sparkOutOfOrderCounter
 
 ! engine_state_s
 end_struct

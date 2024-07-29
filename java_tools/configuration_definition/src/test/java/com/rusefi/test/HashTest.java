@@ -1,9 +1,9 @@
 package com.rusefi.test;
 
 import com.rusefi.output.HashUtil;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static com.rusefi.AssertCompatibility.assertEquals;
 
 public class HashTest {
     @Test

@@ -31,22 +31,25 @@
 // todo: reset this between cranking attempts?! #2735
 int minCrankingRpm = 0;
 
+static Map3D<TRACTION_CONTROL_ETB_DROP_SIZE, TRACTION_CONTROL_ETB_DROP_SIZE, int8_t, uint16_t, uint8_t> tcTimingDropTable{"tct"};
+static Map3D<TRACTION_CONTROL_ETB_DROP_SIZE, TRACTION_CONTROL_ETB_DROP_SIZE, int8_t, uint16_t, uint8_t> tcSparkSkipTable{"tcs"};
+
 #if EFI_ENGINE_CONTROL && EFI_SHAFT_POSITION_INPUT
 
 /**
  * @return ignition timing angle advance before TDC
  */
-static angle_t getRunningAdvance(int rpm, float engineLoad) {
+angle_t getRunningAdvance(int rpm, float engineLoad) {
 	if (engineConfiguration->timingMode == TM_FIXED) {
 		return engineConfiguration->fixedTiming;
 	}
 
-	if (cisnan(engineLoad)) {
+	if (std::isnan(engineLoad)) {
 		warning(ObdCode::CUSTOM_NAN_ENGINE_LOAD, "NaN engine load");
 		return NAN;
 	}
 
-	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !cisnan(engineLoad), "invalid el", NAN);
+	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !std::isnan(engineLoad), "invalid el", NAN);
 
 	// compute base ignition angle from main table
 	float advanceAngle = interpolate3d(
@@ -54,6 +57,14 @@ static angle_t getRunningAdvance(int rpm, float engineLoad) {
 		config->ignitionLoadBins, engineLoad,
 		config->ignitionRpmBins, rpm
 	);
+
+  float vehicleSpeed = Sensor::getOrZero(SensorType::VehicleSpeed);
+  float wheelSlip = Sensor::getOrZero(SensorType::WheelSlipRatio);
+  engine->ignitionState.tractionAdvanceDrop = tcTimingDropTable.getValue(wheelSlip, vehicleSpeed);
+  engine->engineState.tractionControlSparkSkip = tcSparkSkipTable.getValue(wheelSlip, vehicleSpeed);
+  engine->engineState.updateSparkSkip();
+
+  advanceAngle += engine->ignitionState.tractionAdvanceDrop;
 
 #if EFI_ANTILAG_SYSTEM
 	if (engine->antilagController.isAntilagCondition) {
@@ -93,15 +104,22 @@ static angle_t getRunningAdvance(int rpm, float engineLoad) {
 #endif
 
 #if EFI_LAUNCH_CONTROL
-	if (engine->launchController.isLaunchCondition && engineConfiguration->enableLaunchRetard) {
-		if (engineConfiguration->launchSmoothRetard) {
-			float launchAngle = engineConfiguration->launchTimingRetard;
-			int launchRpm = engineConfiguration->launchRpm;
-			int launchRpmWithTimingRange = launchRpm + engineConfiguration->launchTimingRpmRange;
-			 // interpolate timing from rpm at launch triggered to full retard at launch launchRpm + launchTimingRpmRange
-			return interpolateClamped(launchRpm, advanceAngle, launchRpmWithTimingRange, launchAngle, rpm);
-		} else {
-			return engineConfiguration->launchTimingRetard;
+	if (engineConfiguration->launchControlEnabled && engineConfiguration->enableLaunchRetard) {
+		const float launchAngle = engineConfiguration->launchTimingRetard;
+		if (engine->launchController.isPreLaunchCondition) {
+			const int launchRpm = engineConfiguration->launchRpm;
+			const int smoothRetardStartRpm = (launchRpm - engineConfiguration->launchRpmWindow);
+			const int smoothRetardEndRpm = (launchRpm - engineConfiguration->launchCorrectionsEndRpm);
+			if (smoothRetardStartRpm <= rpm) {
+				if (engineConfiguration->launchSmoothRetard && (rpm <= smoothRetardEndRpm)) {
+					// https://github.com/rusefi/rusefi/issues/5611#issuecomment-2130431696
+					return interpolateClamped(smoothRetardStartRpm, advanceAngle, smoothRetardEndRpm, launchAngle, rpm);
+				} else {
+					return launchAngle;
+				}
+			}
+		} else if (engine->launchController.isLaunchCondition) {
+			return launchAngle;
 		}
 	}
 #endif /* EFI_LAUNCH_CONTROL */
@@ -109,7 +127,7 @@ static angle_t getRunningAdvance(int rpm, float engineLoad) {
 	return advanceAngle;
 }
 
-static angle_t getAdvanceCorrections(float engineLoad) {
+angle_t getAdvanceCorrections(float engineLoad) {
 	auto iat = Sensor::get(SensorType::Iat);
 
 	if (!iat) {
@@ -140,7 +158,7 @@ static angle_t getAdvanceCorrections(float engineLoad) {
 /**
  * @return ignition timing angle advance before TDC for Cranking
  */
-static angle_t getCrankingAdvance(int rpm, float engineLoad) {
+angle_t getCrankingAdvance(int rpm, float engineLoad) {
 	// get advance from the separate table for Cranking
 	if (engineConfiguration->useSeparateAdvanceForCranking) {
 		return interpolate2d(rpm, config->crankingAdvanceBins, config->crankingAdvance);
@@ -157,7 +175,7 @@ static angle_t getCrankingAdvance(int rpm, float engineLoad) {
 
 angle_t getAdvance(int rpm, float engineLoad) {
 #if EFI_ENGINE_CONTROL && EFI_SHAFT_POSITION_INPUT
-	if (cisnan(engineLoad)) {
+	if (std::isnan(engineLoad)) {
 		return 0; // any error should already be reported
 	}
 
@@ -167,11 +185,11 @@ angle_t getAdvance(int rpm, float engineLoad) {
 	if (isCranking) {
 		angle = getCrankingAdvance(rpm, engineLoad);
 		assertAngleRange(angle, "crAngle", ObdCode::CUSTOM_ERR_ANGLE_CR);
-		efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !cisnan(angle), "cr_AngleN", 0);
+		efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !std::isnan(angle), "cr_AngleN", 0);
 	} else {
 		angle = getRunningAdvance(rpm, engineLoad);
 
-		if (cisnan(angle)) {
+		if (std::isnan(angle)) {
 			warning(ObdCode::CUSTOM_ERR_6610, "NaN angle from table");
 			return 0;
 		}
@@ -184,25 +202,26 @@ angle_t getAdvance(int rpm, float engineLoad) {
 
 	if (allowCorrections) {
 		angle_t correction = getAdvanceCorrections(engineLoad);
-		if (!cisnan(correction)) { // correction could be NaN during settings update
+		if (!std::isnan(correction)) { // correction could be NaN during settings update
 			angle += correction;
 		}
 	}
 
-	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !cisnan(angle), "_AngleN5", 0);
-	wrapAngle(angle, "getAdvance", ObdCode::CUSTOM_ERR_ADCANCE_CALC_ANGLE);
+	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !std::isnan(angle), "_AngleN5", 0);
 	return angle;
 #else
 	return 0;
 #endif
 }
 
-angle_t getCombinedCylinderIgnitionTrim(size_t cylinderNumber, int rpm, float ignitionLoad) {
-    // we have two separate per-cylinder trims, that's a feature
-	// Plus or minus any adjustment if this is an odd-fire engine
-	auto adjustment = engineConfiguration->timing_offset_cylinder[cylinderNumber];
+angle_t getWrappedAdvance(const int rpm, const float engineLoad) {
+    angle_t angle = getAdvance(rpm, engineLoad) * engine->ignitionState.luaTimingMult + engine->ignitionState.luaTimingAdd;
+    wrapAngle(angle, "getWrappedAdvance", ObdCode::CUSTOM_ERR_ADCANCE_CALC_ANGLE);
+    return angle;
+}
 
-	return adjustment + interpolate3d(
+angle_t getCylinderIgnitionTrim(size_t cylinderNumber, int rpm, float ignitionLoad) {
+	return interpolate3d(
 		config->ignTrims[cylinderNumber].table,
 		config->ignTrimLoadBins, ignitionLoad,
 		config->ignTrimRpmBins, rpm
@@ -245,6 +264,11 @@ size_t getMultiSparkCount(int rpm) {
 	} else {
 		return 0;
 	}
+}
+
+void initIgnitionAdvanceControl() {
+	tcTimingDropTable.initTable(engineConfiguration->tractionControlTimingDrop, engineConfiguration->tractionControlSlipBins, engineConfiguration->tractionControlSpeedBins);
+	tcSparkSkipTable.initTable(engineConfiguration->tractionControlIgnitionSkip, engineConfiguration->tractionControlSlipBins, engineConfiguration->tractionControlSpeedBins);
 }
 
 #endif // EFI_ENGINE_CONTROL

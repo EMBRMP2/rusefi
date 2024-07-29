@@ -9,6 +9,8 @@ import java.io.IOException;
 
 /**
  * Configuration consumer which writes Signature header file
+ *
+ * See also gen_signature.sh
  */
 public class SignatureConsumer implements ConfigurationConsumer {
     private final String destHeader;
@@ -32,6 +34,6 @@ public class SignatureConsumer implements ConfigurationConsumer {
 
     @Override
     public void handleEndStruct(ReaderState readerState, ConfigStructure structure) throws IOException {
-        CHeaderConsumer.writeDefinesToFile(registry, destHeader, "by SignatureConsumer");
+      CHeaderConsumer.writeDefinesToFile(registry, ConfigDefinitionRootOutputFolder.getValue() + destHeader, "by SignatureConsumer");
     }
 }

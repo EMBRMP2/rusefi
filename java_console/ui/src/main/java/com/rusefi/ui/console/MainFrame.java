@@ -4,6 +4,7 @@ import com.devexperts.logging.Logging;
 import com.rusefi.*;
 import com.rusefi.binaryprotocol.BinaryProtocol;
 import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.core.EngineState;
 import com.rusefi.io.*;
 import com.rusefi.io.tcp.BinaryProtocolServer;
@@ -71,7 +72,7 @@ public class MainFrame {
             if (ConnectionStatusLogic.INSTANCE.getValue() == ConnectionStatusValue.CONNECTED) {
                 LocalDateTime dateTime = LocalDateTime.now(ZoneOffset.systemDefault());
                 String isoDateTime = dateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                consoleUI.uiContext.getLinkManager().execute(() -> consoleUI.uiContext.getCommandQueue().write(IoUtil.getSetCommand(Fields.CMD_DATE) +
+                consoleUI.uiContext.getLinkManager().execute(() -> consoleUI.uiContext.getCommandQueue().write(IoUtil.getSetCommand(Integration.CMD_DATE) +
                                 " " + isoDateTime, CommandQueue.DEFAULT_TIMEOUT,
                         InvocationConfirmationListener.VOID, false));
             }
@@ -119,10 +120,17 @@ public class MainFrame {
     }
 
     private void setTitle() {
-        String disconnected = ConnectionStatusLogic.INSTANCE.isConnected() ? "" : "DISCONNECTED ";
-        BinaryProtocol bp = consoleUI.uiContext.getLinkManager().getCurrentStreamState();
-        String signature = bp == null ? "not loaded" : bp.signature;
-        frame.getFrame().setTitle(disconnected + "Console " + Launcher.CONSOLE_VERSION + "; firmware=" + Launcher.firmwareVersion.get() + "@" + consoleUI.getPort() + " " + signature);
+        String consoleVersion = "Console " + Launcher.CONSOLE_VERSION;
+        String frameTitle;
+        if (ConnectionStatusLogic.INSTANCE.isConnected()) {
+            BinaryProtocol bp = consoleUI.uiContext.getLinkManager().getCurrentStreamState();
+            String signature = bp == null ? "not loaded" : bp.signature;
+            frameTitle = consoleVersion + "; firmware=" + Launcher.firmwareVersion.get() + "@" + consoleUI.getPort() + " " + signature;
+            frame.getFrame().setTitle(frameTitle);
+        } else {
+            frameTitle = "DISCONNECTED " + consoleVersion;
+        }
+        frame.getFrame().setTitle(frameTitle);
     }
 
     private void windowClosedHandler() {

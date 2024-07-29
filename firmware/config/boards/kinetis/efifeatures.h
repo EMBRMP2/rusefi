@@ -82,7 +82,6 @@
 
 #define EFI_SIGNAL_EXECUTOR_SLEEP FALSE
 #define EFI_SIGNAL_EXECUTOR_ONE_TIMER TRUE
-#define EFI_SIGNAL_EXECUTOR_HW_TIMER FALSE
 
 #define FUEL_MATH_EXTREME_LOGGING FALSE
 
@@ -127,8 +126,8 @@
 #define EFI_CJ125 FALSE
 #endif
 
-#if !defined(EFI_MEMS) || defined(__DOXYGEN__)
- #define EFI_MEMS FALSE
+#if !defined(EFI_ONBOARD_MEMS) || defined(__DOXYGEN__)
+ #define EFI_ONBOARD_MEMS FALSE
 #endif
 
 #ifndef EFI_INTERNAL_ADC
@@ -156,10 +155,6 @@
  * Control the main power relay based on measured ignition voltage (Vbatt)
  */
 #define EFI_MAIN_RELAY_CONTROL FALSE
-
-#ifndef EFI_PWM
-#define EFI_PWM FALSE
-#endif
 
 #ifndef EFI_VEHICLE_SPEED
 #define EFI_VEHICLE_SPEED FALSE

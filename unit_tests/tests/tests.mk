@@ -4,12 +4,14 @@ TESTS_SRC_CPP = \
 	tests/trigger/test_symmetrical_crank.cpp \
 	tests/trigger/test_trigger_decoder.cpp \
 	tests/trigger/test_trigger_decoder_2.cpp \
+	tests/trigger/test_coil.cpp \
 	tests/trigger/test_trigger_noiseless.cpp \
 	tests/trigger/test_trigger_multi_sync.cpp \
 	tests/trigger/test_trigger_input_adc.cpp \
 	tests/trigger/test_miata_na_tdc.cpp \
 	tests/trigger/test_cam_vvt_input.cpp \
 	tests/trigger/test_2jz_vvt.cpp \
+	tests/trigger/test_real_bosch_quick_start.cpp \
 	tests/trigger/test_real_cranking_miata_NA.cpp \
 	tests/trigger/test_real_cranking_miata_na6.cpp \
 	tests/trigger/test_real_cranking_nissan_vq40.cpp \
@@ -18,12 +20,14 @@ TESTS_SRC_CPP = \
 	tests/trigger/test_trigger_skipped_wheel.cpp \
 	tests/trigger/test_real_4b11.cpp \
 	tests/trigger/test_real_4g93.cpp \
+	tests/trigger/test_real_ford_coyote.cpp \
 	tests/trigger/test_real_volkswagen.cpp \
 	tests/trigger/test_real_nb2_cranking.cpp \
 	tests/trigger/test_real_gm_24x.cpp \
 	tests/trigger/test_real_k24a2.cpp \
 	tests/trigger/test_real_k20.cpp \
-	tests/trigger/test_real_toyota_3_tooth_cam.cpp \
+	tests/trigger/test_toyota_3_tooth_cam.cpp \
+	tests/trigger/test_real_noisy_trigger.cpp \
 	tests/trigger/test_map_cam.cpp \
 	tests/trigger/test_rpm_multiplier.cpp \
 	tests/trigger/test_rpm_acceleration.cpp \
@@ -39,6 +43,16 @@ TESTS_SRC_CPP = \
 	tests/ignition_injection/test_fuelCut.cpp \
 	tests/ignition_injection/test_fuel_computer.cpp \
 	tests/ignition_injection/test_injector_model.cpp \
+	tests/ignition_injection/test_odd_firing_engine.cpp \
+	tests/util/test_base.cpp \
+	tests/ac/ac_test_base.cpp \
+	tests/ac/ac_pressure_test.cpp \
+	tests/launch/launch_test_base.cpp \
+	tests/launch/test_target_skip_ratio.cpp \
+	tests/launch/test_rpm_condition.cpp \
+	tests/launch/test_retard_threshold_rpm.cpp \
+	tests/launch/test_ignition_angle_advance.cpp \
+	tests/launch/test_spark_skip_ratio.cpp \
 	tests/lua/test_lua_basic.cpp \
 	tests/lua/test_lookup.cpp \
 	tests/lua/test_lua_e38.cpp \
@@ -56,8 +70,7 @@ TESTS_SRC_CPP = \
 	tests/lua/test_can_filter.cpp \
 	tests/lua/test_lua_vin.cpp \
 	tests/test_change_engine_type.cpp \
-	tests/util/test_scaled_channel.cpp \
-	tests/util/test_timer.cpp \
+	tests/test_big_buffer.cpp \
 	tests/system/test_periodic_thread_controller.cpp \
 	tests/test_util.cpp \
 	tests/test_start_stop.cpp \
@@ -78,7 +91,7 @@ TESTS_SRC_CPP = \
 	tests/test_tunerstudio.cpp \
 	tests/test_pwm_generator.cpp \
 	tests/test_log_buffer.cpp \
-	tests/test_signal_executor.cpp \
+	tests/test_event_queue.cpp \
 	tests/test_cpp_memory_layout.cpp \
 	tests/test_pid.cpp \
 	tests/test_accel_enrichment.cpp \
@@ -99,7 +112,6 @@ TESTS_SRC_CPP = \
 	tests/sensor/redundant.cpp \
 	tests/sensor/test_sensor_init.cpp \
 	tests/sensor/table_func.cpp \
-	tests/util/test_closed_loop_controller.cpp \
 	tests/test_stft.cpp \
 	tests/test_hpfp.cpp \
 	tests/test_hpfp_integrated.cpp \
@@ -129,3 +141,4 @@ TESTS_SRC_CPP = \
 	tests/actuators/test_tacho.cpp \
 	tests/actuators/test_vvt.cpp \
 	tests/actuators/test_alternator.cpp \
+	tests/actuators/test_alternator_voltage_target_set_point.cpp \

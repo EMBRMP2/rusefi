@@ -2,18 +2,47 @@
 # see readme.md
 # see setup_linux_environment.sh but Windows is also totally fine
 #
-
-.PHONY: openblt
+##############################################################################
+# The most advanced open source ECU has the most advanced Makefile!
+# Here we do a bit of code generation, compile custom bootloader and embedded firmware and even build user artifacts!
+#
+# In order for Make to know which board you are trying to build for, it needs some parameters.
+# BOARD_DIR - relative to the firmware dir, will be set to config/boards/f407-discovery if left empty
+# SHORT_BOARD_NAME - will be set to f407-discovery if left empty
+# PROJECT_BOARD - will be set to SHORT_BOARD_NAME if left empty
+#
+# You can set these as environment variables like this:
+# source config/boards/common_script_read_meta_env.inc config/boards/f407-discovery/meta-info.env
+# source config/boards/common_script_read_meta_env.inc config/boards/subaru_eg33/meta-info-subaru_eg33_f7.env
+# source config/boards/common_script_read_meta_env.inc firmware/config/boards/hellen/hellen154hyundai_f7/meta-info-hellen154hyundai_f7.env
+#
+# There is also a script to compile the firmware to avoid messing with your environment variables.
+# ./bin/compile.sh config/boards/f407-discovery/meta-info.env
+# Or to package the bundles:
+# ./bin/compile.sh -b config/boards/f407-discovery/meta-info.env
+# If not provided with a path to a meta-info file, compile.sh will let you select a target.
+#
+# If you wish to call make directly, here are the available commands:
+#
+# make docs-enums	Generate docs and enums
+# make config			Generate docs, enums, and configs
+# make						Generate docs, enums, configs, and build firmware
+# make bundle			Generate docs, enums, configs, build bootloader, build firmware, and package full bundle
+# make autoupdate	Generate docs, enums, configs, build bootloader, build firmware, and package autoupdate bundle
+# make bundles		Generate docs, enums, configs, build bootloader, build firmware, and package both full and autoupdate bundles
+# make bootloader Generate docs, enums, configs, and build bootloader
+# make ../simulator/build/rusefi_simulator.exe build Windows simulator (even if invoked on Linux)
+# bin/compile.sh config/boards/f407-discovery/meta-info.env ../simulator/build/rusefi_simulator.linux build Linux simulator
+# make ../simulator/build/rusefi_simulator.both build _both_ Windows and Linux simulator (do we need that? shall we drop that?)
+#
 
 CHIBIOS = ChibiOS
 RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk
 RULESFILE = $(RULESPATH)/rules.mk
 
 ifneq ("$(wildcard $(../.git))","")
-$(error ../.git not found. We expect source code to be cloned not downloaded as zip file.")
+$(error "../.git not found. We expect source code to be cloned not downloaded as zip file.")
 endif
-
-include rusefi_rules.mk
 
 # Define project name here
 PROJECT = rusefi
@@ -58,6 +87,9 @@ endif
 # EFI_PROD_CODE determines if we are running on real hardware (hide things from tests/sim)
 # EFI_SIMULATOR determines if we are running in the simulator (hide things from hw/tests)
 USE_OPT += $(RUSEFI_OPT) -DEFI_UNIT_TEST=0 -DEFI_PROD_CODE=1 -DEFI_SIMULATOR=0
+
+# signalling to libfirmware that we have criticalError() method
+USE_OPT += -DWE_HAVE_CRITICAL_ERROR_METHOD
 
 # C specific options here (added to USE_OPT).
 ifeq ($(USE_COPT),)
@@ -114,10 +146,6 @@ ifeq ($(USE_SMART_BUILD),)
   USE_SMART_BUILD = no
 endif
 
-ifeq ($(USE_BOOTLOADER),)
-  USE_BOOTLOADER = no
-endif
-
 ifeq ($(USE_OPENBLT),)
   USE_OPENBLT = no
 endif
@@ -165,13 +193,19 @@ MAKEFLAGS += ${NUMJOBS}
 # Project, sources and paths
 #
 
+BOARD_DIR := ./$(BOARD_DIR)
 BOARDINC = $(BOARD_DIR)
 include $(BOARD_DIR)/board.mk
 BOARDCPPSRC += $(BOARDS_DIR)/board_id.cpp
+ifeq (,$(filter clean,$(MAKECMDGOALS)))
 ifeq ($(SHORT_BOARD_NAME),)
-$(error SHORT_BOARD_NAME not set, something wrong with your board.mk file)
+$(error SHORT_BOARD_NAME not set, something wrong with your meta-info.env file)
+endif
 endif
 DDEFS += -DSHORT_BOARD_NAME=$(SHORT_BOARD_NAME)
+
+# should be after 'board.mk'
+include rusefi_rules.mk
 
 # Include various ChibiOS mk files
 # Licensing files.
@@ -186,8 +220,21 @@ include $(CHIBIOS)/os/hal/osal/rt-nil/osal.mk
 include $(CHIBIOS)/os/rt/rt.mk
 include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
 # EX files (optional).
-ifneq ($(USE_LIS302),no)
+ifeq ($(EFI_ONBOARD_MEMS_LIS2DW12),yes)
+  DDEFS += -DEFI_ONBOARD_MEMS_LIS2DW12=TRUE
+  include $(CHIBIOS)/os/ex/devices/ST/lis2dw12.mk
+endif
+ifeq ($(EFI_ONBOARD_MEMS_LIS2DH12),yes)
+  DDEFS += -DEFI_ONBOARD_MEMS_LIS2DH12=TRUE
+  include $(CHIBIOS)/os/ex/devices/ST/lsm303agr.mk
+endif
+ifeq ($(EFI_ONBOARD_MEMS_LIS302DL),yes)
+  DDEFS += -DEFI_ONBOARD_MEMS_LIS302DL=TRUE
   include $(CHIBIOS)/os/ex/devices/ST/lis302dl.mk
+endif
+ifeq ($(EFI_ONBOARD_MEMS_LIS3DSH),yes)
+  DDEFS += -DEFI_ONBOARD_MEMS_LIS3DSH=TRUE
+  include $(CHIBIOS)/os/ex/devices/ST/lis3dsh.mk
 endif
 include $(CHIBIOS)/os/hal/lib/streams/streams.mk
 include $(CHIBIOS)/os/various/cpp_wrappers/chcpp.mk
@@ -208,21 +255,17 @@ ifeq ($(USE_FATFS),yes)
   include $(PROJECT_DIR)/ext/FatFS/fatfs.mk
 endif
 
+ifeq ($(USE_WIFI),yes)
+  include $(PROJECT_DIR)/ext/atwinc1500/atwinc1500.mk
+  DDEFS += -DEFI_WIFI=1
+endif
+
 include $(PROJECT_DIR)/hw_layer/mass_storage/mass_storage.mk
 include $(PROJECT_DIR)/common.mk
 
-ifeq ($(BOOTLOADERINC),)
-  # include default bootloader code
-  BOOTLOADERINC= $(PROJECT_DIR)/bootloader/
-endif
-
-ifeq ($(USE_BOOTLOADER),yes)
-  include $(PROJECT_DIR)/bootloader/bootloader.mk
-endif
-
 ifeq ($(USE_OPENBLT),yes)
   # Reserve start of flash for OpenBLT
-  USE_OPT += -Wl,--defsym=BOOTLOADER=1
+  USE_OPT += -Wl,--defsym=HAS_BOOTLOADER=1
   DDEFS += -DEFI_USE_OPENBLT=TRUE
 endif
 
@@ -250,11 +293,12 @@ CSRC =  gcc_version_check.c \
   $(HW_LAYER_DRIVERS_CORE) \
   $(HW_LAYER_DRIVERS) \
   $(RUSEFI_LIB_C) \
-  main_hardfault.c
+  $(PROJECT_DIR)/hw_layer/main_hardfault.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
 CPPSRC = \
+  configuration_check.cpp \
   $(ALLCPPSRC) \
   $(BOARDCPPSRC) \
   $(DEV_SRC_CPP) \
@@ -288,7 +332,7 @@ TCPPSRC =
 # List ASM source files here
 ASMXSRC = $(ALLXASMSRC) \
   $(RUSEFIASM) \
-  main_hardfault_asm.S
+  $(PROJECT_DIR)/hw_layer/main_hardfault_asm.S
 
 #
 # WARNING! order of variables is important here - for instance cypress own folders should go before default folders
@@ -298,7 +342,6 @@ INCDIR = \
   $(BOARDINC) \
   $(ALLINC) \
   $(TESTINC) \
-  $(BOOTLOADERINC) \
   $(CHIBIOS)/os/various \
   $(RUSEFI_LIB_INC) \
   $(CONFDIR) \
@@ -337,8 +380,8 @@ OD   = $(TRGT)objdump
 SZ   = $(TRGT)size
 HEX  = $(CP) -O ihex
 BIN  = $(CP) -O binary
-# OpenBLT flasher expects srec files
-SREC = $(CP) -O srec
+# OpenBLT flasher expects srec files, but we create them in our bundle.mk, not in rules.mk
+#SREC = $(CP) -O srec
 
 # ARM-specific options here
 AOPT =
@@ -381,14 +424,24 @@ ULIBS = -lm --specs=nano.specs -Wl,--sort-section=alignment
 
 include $(RULESFILE)
 
-openblt:
-	make -f $(PROJECT_DIR)/hw_layer/openblt/openblt.mk BOARD_DIR=$(BOARD_DIR) PROJECT_BOARD=$(PROJECT_BOARD) PROJECT_CPU=$(PROJECT_CPU)
+include target_sentinel.mk
 
-openblt_clean:
-	make -f $(PROJECT_DIR)/hw_layer/openblt/openblt.mk clean BOARD_DIR=$(BOARD_DIR) PROJECT_BOARD=$(PROJECT_BOARD) PROJECT_CPU=$(PROJECT_CPU)
+include rusefi_config.mk
+
+include docs_enums.mk
 
 # Enable precompiled header
 include rusefi_pch.mk
+
+include bundle.mk
+
+.PHONY: CLEAN_RULE_HOOK CLEAN_PCH_HOOK CLEAN_BUNDLE_HOOK
+
+CLEAN_RULE_HOOK: CLEAN_PCH_HOOK CLEAN_BUNDLE_HOOK
+
+CLEAN_PCH_HOOK:
+
+CLEAN_BUNDLE_HOOK:
 
 POST_MAKE_ALL_RULE_HOOK: $(BUILDDIR)/$(PROJECT).elf
 	@java -jar ../java_tools/gcc_map_reader.jar $(BUILDDIR)/$(PROJECT).map | grep Total || echo Unable to run gcc_map_reader

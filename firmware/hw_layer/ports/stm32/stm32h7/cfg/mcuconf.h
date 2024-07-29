@@ -54,8 +54,12 @@
  * Memory attributes settings.
  */
 #define STM32_NOCACHE_MPU_REGION            MPU_REGION_6
+#ifndef STM32_NOCACHE_SRAM1_SRAM2
 #define STM32_NOCACHE_SRAM1_SRAM2           FALSE
+#endif // STM32_NOCACHE_SRAM1_SRAM2
+#ifndef STM32_NOCACHE_SRAM3
 #define STM32_NOCACHE_SRAM3                 TRUE
+#endif // STM32_NOCACHE_SRAM3
 
 /*
  * PWR system settings.
@@ -85,7 +89,7 @@
 /*
  * PLLs static settings.
  * Reading STM32 Reference Manual is required.
- * 
+ *
  * Configured to use HSI to generate 400mhz, but we will reconfigure to use HSE
  * with appropriate PLLx_DIVM values for the detected external frequency.
  * See osc_detector.cpp
@@ -415,12 +419,25 @@
 /*
  * SPI driver system settings.
  */
+#ifndef STM32_SPI_USE_SPI1
 #define STM32_SPI_USE_SPI1                  TRUE
+#endif
+#ifndef STM32_SPI_USE_SPI2
 #define STM32_SPI_USE_SPI2                  TRUE
+#endif
+#ifndef STM32_SPI_USE_SPI3
 #define STM32_SPI_USE_SPI3                  TRUE
+#endif
+#ifndef STM32_SPI_USE_SPI4
 #define STM32_SPI_USE_SPI4                  FALSE
+#endif
+#ifndef STM32_SPI_USE_SPI5
 #define STM32_SPI_USE_SPI5                  FALSE
+#endif
+#ifndef STM32_SPI_USE_SPI6
 #define STM32_SPI_USE_SPI6                  FALSE
+#endif
+
 #define STM32_SPI_SPI1_RX_DMA_STREAM        STM32_DMA_STREAM_ID_ANY
 #define STM32_SPI_SPI1_TX_DMA_STREAM        STM32_DMA_STREAM_ID_ANY
 #define STM32_SPI_SPI2_RX_DMA_STREAM        STM32_DMA_STREAM_ID_ANY

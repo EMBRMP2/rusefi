@@ -79,7 +79,7 @@ static void benchOff(OutputPin* output) {
 	static char pin_error[64];
 
 	brain_pin_diag_e diag = output->getDiag();
-	if (diag == PIN_INVALID) {
+	if (diag == PIN_UNKNOWN) {
 		efiPrintf("No Diag on this pin");
 	} else {
 		pinDiag2string(pin_error, sizeof(pin_error), diag);
@@ -241,7 +241,6 @@ static void tcuSolenoidBench(float humanIndex, float onTime, float offTimeMs, fl
 
 /**
  * channel #1, 5ms ON, 1000ms OFF, repeat 3 times
- * fsiobench2 1 5 1000 3
  */
 static void luaOutBench2(float humanIndex, float onTime, float offTimeMs, float count) {
 	doRunBenchTestLuaOutput((int)humanIndex, onTime, offTimeMs, (int)count);
@@ -280,7 +279,6 @@ void acRelayBench() {
 }
 
 static void mainRelayBench() {
-	// main relay is usually "ON" via FSIO thus bench testing that one is pretty unusual
 	pinbench(BENCH_MAIN_RELAY_DURATION, 100.0, 1, &enginePins.mainRelay, true);
 }
 
@@ -435,7 +433,7 @@ int getSavedBenchTestPinStates(uint32_t durationsInStateMs[2]) {
 }
 
 static void handleCommandX14(uint16_t index) {
-// todo: define ts_14_command magic constants and use those in rusefi.input file!
+// todo: define ts_14_command magic constants and use those in tunerstudio.template.ini file!
 	switch (index) {
 	case TS_GRAB_TPS_CLOSED:
 		grabTPSIsClosed();
@@ -452,60 +450,75 @@ static void handleCommandX14(uint16_t index) {
 		grabPedalIsWideOpen();
 		return;
 	case TS_RESET_TLE8888:
-#if (BOARD_TLE8888_COUNT > 0)
-		tle8888_req_init();
-#endif
+		#if (BOARD_TLE8888_COUNT > 0)
+			tle8888_req_init();
+		#endif
+		return;
+	case TS_RESET_MC33810:
+		#if EFI_PROD_CODE && (BOARD_MC33810_COUNT > 0)
+			mc33810_req_init();
+		#endif
 		return;
 	case TS_WRITE_FLASH:
 		// cmd_write_config
-#if (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE)
-		writeToFlashNow();
-#endif /* (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE) */
+		#if EFI_CONFIGURATION_STORAGE
+			writeToFlashNow();
+		#endif /* EFI_CONFIGURATION_STORAGE */
 		return;
-#if EFI_EMULATE_POSITION_SENSORS
-	case 0xD:
-		enableTriggerStimulator();
+	case TS_TRIGGER_STIMULATOR_ENABLE:
+		#if EFI_EMULATE_POSITION_SENSORS == TRUE
+			enableTriggerStimulator();
+		#endif /* EFI_EMULATE_POSITION_SENSORS == TRUE */
 		return;
-	case 0xF:
-		disableTriggerStimulator();
+	case TS_TRIGGER_STIMULATOR_DISABLE:
+		#if EFI_EMULATE_POSITION_SENSORS == TRUE
+			disableTriggerStimulator();
+		#endif /* EFI_EMULATE_POSITION_SENSORS == TRUE */
 		return;
-	case 0x13:
-		enableExternalTriggerStimulator();
+	case TS_EXTERNAL_TRIGGER_STIMULATOR_ENABLE:
+		#if EFI_EMULATE_POSITION_SENSORS == TRUE
+			enableExternalTriggerStimulator();
+		#endif /* EFI_EMULATE_POSITION_SENSORS == TRUE */
 		return;
-#endif // EFI_EMULATE_POSITION_SENSORS
-#if EFI_ELECTRONIC_THROTTLE_BODY
     case TS_ETB_RESET:
-#if EFI_PROD_CODE
-        etbPidReset();
-#endif
+		#if EFI_ELECTRONIC_THROTTLE_BODY == TRUE
+		#if EFI_PROD_CODE
+			etbPidReset();
+		#endif
+		#endif /* EFI_ELECTRONIC_THROTTLE_BODY == TRUE */
 		return;
-	case 0xE:
-		etbAutocal(0);
+	case TS_ETB_AUTOCAL_0:
+		#if EFI_ELECTRONIC_THROTTLE_BODY == TRUE
+			etbAutocal(0);
+		#endif /* EFI_ELECTRONIC_THROTTLE_BODY == TRUE */
 		return;
-	case 0x11:
-		etbAutocal(1);
+	case TS_ETB_AUTOCAL_1:
+		#if EFI_ELECTRONIC_THROTTLE_BODY == TRUE
+			etbAutocal(1);
+		#endif /* EFI_ELECTRONIC_THROTTLE_BODY == TRUE */
 		return;
-	case 0xC:
-		engine->etbAutoTune = true;
+	case TS_ETB_START_AUTOTUNE:
+		#if EFI_ELECTRONIC_THROTTLE_BODY == TRUE
+			engine->etbAutoTune = true;
+		#endif /* EFI_ELECTRONIC_THROTTLE_BODY == TRUE */
 		return;
-	case 0x10:
-		engine->etbAutoTune = false;
-#if EFI_TUNER_STUDIO
-		engine->outputChannels.calibrationMode = (uint8_t)TsCalMode::None;
-#endif // EFI_TUNER_STUDIO
+	case TS_ETB_STOP_AUTOTUNE:
+		#if EFI_ELECTRONIC_THROTTLE_BODY == TRUE
+			engine->etbAutoTune = false;
+			#if EFI_TUNER_STUDIO
+				engine->outputChannels.calibrationMode = (uint8_t)TsCalMode::None;
+			#endif // EFI_TUNER_STUDIO
+		#endif /* EFI_ELECTRONIC_THROTTLE_BODY == TRUE */
 		return;
-#endif
-	case 0x12:
+	case TS_WIDEBAND_UPDATE:
 		widebandUpdatePending = true;
 		benchSemaphore.signal();
 		return;
-	case 0x15:
-#if EFI_PROD_CODE
-#if (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE)
-		extern bool burnWithoutFlash;
-		burnWithoutFlash = true;
-#endif /* (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE) */
-#endif // EFI_PROD_CODE
+	case TS_BURN_WITHOUT_FLASH:
+		#if EFI_PROD_CODE && EFI_CONFIGURATION_STORAGE
+			extern bool burnWithoutFlash;
+			burnWithoutFlash = true;
+		#endif /* EFI_PROD_CODE && EFI_CONFIGURATION_STORAGE */
 		return;
 	default:
 		criticalError("Unexpected bench x14 %d", index);
@@ -592,7 +605,7 @@ void executeTSCommand(uint16_t subsystem, uint16_t index) {
 		break;
 
 	case 0xba:
-#if EFI_DFU_JUMP
+#if EFI_PROD_CODE && EFI_DFU_JUMP
 		jump_to_bootloader();
 #endif /* EFI_DFU_JUMP */
 		break;
@@ -618,7 +631,7 @@ void executeTSCommand(uint16_t subsystem, uint16_t index) {
 void onConfigurationChangeBenchTest() {
 	// default values if configuration was not specified
 	if (engineConfiguration->benchTestOnTime == 0) {
-		engineConfiguration->benchTestOnTime = 4; 
+		engineConfiguration->benchTestOnTime = 4;
 	}
 
 	if (engineConfiguration->benchTestOffTime < 5) {

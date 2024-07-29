@@ -288,7 +288,7 @@ public class EngineSnifferPanel {
             signalBody = Color.darkGray;
         } else if (name.startsWith("HIP")) {
             signalBody = Color.white;
-        } else if (name.startsWith("i")) {
+        } else if (name.startsWith("i") || name.startsWith("j")) {
             // injection
             signalBody = Color.green;
         } else if (name.startsWith("map")) {
@@ -305,7 +305,6 @@ public class EngineSnifferPanel {
 
             @Override
             public boolean isSimulationMode() {
-                System.out.println("isSimulationMode");
                 return false;
             }
         }) {

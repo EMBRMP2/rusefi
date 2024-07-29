@@ -108,7 +108,7 @@ enum class ObdCode : uint16_t {
 	//P0087 Fuel Rail/System Pressure - Too Low
 	//P0088 Fuel Rail/System Pressure - Too High
 	//P0089 Fuel Pressure Regulator 1 Performance
-	//P0090 Fuel Pressure Regulator 1 Control Circuit
+	OBD_Fuel_Pressure_Sensor_Missing = 90,
 	//P0091 Fuel Pressure Regulator 1 Control Circuit Low
 	//P0092 Fuel Pressure Regulator 1 Control Circuit High
 	//P0093 Fuel System Leak Detected - Large Leak
@@ -307,7 +307,9 @@ enum class ObdCode : uint16_t {
 	//P0259 Injection Pump Fuel Metering Control "B" High (Cam/R
 	//P0260 Injection Pump Fuel Metering Control "B" Intermittent Injector)
 	//P0261 Cylinder I Injector Circuit Low
+	OBD_Injector_Circuit_1_Low = 261,
 	//P0262 Cylinder I Injector Circuit High
+	OBD_Injector_Circuit_1_High = 262,
 	//P0263 Cylinder I Contribution/Balance Fault
 	//P0264 Cylinder 2 Injector Circuit Low
 	//P0265 Cylinder 2 Injector Circuit High
@@ -1841,7 +1843,7 @@ enum class ObdCode : uint16_t {
 	CUSTOM_ERR_DWELL_DURATION = 6118,
 	CUSTOM_ERR_NO_SHAPE = 6119,
 
-	CUSTOM_ERR_SGTP_ARGUMENT = 6121,
+	CUSTOM_ERR_6121 = 6121,
 	CUSTOM_ERR_6122 = 6122,
 	CUSTOM_ERR_6123 = 6123,
 	CUSTOM_ERR_6124 = 6124,
@@ -1941,7 +1943,7 @@ enum class ObdCode : uint16_t {
 	CUSTOM_ERR_6563 = 6563,
 	CUSTOM_ERR_6564 = 6564,
 	CUSTOM_ERR_6565 = 6565,
-	CUSTOM_ERR_6566 = 6566,
+	CUSTOM_ERR_CYL_ANGLE = 6566,
 	CUSTOM_ERR_6567 = 6567,
 	CUSTOM_ERR_6568 = 6568,
 	CUSTOM_ERR_6569 = 6569,
@@ -2155,11 +2157,8 @@ enum class ObdCode : uint16_t {
 	 * Should not happen
 	 */
 	CUSTOM_OBD_SKIPPED_SPARK = 9009,
-	/**
-	 * This is not engine miss detection - this is only internal scheduler state validation
-	 * Should not happen
-	 */
-	CUSTOM_OBD_SKIPPED_FUEL = 9010,
+
+	// not used CUSTOM_9010 = 9010,
 	CUSTOM_RE_ADDING_INTO_EXECUTION_QUEUE = 9011,
 	/**
 	 * This indicates an issue with coil control - pin was not high when we were trying to set it low.
@@ -2169,4 +2168,8 @@ enum class ObdCode : uint16_t {
 	 * Commanded fuel exceeds your fuel injector flow
 	 */
 	CUSTOM_TOO_LONG_FUEL_INJECTION = 9013,
+	/**
+	 * GPIO chip errors
+	 */
+	CUSTOM_GPIO_CHIP_FAILED_PWM = 9014,
 };

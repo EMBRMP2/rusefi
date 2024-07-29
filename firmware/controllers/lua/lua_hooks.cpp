@@ -3,12 +3,18 @@
 #include "rusefi_lua.h"
 #include "lua_hooks.h"
 
+#include "lua_biquad.h"
 #include "fuel_math.h"
 #include "airmass.h"
 #include "lua_airmass.h"
 #include "value_lookup.h"
 #include "can_filter.h"
 #include "tunerstudio.h"
+#include "lua_pid.h"
+
+#if EFI_PROD_CODE && HW_HELLEN
+#include "hellen_meta.h"
+#endif
 
 #if EFI_DAC
 #include "dac.h"
@@ -49,8 +55,8 @@ static int lua_vin(lua_State* l) {
 }
 
 static int lua_readpin(lua_State* l) {
-	const char * msg = luaL_checkstring(l, 1);
 #if EFI_PROD_CODE
+	const char * msg = luaL_checkstring(l, 1);
 	brain_pin_e pin = parseBrainPin(msg);
 	if (!isBrainPinValid(pin)) {
 	    efiPrintf("LUA: invalid pin [%s]", msg);
@@ -168,10 +174,22 @@ static int validateCanChannelAndConvertFromHumanIntoZeroIndex(lua_State* l) {
 }
 
 static int lua_txCan(lua_State* l) {
-	auto bus = validateCanChannelAndConvertFromHumanIntoZeroIndex(l);
-
-	auto id = luaL_checkinteger(l, 2);
-	auto ext = luaL_checkinteger(l, 3);
+	ScopePerf perf(PE::LuaOneCanTxFunction);
+  int bus;
+  int id;
+  int ext;
+  int dataIndex;
+  if (lua_gettop(l) == 2) {
+    bus = 0;
+    id = luaL_checkinteger(l, 1);
+    ext = 0;
+    dataIndex = 2;
+  } else {
+    bus = validateCanChannelAndConvertFromHumanIntoZeroIndex(l);
+    id = luaL_checkinteger(l, 2);
+	  ext = luaL_checkinteger(l, 3);
+    dataIndex = 4;
+  }
 
 	// Check that ID is valid based on std vs. ext
 	if (ext == 0) {
@@ -188,10 +206,10 @@ static int lua_txCan(lua_State* l) {
 	uint8_t dlc = 0;
 
 	// todo: reduce code duplication with getArray
-	luaL_checktype(l, 4, LUA_TTABLE);
+	luaL_checktype(l, dataIndex, LUA_TTABLE);
 	while (true) {
 		lua_pushnumber(l, dlc + 1);
-		auto elementType = lua_gettable(l, 4);
+		auto elementType = lua_gettable(l, dataIndex);
 		auto val = lua_tonumber(l, -1);
 		lua_pop(l, 1);
 
@@ -248,6 +266,27 @@ static P luaL_checkPwmIndex(lua_State* l, int pos) {
 	return { pwms[channel], channel };
 }
 
+#ifndef PWM_FREQ_PWM
+#define PWM_FREQ_PWM 1000
+#endif
+
+void startPwm(int index, float freq, float duty) {
+	// clamp to 1..1000 hz, this line would turn 0hz on/off PWM into 1hz behind the scenes
+	freq = clampF(1, freq, 1000);
+
+  brain_pin_e pwmPin = engineConfiguration->luaOutputPins[index];
+
+	startSimplePwmExt(
+		&pwms[index], "lua", &engine->executor,
+		pwmPin, &enginePins.luaOutputPins[index],
+		freq, duty
+	);
+
+	efiPrintf("LUA PWM on %s at %f initial duty",
+	  hwPortname(pwmPin),
+	  PERCENT_MULT * duty);
+}
+
 static int lua_startPwm(lua_State* l) {
 	auto p = luaL_checkPwmIndex(l, 1);
 	auto freq = luaL_checknumber(l, 2);
@@ -258,14 +297,7 @@ static int lua_startPwm(lua_State* l) {
         return 0;
     }
 
-	// clamp to 1..1000 hz
-	freq = clampF(1, freq, 1000);
-
-	startSimplePwmExt(
-		&p.pwm, "lua", &engine->executor,
-		engineConfiguration->luaOutputPins[p.idx], &enginePins.luaOutputPins[p.idx],
-		freq, duty
-	);
+  startPwm(p.idx, freq, duty);
 
 	return 0;
 }
@@ -277,14 +309,17 @@ void luaDeInitPins() {
 	}
 }
 
-static int lua_setPwmDuty(lua_State* l) {
-	auto p = luaL_checkPwmIndex(l, 1);
-	auto duty = luaL_checknumber(l, 2);
-
+void setPwmDuty(int index, float duty) {
 	// clamp to 0..1
 	duty = clampF(0, duty, 1);
 
-	p.pwm.setSimplePwmDutyCycle(duty);
+	pwms[index].setSimplePwmDutyCycle(duty);
+}
+
+static int lua_setPwmDuty(lua_State* l) {
+	auto p = luaL_checkPwmIndex(l, 1);
+	auto duty = luaL_checknumber(l, 2);
+	setPwmDuty(p.idx, duty);
 
 	return 0;
 }
@@ -488,51 +523,6 @@ private:
 	bool m_isRedundant = false;
 };
 
-struct LuaPid final {
-	LuaPid() = default;
-
-	LuaPid(float kp, float ki, float kd, float min, float max)
-		: m_pid(&m_params)
-	{
-		m_params.pFactor = kp;
-		m_params.iFactor = ki;
-		m_params.dFactor = kd;
-
-		m_params.offset = 0;
-		m_params.periodMs = 0;
-		m_params.minValue = min;
-		m_params.maxValue = max;
-
-		m_lastUpdate.reset();
-	}
-
-	float get(float target, float input) {
-#if EFI_UNIT_TEST
-		extern int timeNowUs;
-		// this is how we avoid zero dt
-		timeNowUs += 1000;
-#endif
-
-		float dt = m_lastUpdate.getElapsedSecondsAndReset(getTimeNowNt());
-
-		return m_pid.getOutput(target, input, dt);
-	}
-
-	void setOffset(float offset) {
-		m_params.offset = offset;
-		reset();
-	}
-
-	void reset() {
-		m_pid.reset();
-	}
-
-private:
-	Pid m_pid;
-	Timer m_lastUpdate;
-	pid_s m_params;
-};
-
 static bool isFunction(lua_State* l, int idx) {
 	return lua_type(l, idx) == LUA_TFUNCTION;
 }
@@ -652,7 +642,17 @@ static int lua_vincpy(lua_State* l) {
 	return 0;
 }
 
+PUBLIC_API_WEAK void boardConfigureLuaHooks(lua_State* lState) { }
+
 void configureRusefiLuaHooks(lua_State* lState) {
+  boardConfigureLuaHooks(lState);
+
+  LuaClass<LuaBiQuad> biQuard(lState, "Biquad");
+  biQuard
+    .ctor()
+		.fun("filter", &LuaBiQuad::filter)
+		.fun("configureLowpass", &LuaBiQuad::configureLowpass);
+
 	LuaClass<Timer> luaTimer(lState, "Timer");
 	luaTimer
 		.ctor()
@@ -673,6 +673,15 @@ void configureRusefiLuaHooks(lua_State* lState) {
 		.fun("get", &LuaPid::get)
 		.fun("setOffset", &LuaPid::setOffset)
 		.fun("reset", &LuaPid::reset);
+
+	LuaClass<LuaIndustrialPid> luaIndustrialPid(lState, "IndustrialPid");
+	luaIndustrialPid
+		.ctor<float, float, float, float, float>()
+		.fun("get", &LuaIndustrialPid::get)
+		.fun("setOffset", &LuaIndustrialPid::setOffset)
+		.fun("setDerivativeFilterLoss", &LuaIndustrialPid::setDerivativeFilterLoss)
+		.fun("setAntiwindupFreq", &LuaIndustrialPid::setAntiwindupFreq)
+		.fun("reset", &LuaIndustrialPid::reset);
 
 	configureRusefiLuaUtilHooks(lState);
 
@@ -736,12 +745,14 @@ void configureRusefiLuaHooks(lua_State* lState) {
 #if EFI_LAUNCH_CONTROL
 	lua_register(lState, "setSparkSkipRatio", [](lua_State* l) {
 		auto targetSkipRatio = luaL_checknumber(l, 1);
-		engine->softSparkLimiter.setTargetSkipRatio(targetSkipRatio);
+		engine->engineState.luaSoftSparkSkip = targetSkipRatio;
+		engine->engineState.updateSparkSkip();
 		return 1;
 	});
 	lua_register(lState, "setSparkHardSkipRatio", [](lua_State* l) {
 		auto targetSkipRatio = luaL_checknumber(l, 1);
-		engine->hardSparkLimiter.setTargetSkipRatio(targetSkipRatio);
+		engine->engineState.luaHardSparkSkip = targetSkipRatio;
+		engine->engineState.updateSparkSkip();
 		return 1;
 	});
 #endif // EFI_LAUNCH_CONTROL
@@ -780,7 +791,12 @@ void configureRusefiLuaHooks(lua_State* lState) {
 	});
 
 #if EFI_ELECTRONIC_THROTTLE_BODY && EFI_PROD_CODE
-	lua_register(lState, "restartEtb", [](lua_State* l) {
+  lua_register(lState, "getEtbTarget", [](lua_State* l) {
+ 		auto result = engine->etbControllers[0]->getCurrentTarget();
+		lua_pushnumber(l, result);
+		return 1;
+  });
+	lua_register(lState, "restartEtb", [](lua_State*) {
 		// this is about Lua sensor acting in place of real analog PPS sensor
 		// todo: smarter implementation
 		doInitElectronicThrottle();
@@ -853,13 +869,24 @@ void configureRusefiLuaHooks(lua_State* lState) {
 		engine->engineState.lua.luaIgnCut = lua_toboolean(l, 1);
 		return 0;
 	});
+	lua_register(lState, "setFuelDisabled", [](lua_State* l) {
+		engine->engineState.lua.luaFuelCut = lua_toboolean(l, 1);
+		return 0;
+	});
+	lua_register(lState, "setDfcoDisabled", [](lua_State* l) {
+		engine->engineState.lua.disableDecelerationFuelCutOff = lua_toboolean(l, 1);
+		return 0;
+	});
 #endif // EFI_PROD_CODE
 
 	lua_register(lState, "setClutchUpState", [](lua_State* l) {
 		engine->engineState.lua.clutchUpState = lua_toboolean(l, 1);
 		return 0;
 	});
-
+	lua_register(lState, "setClutchDownState", [](lua_State* l) {
+		engine->engineState.lua.clutchDownState = lua_toboolean(l, 1);
+		return 0;
+	});
 	lua_register(lState, "setBrakePedalState", [](lua_State* l) {
 		engine->engineState.lua.brakePedalState = lua_toboolean(l, 1);
 		return 0;
@@ -920,6 +947,10 @@ void configureRusefiLuaHooks(lua_State* lState) {
 		}
 		return 0;
 	});
+	lua_register(lState, CMD_BURNCONFIG, [](lua_State* l) {
+	  requestBurn();
+		return 0;
+	});
 
 	lua_register(lState, "getGlobalConfigurationVersion", [](lua_State* l) {
 		lua_pushnumber(l, engine->getGlobalConfigurationVersion());
@@ -964,11 +995,20 @@ void configureRusefiLuaHooks(lua_State* lState) {
 	lua_register(lState, "setAirmass", lua_setAirmass);
 #endif // EFI_ENGINE_CONTROL
 
+	lua_register(lState, "isFirmwareError", [](lua_State* l) {
+		lua_pushboolean(l, hasFirmwareError());
+		return 1;
+	});
+#if EFI_SHAFT_POSITION_INPUT
 	lua_register(lState, "stopEngine", [](lua_State*) {
 		doScheduleStopEngine();
 		return 0;
 	});
-#if EFI_SHAFT_POSITION_INPUT
+	lua_register(lState, "isEngineStopRequested", [](lua_State* l) {
+		bool result = getLimpManager()->shutdownController.isEngineStop(getTimeNowNt());
+		lua_pushboolean(l, result);
+		return 1;
+	});
 	lua_register(lState, "getTimeSinceTriggerEventMs", [](lua_State* l) {
 		int result = engine->triggerCentral.m_lastEventTimer.getElapsedUs() / 1000;
 		lua_pushnumber(l, result);
@@ -992,6 +1032,17 @@ void configureRusefiLuaHooks(lua_State* lState) {
 		return 0;
 	});
 #endif // EFI_VEHICLE_SPEED
+
+#if EFI_PROD_CODE && HW_HELLEN
+	lua_register(lState, "hellenEnablePower", [](lua_State*) {
+		hellenEnableEn("Lua");
+		return 0;
+	});
+	lua_register(lState, "hellenDisablePower", [](lua_State*) {
+		hellenDisableEn("Lua");
+		return 0;
+	});
+#endif // HW_HELLEN
 
 #if EFI_DAC
 	lua_register(lState, "setDacVoltage", [](lua_State* l) {

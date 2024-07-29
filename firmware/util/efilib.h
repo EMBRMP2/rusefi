@@ -8,6 +8,7 @@
 #pragma once
 
 #include "unused.h"
+#include "efi_quote.h"
 #include <stdint.h>
 
 #include <rusefi/arrays.h>
@@ -18,12 +19,12 @@ int djb2lowerCase(const char *str);
 
 // http://en.wikipedia.org/wiki/Endianness
 
-static inline uint16_t SWAP_UINT16(uint16_t x)
+inline uint16_t SWAP_UINT16(uint16_t x)
 {
 	return ((x << 8) | (x >> 8));
 }
 
-static inline uint32_t SWAP_UINT32(uint32_t x)
+inline uint32_t SWAP_UINT32(uint32_t x)
 {
 	return (((x >> 24) & 0x000000ff) | ((x <<  8) & 0x00ff0000) |
 			((x >>  8) & 0x0000ff00) | ((x << 24) & 0xff000000));
@@ -41,9 +42,6 @@ static inline uint32_t SWAP_UINT32(uint32_t x)
 
 // number of microseconds in one period of given frequency (per second)
 #define frequency2periodUs(freq) ((1000000.0f) / (freq))
-
-#define Q(x) #x
-#define QUOTE(x) Q(x)
 
 const char * boolToString(bool value);
 
@@ -87,19 +85,19 @@ bool isInRange(T min, T val, T max) {
 	return val >= min && val <= max;
 }
 
-static constexpr size_t operator-(Gpio a, Gpio b) {
+inline constexpr size_t operator-(Gpio a, Gpio b) {
 	return (size_t)a - (size_t)b;
 }
 
-static constexpr Gpio operator-(Gpio a, size_t b) {
+inline constexpr Gpio operator-(Gpio a, size_t b) {
 	return (Gpio)((size_t)a - b);
 }
 
-static constexpr Gpio operator+(Gpio a, size_t b) {
+inline constexpr Gpio operator+(Gpio a, size_t b) {
 	return (Gpio)((size_t)a + b);
 }
 
-static constexpr Gpio operator+(size_t a, Gpio b) {
+inline constexpr Gpio operator+(size_t a, Gpio b) {
 	// addition is commutative, just use the other operator
 	return b + a;
 }
@@ -130,3 +128,9 @@ constexpr remove_reference_t<_Ty>&& move(_Ty&& _Arg) noexcept {
     return static_cast<remove_reference_t<_Ty>&&>(_Arg);
 }
 }
+
+int getBitRangeLsb(const uint8_t data[], int bitIndex, int bitWidth);
+/**
+ for instance DBC 8|16@0
+ */
+int getBitRangeMsb(const uint8_t data[], int bitIndex, int bitWidth);

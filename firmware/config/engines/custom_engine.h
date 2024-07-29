@@ -9,10 +9,10 @@
 
 #include "engine_configuration.h"
 void setFrankensoConfiguration();
-void runSchedulingPrecisionTestIfNeeded(void);
 void setDiscoveryPdm();
 void setFrankensoBoardTestConfiguration();
 void setDiscovery33810Test();
+void setDiscoveryTLE9104Test();
 void setEtbTestConfiguration();
 void setL9779TestConfiguration();
 
@@ -32,7 +32,6 @@ void fuelBenchMode();
 void proteusBoardTest();
 void proteusLuaDemo();
 void proteusStimQc();
-void proteusHarley();
 void proteusDcWastegateTest();
 
 void setTest33816EngineConfiguration();
@@ -44,3 +43,4 @@ void setVrThresholdTest();
 void detectBoardType();
 
 void alphax4chanStimQc();
+void testEngine6451();

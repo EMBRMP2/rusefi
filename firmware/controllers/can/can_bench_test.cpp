@@ -7,6 +7,7 @@
 #include "can_common.h"
 #include "frequency_sensor.h"
 #include "settings.h"
+#include "gpio/gpio_ext.h"
 
 #define TRUNCATE_TO_BYTE(i) ((i) & 0xff)
 // raw values are 0..5V, convert it to 8-bit (0..255)
@@ -20,9 +21,19 @@
 bool qcDirectPinControlMode = false;
 
 static void directWritePad(Gpio pin, int value) {
+  if (!isBrainPinValid(pin)) {
+    criticalError("QC of invalid pin %d", (int)pin);
+    return;
+  }
+
 #if EFI_GPIO_HARDWARE && EFI_PROD_CODE
-	palWritePad(getHwPort("can_write", pin), getHwPin("can_write", pin), value);
-	// todo: add smart chip support support
+	if (brain_pin_is_onchip(pin)) {
+	  palWritePad(getHwPort("can_write", pin), getHwPin("can_write", pin), value);
+	} else {
+#if (BOARD_EXT_GPIOCHIPS > 0)
+  	gpiochips_writePad(pin, value);
+#endif
+	}
 #endif // EFI_GPIO_HARDWARE && EFI_PROD_CODE
 }
 
@@ -30,20 +41,35 @@ static void qcSetEtbState(uint8_t dcIndex, uint8_t direction) {
 	qcDirectPinControlMode = true;
 	const dc_io *io = &engineConfiguration->etbIo[dcIndex];
 	Gpio controlPin = io->controlPin;
-	directWritePad(controlPin, 1);
-	efiSetPadModeWithoutOwnershipAcquisition("QC_ETB", controlPin, PAL_MODE_OUTPUT_PUSHPULL);
-	directWritePad(io->directionPin1, direction);
-	directWritePad(io->disablePin, 0); // disable pin is inverted - here we ENABLE. direct pin access due to qcDirectPinControlMode
+  directWritePad(controlPin, 1);
+	if (engineConfiguration->etb_use_two_wires) {
+	  // TLE7209 and L6205
+	  // let's force proper pin mode to work around potentially uninitialized subsystem
+	  efiSetPadModeWithoutOwnershipAcquisition("QC_ETB_1", io->directionPin1, PAL_MODE_OUTPUT_PUSHPULL);
+	  efiSetPadModeWithoutOwnershipAcquisition("QC_ETB_2", io->directionPin2, PAL_MODE_OUTPUT_PUSHPULL);
+
+	  directWritePad(io->directionPin1, direction);
+	  directWritePad(io->directionPin2, !direction);
+	} else {
+	  // TLE9201 and VNH2SP30
+	  efiSetPadModeWithoutOwnershipAcquisition("QC_ETB", controlPin, PAL_MODE_OUTPUT_PUSHPULL);
+	  directWritePad(io->directionPin1, direction);
+	  directWritePad(io->disablePin, 0); // disable pin is inverted - here we ENABLE. direct pin access due to qcDirectPinControlMode
+    }
 }
 
 #if EFI_CAN_SUPPORT
 
 static void setPin(const CANRxFrame& frame, int value) {
 		int outputIndex = frame.data8[2];
-		if (outputIndex >= getBoardMetaOutputsCount())
+		if (outputIndex >= getBoardMetaOutputsCount()) {
+		  criticalError("QC pin index %d out of range", outputIndex);
 			return;
-		Gpio pin = getBoardMetaOutputs()[outputIndex];
+	  }
 #if EFI_GPIO_HARDWARE && EFI_PROD_CODE
+	  Gpio* boardOutputs = getBoardMetaOutputs();
+	  criticalAssertVoid(boardOutputs != nullptr, "outputs not defined");
+		Gpio pin = boardOutputs[outputIndex];
 
         int hwIndex = brainPin_to_index(pin);
         if (engine->pinRepository.getBrainUsedPin(hwIndex) == nullptr) {
@@ -55,7 +81,7 @@ static void setPin(const CANRxFrame& frame, int value) {
 #endif // EFI_GPIO_HARDWARE && EFI_PROD_CODE
 }
 
-void sendEventCounters() {
+void sendQcBenchEventCounters() {
 #if EFI_SHAFT_POSITION_INPUT
 	CanTxMessage msg(CanCategory::BENCH_TEST, (int)bench_test_packet_ids_e::EVENT_COUNTERS, 8, /*bus*/0, /*isExtended*/true);
 
@@ -82,7 +108,7 @@ void sendEventCounters() {
 #endif // EFI_SHAFT_POSITION_INPUT
 }
 
-void sendButtonCounters() {
+void sendQcBenchButtonCounters() {
 	CanTxMessage msg(CanCategory::BENCH_TEST, (int)bench_test_packet_ids_e::BUTTON_COUNTERS, 8, /*bus*/0, /*isExtended*/true);
 	msg[0] = TRUNCATE_TO_BYTE(engine->brakePedalSwitchedState.getCounter());
 	msg[1] = TRUNCATE_TO_BYTE(engine->clutchUpSwitchedState.getCounter());
@@ -90,7 +116,14 @@ void sendButtonCounters() {
 	// todo: start button
 }
 
-void sendRawAnalogValues() {
+void sendQcBenchAuxDigitalCounters() {
+	CanTxMessage msg(CanCategory::BENCH_TEST, (int)bench_test_packet_ids_e::BUTTON_COUNTERS, 8, /*bus*/0, /*isExtended*/true);
+  for (int i =0;i<LUA_DIGITAL_INPUT_COUNT;i++) {
+	  msg[i] = TRUNCATE_TO_BYTE(engine->luaDigitalInputState[i].state.getCounter());
+  }
+}
+
+void sendQcBenchRawAnalogValues() {
 	const float values_1[] = {
 		Sensor::getRaw(SensorType::Tps1Primary),
 		Sensor::getRaw(SensorType::Tps1Secondary),
@@ -142,14 +175,14 @@ static void sendOutBoardMeta() {
 #endif // EFI_PROD_CODE
 }
 
-void sendBoardStatus() {
+void sendQcBenchBoardStatus() {
 #if EFI_PROD_CODE
 	CanTxMessage msg(CanCategory::BENCH_TEST, (int)bench_test_packet_ids_e::BOARD_STATUS, 8, /*bus*/0, /*isExtended*/true);
 
 	int boardId = getBoardId();
 	msg[0] = TRUNCATE_TO_BYTE(boardId >> 8);
 	msg[1] = TRUNCATE_TO_BYTE(boardId);
-	
+
 	int numSecondsSinceReset = getTimeNowS();
 	msg[2] = TRUNCATE_TO_BYTE(numSecondsSinceReset >> 16);
 	msg[3] = TRUNCATE_TO_BYTE(numSecondsSinceReset >> 8);
@@ -201,17 +234,21 @@ static void resetPinStats(bench_mode_e benchModePinIdx) {
 #endif // EFI_SIMULATOR
 }
 
-void processCanBenchTest(const CANRxFrame& frame) {
+/*board public API*/bool withHwQcActivity = false;
+
+void processCanQcBenchTest(const CANRxFrame& frame) {
 	if (CAN_EID(frame) != (int)bench_test_packet_ids_e::IO_CONTROL) {
 		return;
 	}
 	if (frame.data8[0] != (int)bench_test_magic_numbers_e::BENCH_HEADER) {
 		return;
 	}
+  withHwQcActivity = true;
 	bench_test_io_control_e command = (bench_test_io_control_e)frame.data8[1];
 	if (command == bench_test_io_control_e::CAN_BENCH_GET_COUNT) {
 	    sendOutBoardMeta();
 	} else if (command == bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_SET) {
+	  // see also "bench_setpin" console command
 		qcDirectPinControlMode = true;
 	    setPin(frame, 1);
 	} else if (command == bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_CLEAR) {
@@ -244,7 +281,7 @@ void processCanBenchTest(const CANRxFrame& frame) {
 }
 #endif // EFI_CAN_SUPPORT
 
-void initQcControls() {
+void initQcBenchControls() {
     addConsoleActionII("qc_etb", [](int index, int direction) {
         qcSetEtbState(index, direction);
     });

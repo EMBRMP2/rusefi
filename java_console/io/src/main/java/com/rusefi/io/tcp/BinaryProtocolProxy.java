@@ -8,6 +8,7 @@ import com.rusefi.binaryprotocol.BinaryProtocol;
 import com.rusefi.binaryprotocol.IncomingDataBuffer;
 import com.rusefi.binaryprotocol.IoHelper;
 import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.io.IoStream;
 import com.rusefi.proxy.NetworkConnector;
 import com.rusefi.ui.StatusConsumer;
@@ -19,7 +20,7 @@ import java.io.IOException;
 import java.net.Socket;
 
 import static com.devexperts.logging.Logging.getLogging;
-import static com.rusefi.config.generated.Fields.TS_PROTOCOL;
+import static com.rusefi.config.generated.Integration.TS_PROTOCOL;
 import static com.rusefi.core.FileUtil.close;
 
 /**
@@ -44,7 +45,7 @@ public class BinaryProtocolProxy {
                 clientStream = new TcpIoStream("[[proxy]] ", clientSocket);
                 runProxy(targetEcuSocket, clientStream, clientApplicationActivityListener, USER_IO_TIMEOUT);
             } catch (IOException e) {
-                statusConsumer.append("ERROR BinaryProtocolProxy::run " + e);
+                statusConsumer.append("ERROR BinaryProtocolProxy::run " + e, true, true);
                 close(clientStream);
             }
         };
@@ -64,7 +65,7 @@ public class BinaryProtocolProxy {
          */
         while (!targetEcu.isClosed()) {
             byte firstByte = clientStream.getDataBuffer().readByte(timeoutMs);
-            if (firstByte == Fields.TS_GET_PROTOCOL_VERSION_COMMAND_F) {
+            if (firstByte == Integration.TS_GET_PROTOCOL_VERSION_COMMAND_F) {
                 log.info("Responding to GET_PROTOCOL_VERSION with " + TS_PROTOCOL);
                 clientStream.write(TS_PROTOCOL.getBytes());
                 clientStream.flush();
@@ -72,7 +73,7 @@ public class BinaryProtocolProxy {
             }
             BinaryProtocolServer.Packet clientRequest = readClientRequest(clientStream.getDataBuffer(), firstByte);
             byte[] packet = clientRequest.getPacket();
-            if (packet.length > 1 && packet[0] == Fields.TS_ONLINE_PROTOCOL && packet[1] == NetworkConnector.DISCONNECT)
+            if (packet.length > 1 && packet[0] == Integration.TS_ONLINE_PROTOCOL && packet[1] == NetworkConnector.DISCONNECT)
                 throw new IOException("User requested disconnect");
             listener.onActivity();
 

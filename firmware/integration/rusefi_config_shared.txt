@@ -4,6 +4,7 @@
 #define PACK_MULT_HIGH_PRESSURE 10
 #define PACK_MULT_PERCENT 100
 #define PACK_MULT_FLEX 2
+#define PACK_MULT_EGTEMPERATURE 4
 #define PACK_MULT_TEMPERATURE 100
 #define PACK_ADD_TEMPERATURE 40
 #define PACK_MULT_MS 300
@@ -20,6 +21,8 @@
 #define PACK_MULT_FUEL_FLOW 200
 #define PACK_MULT_VSS 100
 
+#define STFT_BANK_COUNT 2
+
 #define TCU_GEAR_COUNT 10
 #define EGT_CHANNEL_COUNT 8
 
@@ -35,7 +38,7 @@
 #define IGN_BLEND_COUNT 4
 #define VE_BLEND_COUNT 4
 #define BOOST_BLEND_COUNT 2
-#define LUA_GAUGE_COUNT 2
+#define LUA_GAUGE_COUNT 8
 
 
 #define GAUGE_NAME_VERSION "firmware"
@@ -90,7 +93,7 @@
 #define GAUGE_NAME_ETB_ERROR "ETB: position error"
 #define GAUGE_NAME_ETB_DUTY "ETB: Duty"
 #define GAUGE_NAME_IDLE_POSITION "Idle: Position sensor"
-#define GAUGE_NAME_LAST_ERROR "Last error"
+#define GAUGE_NAME_LAST_ERROR "Warning: last"
 #define GAUGE_NAME_TUNE_CRC16 "Tune CRC16"
 #define GAUGE_NAME_ENGINE_CRC16 "Engine CRC16"
 #define GAUGE_NAME_FW_VERSION "ECU Software Version"
@@ -117,6 +120,8 @@
 
 #define GAUGE_NAME_ECU_TEMPERATURE "ECU temperature"
 
+#define GAUGE_NAME_AC_PRESSURE "A/C pressure"
+
 #define GAUGE_NAME_AUX_LINEAR_1 "Aux linear #1"
 #define GAUGE_NAME_AUX_LINEAR_2 "Aux linear #2"
 
@@ -142,6 +147,7 @@
 #define GAUGE_NAME_KNOCK_LEVEL "Knock: Current level"
 #define GAUGE_NAME_KNOCK_COUNTER "Knock: Count"
 #define GAUGE_NAME_KNOCK_RETARD "Knock: Retard"
+#define GAUGE_NAME_KNOCK_FREQ "knock: frequency"
 
 #define GAUGE_NAME_INJECTION_MODE "Fuel: Injection mode"
 #define GAUGE_NAME_FUEL_BARO_CORR "Fuel: Barometric pressure mult"
@@ -155,6 +161,7 @@
 #define GAUGE_NAME_FUEL_CRANKING "Fuel: cranking"
 #define GAUGE_NAME_FUEL_RUNNING "Fuel: running"
 #define GAUGE_NAME_FUEL_LAST_INJECTION "Fuel: Last inj pulse width"
+#define GAUGE_NAME_FUEL_LAST_INJECTION_STAGE_2 "Fuel: Last inj pulse width stg 2"
 #define GAUGE_NAME_FUEL_BASE "Fuel: base cycle mass"
 #define GAUGE_NAME_FUEL_TRIM "Fuel: fuel trim"
 #define GAUGE_NAME_FUEL_TRIM_2 "Fuel: fuel trim 2"
@@ -165,6 +172,7 @@
 #define GAUGE_NAME_FUEL_FLOW "Fuel: Flow rate"
 
 #define GAUGE_NAME_FUEL_INJ_DUTY "Fuel: injector duty cycle"
+#define GAUGE_NAME_FUEL_INJ_DUTY_STAGE_2 "Fuel: injector duty cycle stage 2"
 #define GAUGE_NAME_TCHARGE "Air: SD tCharge"
 #define GAUGE_NAME_TARGET_AFR "Fuel: target AFR"
 #define GAUGE_NAME_TARGET_LAMBDA "Fuel: target lambda"

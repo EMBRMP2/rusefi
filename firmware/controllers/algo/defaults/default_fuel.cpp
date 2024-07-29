@@ -4,31 +4,31 @@
 #include "table_helper.h"
 #include "mazda_miata_vvt.h"
 
-static void setBosch02880155868() {
+static void setBosch02880155868(injector_s& cfg) {
 	// http://www.boschdealer.com/specsheets/0280155868cs.jpg
-	engineConfiguration->injector.battLagCorrBins[0] = 6;
-	engineConfiguration->injector.battLagCorr[0] = 3.371;
+	cfg.battLagCorrBins[0] = 6;
+	cfg.battLagCorr[0] = 3.371;
 
-	engineConfiguration->injector.battLagCorrBins[1] = 8;
-	engineConfiguration->injector.battLagCorr[1] = 1.974;
+	cfg.battLagCorrBins[1] = 8;
+	cfg.battLagCorr[1] = 1.974;
 
-	engineConfiguration->injector.battLagCorrBins[2] = 10;
-	engineConfiguration->injector.battLagCorr[2] = 1.383;
+	cfg.battLagCorrBins[2] = 10;
+	cfg.battLagCorr[2] = 1.383;
 
-	engineConfiguration->injector.battLagCorrBins[3] = 11;
-	engineConfiguration->injector.battLagCorr[3] = 1.194;
+	cfg.battLagCorrBins[3] = 11;
+	cfg.battLagCorr[3] = 1.194;
 
-	engineConfiguration->injector.battLagCorrBins[4] = 12;
-	engineConfiguration->injector.battLagCorr[4] = 1.04;
+	cfg.battLagCorrBins[4] = 12;
+	cfg.battLagCorr[4] = 1.04;
 
-	engineConfiguration->injector.battLagCorrBins[5] = 13;
-	engineConfiguration->injector.battLagCorr[5] = 0.914;
+	cfg.battLagCorrBins[5] = 13;
+	cfg.battLagCorr[5] = 0.914;
 
-	engineConfiguration->injector.battLagCorrBins[6] = 14;
-	engineConfiguration->injector.battLagCorr[6] = 0.797;
+	cfg.battLagCorrBins[6] = 14;
+	cfg.battLagCorr[6] = 0.797;
 
-	engineConfiguration->injector.battLagCorrBins[7] = 15;
-	engineConfiguration->injector.battLagCorr[7] = 0.726;
+	cfg.battLagCorrBins[7] = 15;
+	cfg.battLagCorr[7] = 0.726;
 }
 
 static void setDefaultWarmupFuelEnrichment() {
@@ -79,7 +79,29 @@ static void setDefaultWarmupFuelEnrichment() {
 
 static void setDefaultVETable() {
 	setRpmTableBin(config->veRpmBins);
+#if (IGN_LOAD_COUNT == DEFAULT_IGN_LOAD_COUNT) && (IGN_RPM_COUNT == DEFAULT_IGN_RPM_COUNT)
+	static const float hardCodedveTable[16][16] = {
+{49.300,	49.300,	49.400,	49.600,	50.200,	51.400,	52.600,	53.800,	54.400,	54.600,	54.400,	53.700,	52.800,	51.800,	50.900,	50.000,	},
+{49.600,	50.500,	51.500,	54.100,	57.500,	60.700,	62.900,	64.400,	65.000,	65.000,	64.500,	63.500,	62.300,	61.100,	60.000,	58.800,	},
+{50.300,	52.400,	54.300,	58.500,	62.700,	66.100,	68.200,	69.700,	70.200,	70.100,	69.500,	68.400,	67.100,	65.800,	64.500,	63.300,	},
+{51.400,	55.200,	58.200,	63.500,	68.000,	71.400,	73.500,	74.900,	75.300,	75.200,	74.500,	73.300,	71.800,	70.400,	69.000,	67.700,	},
+{54.300,	60.900,	64.900,	70.700,	75.100,	78.300,	80.300,	81.700,	82.100,	81.900,	81.100,	79.700,	78.100,	76.500,	75.000,	73.500,	},
+{56.400,	64.400,	68.700,	74.500,	78.700,	81.800,	83.800,	85.100,	85.500,	85.300,	84.400,	83.000,	81.300,	79.600,	78.000,	76.400,	},
+{60.700,	70.200,	74.500,	79.900,	83.800,	86.800,	88.900,	90.200,	90.600,	90.300,	89.400,	87.800,	86.000,	84.200,	82.500,	80.800,	},
+{65.800,	76.000,	80.000,	85.000,	88.800,	91.800,	93.900,	95.200,	95.600,	95.300,	94.300,	92.600,	90.700,	88.800,	87.000,	85.200,	},
+{69.400,	79.100,	82.900,	87.800,	91.700,	94.800,	97.000,	98.300,	98.800,	98.400,	97.400,	95.600,	93.500,	91.500,	89.600,	87.700,	},
+{73.000,	82.200,	85.900,	90.700,	94.600,	97.800,	100.000,	101.500,	101.900,	101.600,	100.400,	98.500,	96.400,	94.200,	92.200,	90.200,	},
+{76.600,	85.300,	88.800,	93.500,	97.400,	100.700,	103.100,	104.600,	105.100,	104.700,	103.500,	101.500,	99.200,	96.900,	94.800,	92.600,	},
+{80.300,	88.500,	91.800,	96.400,	100.300,	103.700,	106.200,	107.800,	108.200,	107.800,	106.500,	104.400,	102.000,	99.700,	97.400,	95.100,	},
+{83.900,	91.600,	94.700,	99.200,	103.200,	106.700,	109.200,	110.900,	111.400,	110.900,	109.600,	107.400,	104.800,	102.400,	99.900,	97.600,	},
+{87.500,	94.700,	97.600,	102.000,	106.100,	109.700,	112.300,	114.000,	114.500,	114.100,	112.600,	110.300,	107.700,	105.100,	102.500,	100.100,	},
+{91.100,	97.800,	100.600,	104.900,	108.900,	112.600,	115.300,	117.200,	117.700,	117.200,	115.700,	113.300,	110.500,	107.800,	105.100,	102.500,	},
+{94.700,	100.900,	103.500,	107.700,	111.800,	115.600,	118.400,	120.300,	120.800,	120.300,	118.700,	116.200,	113.300,	110.500,	107.700,	105.000,	},
+};
+	copyTable(config->veTable, hardCodedveTable);
+#else
 	setTable(config->veTable, 80);
+#endif
 
 	setRpmTableBin(config->baroCorrRpmBins);
 	setLinearCurve(config->baroCorrPressureBins, 75, 105, 1);
@@ -88,8 +110,13 @@ static void setDefaultVETable() {
 	setTable(config->baroCorrTable, 1);
 
 	// Give default axes for cylinder trim tables
+#if FUEL_TRIM_SIZE == 4
 	copyArray(config->fuelTrimRpmBins, { 1000, 3000, 5000, 7000 });
 	copyArray(config->fuelTrimLoadBins, { 20, 50, 80, 100 });
+#else
+  setRpmTableBin(config->fuelTrimRpmBins);
+  setLinearCurve(config->fuelTrimLoadBins, 20, 100);
+#endif
 
 	// Default axes for VE blends
 	for (size_t i = 0; i < efi::size(config->veBlends); i++) {
@@ -168,10 +195,12 @@ static void setMazdaMiataNbTpsTps() {
 }
 
 static void setDefaultLambdaTable() {
+#if (FUEL_LOAD_COUNT == DEFAULT_FUEL_LOAD_COUNT)
 	static constexpr float mapBins[] = {
 		30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 150, 175, 200, 225, 250
 	};
 	copyArray(config->lambdaLoadBins, mapBins);
+#endif
 
 	setRpmTableBin(config->lambdaRpmBins);
 
@@ -190,6 +219,11 @@ static void setDefaultLambdaTable() {
 	}
 }
 
+void setGdiWallWetting() {
+	engineConfiguration->wwaeTau = 0;
+	engineConfiguration->wwaeBeta = 0;
+}
+
 void setDefaultWallWetting() {
 #if !EFI_UNIT_TEST
 	// todo: this is a reasonable default for what kinds of engines exactly?
@@ -198,30 +232,30 @@ void setDefaultWallWetting() {
 #endif // EFI_UNIT_TEST
 
 	// linear reasonable bins
-	setLinearCurve(engineConfiguration->wwCltBins, -40, 100, 1);
-	setLinearCurve(engineConfiguration->wwMapBins, 10, 80, 1);
+	setLinearCurve(config->wwCltBins, -40, 100, 1);
+	setLinearCurve(config->wwMapBins, 10, 80, 1);
 
 	// These values are derived from the GM factory tune for a gen3 LS engine
 	// Who knows if they're good for anything else, but at least they look nice?
 	static constexpr float tauClt[] = {
 		1.45, 1.30, 1.17, 1.05, 0.90, 0.82, 0.75, 0.70
 	};
-	copyArray(engineConfiguration->wwTauCltValues, tauClt);
+	copyArray(config->wwTauCltValues, tauClt);
 
 	static constexpr float tauMap[] = {
 		0.38, 0.55, 0.69, 0.86, 0.90, 0.95, 0.97, 1.00
 	};
-	copyArray(engineConfiguration->wwTauMapValues, tauMap);
+	copyArray(config->wwTauMapValues, tauMap);
 
 	static constexpr float betaClt[] = {
 		0.73, 0.66, 0.57, 0.46, 0.38, 0.31, 0.24, 0.19
 	};
-	copyArray(engineConfiguration->wwBetaCltValues, betaClt);
+	copyArray(config->wwBetaCltValues, betaClt);
 
 	static constexpr float betaMap[] = {
 		0.21, 0.40, 0.60, 0.79, 0.85, 0.90, 0.95, 1.00
 	};
-	copyArray(engineConfiguration->wwBetaMapValues, betaMap);
+	copyArray(config->wwBetaMapValues, betaMap);
 }
 
 static void setDefaultLambdaProtection() {
@@ -255,32 +289,34 @@ void setDefaultFuel() {
 	 * By the way http://users.erols.com/srweiss/tableifc.htm has a LOT of data
 	 */
 	engineConfiguration->injector.flow = 200;
+	engineConfiguration->injectorSecondary.flow = 200;
 	engineConfiguration->stoichRatioPrimary = STOICH_RATIO;
 
 	// 9.0 = E100 pure ethanol
 	engineConfiguration->stoichRatioSecondary = 9.0f;
 
 	// Injector deadtime
-	setBosch02880155868();
+	setBosch02880155868(engineConfiguration->injector);
+	setBosch02880155868(engineConfiguration->injectorSecondary);
 
 	// Tables
 	setFuelTablesLoadBin(10, 160);
 	setRpmTableBin(config->injPhaseRpmBins);
 
-	setRpmTableBin(engineConfiguration->tpsTspCorrValuesBins);
-	setLinearCurve(engineConfiguration->tpsTspCorrValues, 1, 1);
+	setRpmTableBin(config->tpsTspCorrValuesBins);
+	setLinearCurve(config->tpsTspCorrValues, 1, 1);
 
 	setDefaultVETable();
 	setDefaultLambdaTable();
+
+	setLinearCurve(config->injectorStagingLoadBins, 0, 100, 10);
+	setRpmTableBin(config->injectorStagingRpmBins);
 
 	setRpmTableBin(config->mapEstimateRpmBins);
 	setLinearCurve(config->mapEstimateTpsBins, 0, 100);
 	setTable(config->mapEstimateTable, 60);
 
-	// most of rusEFI installations are still port injected, for GDI see 'setGDIFueling'
-	// -400 will close the injector just before TDC at the end of the exhaust stroke,
-	// around the time the intake valve opens.
-	setTable(config->injectionPhase, -400.0f);
+	setTable(config->injectionPhase, PORT_INJECTION_OFFSET);
 
 	// Charge temperature estimation
 	engineConfiguration->tChargeMinRpmMinTps = 0.25;
@@ -320,4 +356,10 @@ void setDefaultFuel() {
 	setDefaultLambdaProtection();
 
 	setDefaultPriming();
+
+	// Cut at 110% instantly
+	engineConfiguration->maxInjectorDutyInstant = 110;
+	// Cut at 96% after 0.5 second
+	engineConfiguration->maxInjectorDutySustained = 96;
+	engineConfiguration->maxInjectorDutySustainedTimeout = 0.5f;
 }

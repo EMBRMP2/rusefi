@@ -30,6 +30,10 @@ LUA_HEAD_RAM_SECTION
 #endif
 ;
 
+static int recentRxCount = 0;
+static int totalRxCount = 0;
+static int rxTime;
+
 class Heap {
 public:
 	memory_heap_t m_heap;
@@ -200,7 +204,7 @@ static LuaHandle setupLuaState(lua_Alloc alloc) {
 }
 
 static bool loadScript(LuaHandle& ls, const char* scriptStr) {
-	efiPrintf(TAG "loading script length: %d...", efiStrlen(scriptStr));
+	efiPrintf(TAG "loading script length: %lu...", efiStrlen(scriptStr));
 
 	if (0 != luaL_dostring(ls, scriptStr)) {
 		efiPrintf(TAG "ERROR loading script: %s", lua_tostring(ls, -1));
@@ -221,7 +225,7 @@ static bool loadScript(LuaHandle& ls, const char* scriptStr) {
 static bool interactivePending = false;
 static char interactiveCmd[100];
 
-void doInteractive(LuaHandle& ls) {
+static void doInteractive(LuaHandle& ls) {
 	if (!interactivePending) {
 		// no cmd pending, return
 		return;
@@ -254,7 +258,7 @@ void doInteractive(LuaHandle& ls) {
 	lua_settop(ls, 0);
 }
 
-void invokeTick(LuaHandle& ls) {
+static void invokeTick(LuaHandle& ls) {
 	ScopePerf perf(PE::LuaTickFunction);
 
 	// run the tick function
@@ -324,7 +328,9 @@ static bool runOneLua(lua_Alloc alloc, const char* script) {
 		efitick_t beforeNt = getTimeNowNt();
 #if EFI_CAN_SUPPORT
 		// First, process any pending can RX messages
-		doLuaCanRx(ls);
+		totalRxCount += recentRxCount;
+		recentRxCount = doLuaCanRx(ls);
+		rxTime = getTimeNowNt() - beforeNt;
 #endif // EFI_CAN_SUPPORT
 
 		// Next, check if there is a pending interactive command entered by the user
@@ -332,9 +338,9 @@ static bool runOneLua(lua_Alloc alloc, const char* script) {
 
 		invokeTick(ls);
 
-		chThdSleep(TIME_US2I(luaTickPeriodUs));
 		engine->outputChannels.luaLastCycleDuration = (getTimeNowNt() - beforeNt);
 		engine->outputChannels.luaInvocationCounter++;
+		chThdSleep(TIME_US2I(luaTickPeriodUs));
 
 		engine->engineState.luaDigitalState0 = getAuxDigital(0);
 		engine->engineState.luaDigitalState1 = getAuxDigital(1);
@@ -394,6 +400,10 @@ void startLua() {
 	initLuaCanRx();
 #endif // EFI_CAN_SUPPORT
 
+    addConsoleActionII("set_lua_setting", [](int index, int value) {
+        engineConfiguration->scriptSetting[index] = value;
+    });
+
 	luaThread.start();
 
 	addConsoleActionS("lua", [](const char* str){
@@ -411,7 +421,14 @@ void startLua() {
 		needsReset = true;
 	});
 
-	addConsoleAction("luamemory", printLuaMemoryInfo);
+	addConsoleAction("luamemory", [](){
+	  efiPrintf("rx total/recent %d %d", totalRxCount,
+	    recentRxCount);
+	  efiPrintf("luaCycle %luus including luaRxTime %dus", NT2US(engine->outputChannels.luaLastCycleDuration),
+	    NT2US(rxTime));
+
+     printLuaMemoryInfo();
+  });
 #endif
 }
 

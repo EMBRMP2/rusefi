@@ -10,7 +10,7 @@
 #include "pch.h"
 
 /* If any setting storage is exist */
-#if (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE)
+#if EFI_CONFIGURATION_STORAGE
 
 #include "mpu_util.h"
 #include "flash_main.h"
@@ -312,7 +312,7 @@ void readFromFlash() {
 			break;
 		case FlashState::IncompatibleVersion:
 			// Preserve engine type from old config
-			efiPrintf("Resetting due to version mismatch but preserving engine type [%d]", engineConfiguration->engineType);
+			efiPrintf("Resetting due to version mismatch but preserving engine type [%d]", (int)engineConfiguration->engineType);
 			resetConfigurationExt(engineConfiguration->engineType);
 			break;
 		case FlashState::Ok:
@@ -325,7 +325,7 @@ void readFromFlash() {
 	// we can only change the state after the CRC check
 	engineConfiguration->byFirmwareVersion = getRusEfiVersion();
 	memset(persistentState.persistentConfiguration.warning_message , 0, sizeof(persistentState.persistentConfiguration.warning_message));
-	validateConfiguration();
+	engine->preCalculate();
 }
 
 static void rewriteConfig() {
@@ -336,11 +336,11 @@ static void rewriteConfig() {
 void initFlash() {
 #if EFI_STORAGE_MFS == TRUE
 	boardInitMfs();
-	const MFSConfig *config = boardGetMfsConfig();
+	const MFSConfig *mfsConfig = boardGetMfsConfig();
 
 	/* MFS */
 	mfsObjectInit(&mfsd);
-	mfs_error_t err = mfsStart(&mfsd, config);
+	mfs_error_t err = mfsStart(&mfsd, mfsConfig);
 	if (err < MFS_NO_ERROR) {
 		/* hm...? */
 	}
@@ -367,4 +367,4 @@ void initFlash() {
 #endif
 }
 
-#endif /* (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE) */
+#endif /* EFI_CONFIGURATION_STORAGE */

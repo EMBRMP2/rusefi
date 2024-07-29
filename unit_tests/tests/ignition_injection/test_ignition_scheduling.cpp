@@ -6,6 +6,7 @@
  */
 
 #include "pch.h"
+#include "defaults.h"
 #include "spark_logic.h"
 
 using ::testing::_;
@@ -18,18 +19,18 @@ TEST(ignition, twoCoils) {
 	initializeIgnitionActions();
 
 	// first one to fire uses first coil
-	EXPECT_EQ(engine->ignitionEvents.elements[0].cylinderNumber, 0);
-	EXPECT_EQ(engine->ignitionEvents.elements[1].cylinderNumber, 6);
-	EXPECT_EQ(engine->ignitionEvents.elements[2].cylinderNumber, 0);
-	EXPECT_EQ(engine->ignitionEvents.elements[3].cylinderNumber, 6);
-	EXPECT_EQ(engine->ignitionEvents.elements[4].cylinderNumber, 0);
-	EXPECT_EQ(engine->ignitionEvents.elements[5].cylinderNumber, 6);
-	EXPECT_EQ(engine->ignitionEvents.elements[6].cylinderNumber, 0);
-	EXPECT_EQ(engine->ignitionEvents.elements[7].cylinderNumber, 6);
-	EXPECT_EQ(engine->ignitionEvents.elements[8].cylinderNumber, 0);
-	EXPECT_EQ(engine->ignitionEvents.elements[9].cylinderNumber, 6);
-	EXPECT_EQ(engine->ignitionEvents.elements[10].cylinderNumber, 0);
-	EXPECT_EQ(engine->ignitionEvents.elements[11].cylinderNumber, 6);
+	EXPECT_EQ(engine->ignitionEvents.elements[0].coilIndex, 0);
+	EXPECT_EQ(engine->ignitionEvents.elements[1].coilIndex, 6);
+	EXPECT_EQ(engine->ignitionEvents.elements[2].coilIndex, 0);
+	EXPECT_EQ(engine->ignitionEvents.elements[3].coilIndex, 6);
+	EXPECT_EQ(engine->ignitionEvents.elements[4].coilIndex, 0);
+	EXPECT_EQ(engine->ignitionEvents.elements[5].coilIndex, 6);
+	EXPECT_EQ(engine->ignitionEvents.elements[6].coilIndex, 0);
+	EXPECT_EQ(engine->ignitionEvents.elements[7].coilIndex, 6);
+	EXPECT_EQ(engine->ignitionEvents.elements[8].coilIndex, 0);
+	EXPECT_EQ(engine->ignitionEvents.elements[9].coilIndex, 6);
+	EXPECT_EQ(engine->ignitionEvents.elements[10].coilIndex, 0);
+	EXPECT_EQ(engine->ignitionEvents.elements[11].coilIndex, 6);
 
 	ASSERT_EQ(engine->ignitionEvents.elements[0].sparkAngle, 0);
 	ASSERT_EQ((void*)engine->ignitionEvents.elements[0].outputs[0], (void*)&enginePins.coils[0]);
@@ -45,6 +46,8 @@ TEST(ignition, twoCoils) {
 TEST(ignition, trailingSpark) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	engineConfiguration->isFasterEngineSpinUpEnabled = false;
+	extern bool unitTestBusyWaitHack;
+	unitTestBusyWaitHack = true;
 
 	/**
 	// TODO #3220: this feature makes this test sad, eventually remove this line (and the ability to disable it altogether)
@@ -148,3 +151,45 @@ TEST(ignition, CylinderTimingTrim) {
 	EXPECT_NEAR(engine->engineState.timingAdvance[2], unadjusted + 2, EPS4D);
 	EXPECT_NEAR(engine->engineState.timingAdvance[3], unadjusted + 4, EPS4D);
 }
+
+TEST(ignition, negativeAdvance) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+
+  int rpm = 0;
+  float load = 50;
+
+	engineConfiguration->fixedTiming = -13;
+	engineConfiguration->timingMode = TM_FIXED;
+	// run the ignition math
+	engine->periodicFastCallback();
+
+	eth.assertRpm(0);
+
+	ASSERT_EQ(DEFAULT_CRANKING_ANGLE, getCrankingAdvance(rpm, load));
+	ASSERT_EQ(-13, getRunningAdvance(rpm, load));
+	ASSERT_EQ(0, getAdvanceCorrections(load));
+	ASSERT_EQ(707, getWrappedAdvance(rpm, load));
+
+	ASSERT_NEAR(-13, engine->ignitionState.baseIgnitionAdvance, EPS4D);
+	ASSERT_NEAR(-13, engine->ignitionState.correctedIgnitionAdvance, EPS4D);
+}
+
+TEST(ignition, negativeAdvance2stroke) {
+	EngineTestHelper eth(engine_type_e::SACHS);
+
+	int rpm = 0;
+	float load = 50;
+
+	ASSERT_EQ(360, getEngineState()->engineCycle);
+
+	engineConfiguration->fixedTiming = -13;
+	engineConfiguration->timingMode = TM_FIXED;
+	// run the ignition math
+	engine->periodicFastCallback();
+
+	eth.assertRpm(0);
+	ASSERT_EQ(347, getWrappedAdvance(rpm, load));
+
+	ASSERT_NEAR(-13, engine->ignitionState.correctedIgnitionAdvance, EPS4D);
+}
+

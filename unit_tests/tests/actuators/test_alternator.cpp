@@ -5,28 +5,6 @@
 using ::testing::StrictMock;
 using ::testing::Return;
 
-TEST(Alternator, TestSetPoint) {
-	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
-
-	engineConfiguration->targetVBatt = 14.2f;
-	engineConfiguration->cranking.rpm = 500;
-	engineConfiguration->isAlternatorControlEnabled = true;
-
-	AlternatorController dut;
-
-	Sensor::setMockValue(SensorType::Rpm, 500);
-	// disabled if rpm <= cranking.rpm
-	EXPECT_EQ(-1, dut.getSetpoint().value_or(-1));
-
-	Sensor::setMockValue(SensorType::Rpm, 501);
-	// enabled!
-	EXPECT_EQ(engineConfiguration->targetVBatt, dut.getSetpoint().value_or(-1));
-
-	engineConfiguration->isAlternatorControlEnabled = false;
-	// disabled manually
-	EXPECT_EQ(-1, dut.getSetpoint().value_or(-1));
-}
-
 TEST(Alternator, observePlant) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 

@@ -17,6 +17,7 @@ jobs:
           git submodule update --init --depth=1 firmware/controllers/lua/luaaa
           git submodule update --init --depth=1 firmware/controllers/can/wideband_firmware
           git submodule update --init --depth=1 java_console/luaformatter
+          git submodule update --init --depth=1 java_console/peak-can-basic
 
       - uses: actions/setup-java@v4
         with:
@@ -31,18 +32,18 @@ jobs:
           sudo bash misc/actions/add-ubuntu-latest-apt-mirrors.sh
           sudo apt-get install sshpass mtools
 
-      - name: Generate Configs, Enums & Live Documentation
+      - name: Build Config Definition Base and Enum to String
+        working-directory: ./java_tools/
+        run: |
+          ./gradlew :config_definition_base:shadowJar
+          ./gradlew :enum_to_string:shadowJar
+
+      - name: Generate Enums & Live Documentation
         working-directory: ./firmware/
-        run: ./gen_default_everything.sh
+        run: ./gen_live_documentation.sh
 
       - name: Print GCC version
-        working-directory: .
         run: gcc -v
-
-      - name: Build Native Unit Tests as shared library
-        working-directory: ./unit_tests/
-        # we have a unit test of JNI thus we need to build shared library
-        run: make -j4 SANITIZE=no build/lib_rusefi_test
 
       - name: Test console
         # at the moment 'jar' task does not depend on tests?! maybe because tests take some time?
@@ -58,7 +59,7 @@ jobs:
 
       - name: Attach Gradle junit results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: gradle junit
           path: '**/build/test-results/test/TEST-*.xml'
@@ -69,7 +70,7 @@ jobs:
 
       - name: Attach Ant console junit results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: console junit
           path: ./java_console/build/*.txt

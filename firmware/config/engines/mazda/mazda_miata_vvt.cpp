@@ -59,6 +59,7 @@
 
 #include "mre_meta.h"
 
+#if HW_HELLEN
 static const float injectorLagBins[VBAT_INJECTOR_CURVE_SIZE] = {
         6.0,         8.0,        10.0,        11.0,
         12.0,        13.0,  14.0,        15.0
@@ -69,11 +70,12 @@ static const float injectorLagCorrection[VBAT_INJECTOR_CURVE_SIZE] = {
         1.5 ,        1.35,        1.25 ,        1.20
 };
 
-static const float vvt18fsioRpmBins[SCRIPT_TABLE_8] =
+#if SCRIPT_TABLE_8 == 8
+static const float vvt18RpmBins[SCRIPT_TABLE_8] =
 {700.0, 1000.0, 2000.0, 3000.0, 3500.0, 4500.0, 5500.0, 6500.0}
 ;
 
-static const float vvt18fsioLoadBins[SCRIPT_TABLE_8] =
+static const float vvt18LoadBins[SCRIPT_TABLE_8] =
 {30.0, 40.0, 50.0, 60.0, 70.0, 75.0, 82.0, 85.0}
 ;
 
@@ -88,6 +90,7 @@ static const uint8_t SCRIPT_TABLE_vvt_target[SCRIPT_TABLE_8][SCRIPT_TABLE_8] = {
 		{/* 6 82	*//* 0 700.0*/17,	/* 1 1000.0*/28,	/* 2 2000.0*/33,	/* 3 3000.0*/28,	/* 4 3500.0*/30,	/* 5 4500.0*/28,	/* 6 5500.0*/11,	/* 7 6500.0*/5,	},
 		{/* 7 85	*//* 0 700.0*/17,	/* 1 1000.0*/28,	/* 2 2000.0*/33,	/* 3 3000.0*/28,	/* 4 3500.0*/30,	/* 5 4500.0*/28,	/* 6 5500.0*/11,	/* 7 6500.0*/5,	},
 };
+#endif
 
 #if (FUEL_LOAD_COUNT == DEFAULT_FUEL_LOAD_COUNT) && (FUEL_RPM_COUNT == DEFAULT_FUEL_LOAD_COUNT)
 const float mazda_miata_nb2_RpmBins[FUEL_RPM_COUNT] = {700.0, 820.0, 950.0, 1100.0,
@@ -289,7 +292,7 @@ static void setCommonMazdaNB() {
 
 	// Alternator
 	engineConfiguration->isAlternatorControlEnabled = true;
-	engineConfiguration->targetVBatt = 14.0f;
+	setTable(config->alternatorVoltageTargetTable, 14.0f);
 	engineConfiguration->alternatorControl.offset = 20;
 	engineConfiguration->alternatorControl.pFactor = 16;
 	engineConfiguration->alternatorControl.iFactor = 8;
@@ -363,9 +366,11 @@ static void setMazdaMiataEngineNB2Defaults() {
 
 	setCommonMazdaNB();
 
-	copyArray(config->vvtTable1RpmBins, vvt18fsioRpmBins);
-	copyArray(config->vvtTable1LoadBins, vvt18fsioLoadBins);
+#if SCRIPT_TABLE_8 == 8
+	copyArray(config->vvtTable1RpmBins, vvt18RpmBins);
+	copyArray(config->vvtTable1LoadBins, vvt18LoadBins);
 	copyTable(config->vvtTable1, SCRIPT_TABLE_vvt_target);
+#endif
 
 	// VVT closed loop
 	engineConfiguration->auxPid[0].pFactor = 2;
@@ -388,166 +393,7 @@ static void setMazdaMiataEngineNB2Defaults() {
 	engineConfiguration->driveWheelRevPerKm = 538;
 	engineConfiguration->finalGearRatio = 3.909;
 }
-
-// MAZDA_MIATA_2003
-void setMazdaMiata2003EngineConfiguration() {
-	setFrankensoConfiguration();
-
-	setMazdaMiataEngineNB2Defaults();
-
-//	engineConfiguration->triggerInputPins[0] = Gpio::A8; // custom Frankenso wiring in order to use SPI1 for accelerometer
-	engineConfiguration->triggerInputPins[0] = Gpio::A5; // board still not modified
-	engineConfiguration->triggerInputPins[1] = Gpio::Unassigned;
-	engineConfiguration->camInputs[0] = Gpio::C6;
-
-//	engineConfiguration->is_enabled_spi_1 = true;
-
-	engineConfiguration->alternatorControlPin = Gpio::E10;
-	engineConfiguration->alternatorControlPinMode = OM_OPENDRAIN;
-
-//	engineConfiguration->vehicleSpeedSensorInputPin = Gpio::A8;
-
-	engineConfiguration->vvtPins[0] = Gpio::E3; // VVT solenoid control
-
-	// high-side driver with +12v VP jumper
-	engineConfiguration->tachOutputPin = Gpio::E8; // tachometer
-
-	// set global_trigger_offset_angle 0
-	engineConfiguration->globalTriggerAngleOffset = 0;
-
-	// enable trigger_details
-	engineConfiguration->verboseTriggerSynchDetails = false;
-
-	// set cranking_timing_angle 10
-	engineConfiguration->crankingTimingAngle = 10;
-
-/**
- * Saab attempt
- * Saab  coil on #1 PD8 extra blue wire
- * Miata coil on #2 PC9  - orange ECU wire "2&3"
- * Saab  coil on #3 PD9 extra white wire
- * Miata coil on #4 PE14 - white ECU wire "1&4"
- */
-
-	engineConfiguration->ignitionPins[0] = Gpio::E14;
-	engineConfiguration->ignitionPins[1] = Gpio::Unassigned;
-	engineConfiguration->ignitionPins[2] = Gpio::C9;
-	engineConfiguration->ignitionPins[3] = Gpio::Unassigned;
-
-
-
-	engineConfiguration->malfunctionIndicatorPin = Gpio::D5;
-
-
-//	engineConfiguration->malfunctionIndicatorPin = Gpio::D9;
-//	engineConfiguration->malfunctionIndicatorPinMode = OM_INVERTED;
-
-	// todo: blue jumper wire - what is it?!
-	// Frankenso analog #6 pin 3R, W56 (5th lower row pin from the end) top <> W45 bottom jumper, not OEM
-
-
-	// see setFrankensoConfiguration
-	// map.sensor.hwChannel = EFI_ADC_0; W53
-
-	/**
-	 * PA4 Wideband O2 Sensor
-	 */
-	// todo: re-wire the board to use "Frankenso analog #7 pin 3J, W48 top <>W48 bottom jumper, not OEM"
-	//engineConfiguration->afr.hwChannel = EFI_ADC_3; // PA3
-	engineConfiguration->afr.hwChannel = EFI_ADC_4;
-
-	//
-	/**
-	 * Combined RPM, CLT and VBATT warning light
-	 *
-	 * to test
-	 * set_fsio_setting 2 1800
-	 * set_fsio_setting 3 65
-	 * set_fsio_setting 4 15
-	 */
-	engineConfiguration->scriptSetting[1] = 6500; // #2 RPM threshold
-	engineConfiguration->scriptSetting[2] = 105; // #3 CLT threshold
-	engineConfiguration->scriptSetting[3] = 12.0; // #4 voltage threshold
-
-	// enable auto_idle
-	// set idle_p 0.05
-	// set idle_i 0
-	// set idle_d 0
-	// set debug_mode 3
-	// set idle_rpm 1700
-	// see setDefaultIdleParameters
-
-	engineConfiguration->adcVcc = 3.3f;
-	engineConfiguration->vbattDividerCoeff = 8.80f;
-
-	// by the way NB2 MAF internal diameter is about 2.5 inches / 63mm
-	// 1K pull-down to read current from this MAF
-	engineConfiguration->mafAdcChannel = EFI_ADC_6; // PA6 W46 <> W46
-
-	engineConfiguration->throttlePedalUpVoltage = 0.65f;
-
-
-	// TLE7209 two-wire ETB control
-	// PWM
-	engineConfiguration->etb_use_two_wires = true;
-
-	engineConfiguration->etbIo[0].controlPin = Gpio::Unassigned;
-
-	//
-	engineConfiguration->etbIo[0].directionPin1 = Gpio::E12; // orange
-	//
-	engineConfiguration->etbIo[0].directionPin2 = Gpio::C7; // white/blue
-
-	// set_analog_input_pin tps PC3
-	engineConfiguration->tps1_1AdcChannel = EFI_ADC_13; // PC3 blue
-
-	// set_analog_input_pin pps PA2
-/* a step back - Frankenso does not use ETB
-	engineConfiguration->throttlePedalPositionAdcChannel = EFI_ADC_2;
-*/
-
-	//set etb_p 12
-	engineConfiguration->etb.pFactor = 12; // a bit lower p-factor seems to work better on TLE9201? MRE?
-	engineConfiguration->etb.iFactor = 	0;
-	engineConfiguration->etb.dFactor = 0;
-	engineConfiguration->etb.offset = 40;
-	engineConfiguration->etb.minValue = -60;
-	engineConfiguration->etb.maxValue = 50;
-
-	config->crankingFuelCoef[0] = 2.8; // base cranking fuel adjustment coefficient
-	config->crankingFuelBins[0] = -20; // temperature in C
-	config->crankingFuelCoef[1] = 2.2;
-	config->crankingFuelBins[1] = -10;
-	config->crankingFuelCoef[2] = 1.8;
-	config->crankingFuelBins[2] = 5;
-	config->crankingFuelCoef[3] = 1.5;
-	config->crankingFuelBins[3] = 30;
-
-	config->crankingFuelCoef[4] = 1.0;
-	config->crankingFuelBins[4] = 35;
-	config->crankingFuelCoef[5] = 1.0;
-	config->crankingFuelBins[5] = 50;
-	config->crankingFuelCoef[6] = 1.0;
-	config->crankingFuelBins[6] = 65;
-	config->crankingFuelCoef[7] = 1.0;
-	config->crankingFuelBins[7] = 90;
-}
-
-/**
- * red car setting with default 1991/1995 miata harness
- * board #70 - closer to default miata NA6 harness
- *
- */
-void setMazdaMiata2003EngineConfigurationBoardTest() {
-	setMazdaMiata2003EngineConfiguration();
-
-	engineConfiguration->ignitionPins[2] = Gpio::C7;
-
-	// Frankenso analog #7 pin 3J, W48 top <>W48 bottom jumper, not OEM. Make sure 500K pull-down on Frankenso
-	engineConfiguration->afr.hwChannel = EFI_ADC_3; // PA3
-
-	engineConfiguration->mafAdcChannel = EFI_ADC_4; // PA4 - W47 top <>W47
-}
+#endif // HW_HELLEN
 
 /**
  * https://github.com/rusefi/rusefi/wiki/HOWTO-TCU-A42DE-on-Proteus
@@ -606,76 +452,14 @@ void setMiataNB2_Proteus_TCU() {
 	config->tcuSolenoidTable[5][1] = 0;
 
 }
-
-/**
- * https://github.com/rusefi/rusefi/wiki/HOWTO-Miata-NB2-on-Proteus
- */
-void setMiataNB2_Proteus() {
-    setMazdaMiataEngineNB2Defaults();
-
-    engineConfiguration->triggerInputPins[0] = Gpio::C6;                     // pin 10/black23
-    engineConfiguration->triggerInputPins[1] = Gpio::Unassigned;
-    engineConfiguration->camInputs[0] = Gpio::E11;                           // pin  1/black23
-
-    engineConfiguration->alternatorControlPin = Gpio::A8;  // "Highside 2"    # pin 1/black35
-
-    engineConfiguration->vvtPins[0] = Gpio::B5; // VVT solenoid control # pin 8/black35
-
-    // high-side driver with +12v VP jumper
-    engineConfiguration->tachOutputPin = Gpio::A9; // tachometer
-    engineConfiguration->tachPulsePerRev = 2;
-
-    engineConfiguration->ignitionMode = IM_WASTED_SPARK;
-
-    #if EFI_PROD_CODE
-    engineConfiguration->ignitionPins[0] = Gpio::PROTEUS_IGN_1;
-    engineConfiguration->ignitionPins[1] = Gpio::Unassigned;
-    engineConfiguration->ignitionPins[2] = Gpio::PROTEUS_IGN_3;
-    engineConfiguration->ignitionPins[3] = Gpio::Unassigned;
-
-    engineConfiguration->crankingInjectionMode = IM_SIMULTANEOUS;
-    engineConfiguration->injectionMode = IM_SEQUENTIAL;
-
-
-    engineConfiguration->injectionPins[0] = Gpio::PROTEUS_LS_1;  // BLU  # pin 3/black35
-    engineConfiguration->injectionPins[1] = Gpio::PROTEUS_LS_2;  // BLK
-    engineConfiguration->injectionPins[2] = Gpio::PROTEUS_LS_3; // GRN
-    engineConfiguration->injectionPins[3] = Gpio::PROTEUS_LS_4; // WHT
-
-    engineConfiguration->enableSoftwareKnock = true;
-
-    engineConfiguration->malfunctionIndicatorPin = Gpio::PROTEUS_LS_10;
-
-    engineConfiguration->map.sensor.hwChannel = PROTEUS_IN_MAP;
-
-
-    engineConfiguration->afr.hwChannel = EFI_ADC_11;
-
-    engineConfiguration->mafAdcChannel = EFI_ADC_13; // PA6 W46 <> W46
-
-    engineConfiguration->tps1_1AdcChannel = EFI_ADC_12;
-
-    engineConfiguration->clt.adcChannel =  PROTEUS_IN_ANALOG_TEMP_1;
-    engineConfiguration->iat.adcChannel = PROTEUS_IN_ANALOG_TEMP_3;
-
-    engineConfiguration->fuelPumpPin = Gpio::PROTEUS_LS_6;
-
-    engineConfiguration->idle.solenoidPin = Gpio::PROTEUS_LS_7;
-
-
-    engineConfiguration->fanPin = Gpio::B7;
-
-	engineConfiguration->mainRelayPin = Gpio::G12;
-#endif // EFI_PROD_CODE
-
-
-}
 #endif // HW_PROTEUS
 
 #if HW_HELLEN
-static void setMazdaMiataEngineNB1Defaults() {
+void setMazdaMiataNB1() {
 	setCommonMazdaNB();
 	strcpy(engineConfiguration->engineCode, "NB1");
+
+	engineConfiguration->injector.flow = 256;
 
 	// Vehicle speed/gears
 	engineConfiguration->totalGearsCount = 5;
@@ -690,13 +474,7 @@ static void setMazdaMiataEngineNB1Defaults() {
 	engineConfiguration->finalGearRatio = 4.3;
 }
 
-void setHellenNB1() {
-	setMazdaMiataEngineNB1Defaults();
-
-	engineConfiguration->injector.flow = 256;
-}
-
-void setMiataNB2_Hellen72() {
+void setMazdaMiataNB2() {
     setMazdaMiataEngineNB2Defaults();
 	strcpy(engineConfiguration->vehicleName, "H72 test");
 
@@ -706,8 +484,8 @@ void setMiataNB2_Hellen72() {
 
 }
 
-void setMiataNB2_Hellen72_36() {
-	setMiataNB2_Hellen72();
+void setMazdaMiataNB2_36() {
+	setMazdaMiataNB2();
 
 	engineConfiguration->trigger.type = trigger_type_e::TT_TOOTHED_WHEEL_36_1;
 	engineConfiguration->globalTriggerAngleOffset = 76;

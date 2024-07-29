@@ -15,6 +15,7 @@
 #include <time.h>
 
 #include "common_headers.h"
+#include "signal_executor_sleep.h"
 
 #include "boards.h"
 
@@ -26,8 +27,6 @@
 #endif /* __cplusplus */
 
 #define hasOsPanicError() (FALSE)
-
-#define US_TO_NT_MULTIPLIER 100
 
 // need to fight 32bit int overflow
 

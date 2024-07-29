@@ -34,6 +34,7 @@ public class ConfigDefinition {
     private static final String KEY_ZERO_INIT = "-initialize_to_zero";
     private static final String KEY_BOARD_NAME = "-board";
     public static final String CONFIG_PATH = "java_tools/configuration_definition/src/main/resources/config_definition.options";
+    public static final String READFILE_OPTION = "-readfile";
 
     public static void main(String[] args) {
         try {
@@ -106,7 +107,7 @@ public class ConfigDefinition {
                     state.addDestination(new GetConfigValueConsumer(cppFile, mdFile, LazyFile.REAL));
                 }
                     break;
-                case "-readfile":
+                case READFILE_OPTION:
                     String keyName = args[i + 1];
                     // yes, we take three parameters here thus pre-increment!
                     String fileName = args[++i + 1];
@@ -133,7 +134,7 @@ public class ConfigDefinition {
                     break;
                 case KEY_SIGNATURE:
                     signaturePrependFile = args[i + 1];
-                    state.getPrependFiles().add(args[i + 1]);
+                    state.addPrependNotInput(signaturePrependFile);
                     // don't add this file to the 'inputFiles'
                     break;
                 case KEY_SIGNATURE_DESTINATION:
@@ -142,7 +143,12 @@ public class ConfigDefinition {
                 case EnumToString.KEY_ENUM_INPUT_FILE: {
                     String enumInputFile = args[i + 1];
                     enumInputFiles.add(enumInputFile);
-                    state.read(new FileReader(RootHolder.ROOT + enumInputFile));
+                    File file = new File(RootHolder.ROOT + enumInputFile);
+                    try (Reader r = new FileReader(file)) {
+                        state.read(r);
+                    } catch (Throwable e) {
+                        throw new IllegalStateException("Reading " + file.getAbsolutePath(), e);
+                    }
                 }
                     break;
                 case "-ts_output_name":
@@ -179,7 +185,7 @@ public class ConfigDefinition {
             VariableRegistry tmpRegistry = new VariableRegistry();
             // store the CRC32 as a built-in variable
             tmpRegistry.register(SIGNATURE_HASH, uniqueId.encode());
-            tmpRegistry.readPrependValues(signaturePrependFile);
+            tmpRegistry.readPrependValues(signaturePrependFile, false);
             state.addDestination(new SignatureConsumer(signatureDestination, tmpRegistry));
         }
 

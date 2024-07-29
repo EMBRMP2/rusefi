@@ -9,14 +9,17 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Properties;
 
 public class ConnectionAndMeta {
     public static final String BASE_URL_RELEASE = "https://github.com/rusefi/rusefi/releases/latest/download/";
-    public static final String BASE_URL_LATEST = "https://rusefi.com/build_server/autoupdate/";
-    public static final String BASE_URL_LTS = "https://rusefi.com/build_server/lts/%s/autoupdate/";
+    private static final String DEFAULT_WHITE_LABEL = "rusefi";
+    public static final String AUTOUPDATE = "/autoupdate/";
 
     private static final int BUFFER_SIZE = 32 * 1024;
     public static final int CENTUM = 100;
+    public static final String IO_PROPERTIES = "/shared_io.properties";
     private final String zipFileName;
     private HttpsURLConnection httpConnection;
     private long completeFileSize;
@@ -24,6 +27,52 @@ public class ConnectionAndMeta {
 
     public ConnectionAndMeta(String zipFileName) {
         this.zipFileName = zipFileName;
+    }
+
+    public static String getBaseUrl() {
+        String result = getProperties().getProperty("auto_update_root_url");
+        System.out.println(ConnectionAndMeta.class + ": got [" + result + "]");
+        return result;
+    }
+
+    public static String getWhiteLabel() {
+        return Optional.ofNullable(getProperties().getProperty("white_label")).map(String::trim)
+            .orElse(DEFAULT_WHITE_LABEL);
+    }
+
+    public static String getSignatureWhiteLabel() {
+        String signatureWhiteLabel = getProperties().getProperty("signature_white_label");
+        signatureWhiteLabel = signatureWhiteLabel == null ? null : signatureWhiteLabel.trim();
+        return signatureWhiteLabel;
+    }
+
+    public static boolean usePCAN() {
+        return getBoolead("show_pcan");
+    }
+
+    public static boolean useSimulator() {
+        return getBoolead("show_simulator");
+    }
+
+    private static boolean getBoolead(String propertyName) {
+        String flag = getProperties().getProperty(propertyName);
+        return Boolean.TRUE.toString().equals(flag);
+    }
+
+    private static Properties getProperties() throws RuntimeException {
+        Properties props = new Properties();
+        try {
+            InputStream stream = ConnectionAndMeta.class.getResourceAsStream(IO_PROPERTIES);
+            Objects.requireNonNull(stream, "Error reading " + IO_PROPERTIES);
+            props.load(stream);
+            return props;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static String getDefaultAutoUpdateUrl() {
+        return getBaseUrl() + AUTOUPDATE;
     }
 
     public static void downloadFile(String localTargetFileName, ConnectionAndMeta connectionAndMeta, DownloadProgressListener listener) throws IOException {

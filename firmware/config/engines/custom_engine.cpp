@@ -37,43 +37,17 @@ static_assert(libHELLEN_4CHAN_STIM_QC == (int)engine_type_e::HELLEN_4CHAN_STIM_Q
 #include "scheduler.h"
 #endif /* EFI_PROD_CODE */
 
-#if EFI_PROD_CODE
-static int periodIndex = 0;
-
-static OutputPin testPin;
-static scheduling_s testScheduling;
-
-static int test557[] = {5, 5, 10, 10, 20, 20, 50, 50, 100, 100, 200, 200, 500, 500, 500, 500};
-#define TEST_LEN 16
-
-efitimeus_t testTime;
-
-static void toggleTestAndScheduleNext(void *) {
-	testPin.toggle();
-	periodIndex = (periodIndex + 1) % TEST_LEN;
-	testTime += test557[periodIndex];
-	engine->executor.scheduleByTimestamp("test", &testScheduling, testTime, &toggleTestAndScheduleNext);
-}
-
-/**
- * https://github.com/rusefi/rusefi/issues/557 common rail / direct injection scheduling control test
- */
-void runSchedulingPrecisionTestIfNeeded(void) {
-	if (!isBrainPinValid(engineConfiguration->test557pin)) {
-		return;
-	}
-
-	testPin.initPin("test", engineConfiguration->test557pin);
-	testPin.setValue(0);
-	testTime = getTimeNowUs();
-	toggleTestAndScheduleNext(/*unused*/ nullptr);
-}
-#endif /* EFI_PROD_CODE */
-
 void setDiscoveryPdm() {
 }
 
-#if HW_FRANKENSO
+#ifdef HW_FRANKENSO
+
+/**
+ * set engine_type 56
+ * https://github.com/rusefi/rusefi-hardware/tree/main/tle9104-breakout
+ */
+void setDiscoveryTLE9104Test() {
+}
 
 /**
  * set engine_type 59
@@ -109,7 +83,7 @@ void setDiscovery33810Test() {
 
 // todo: should this be part of more default configurations?
 void setFrankensoConfiguration() {
-#if HW_FRANKENSO
+#ifdef HW_FRANKENSO
 	engineConfiguration->trigger.type = trigger_type_e::TT_ONE_PLUS_ONE;
 
 	commonFrankensoAnalogInputs();
@@ -173,22 +147,6 @@ void setFrankensoConfiguration() {
 
 	setAlgorithm(LM_SPEED_DENSITY);
 
-#if EFI_PWM_TESTER
-	engineConfiguration->injectionPins[4] = Gpio::C8; // #5
-	engineConfiguration->injectionPins[5] = Gpio::D10; // #6
-	engineConfiguration->injectionPins[6] = Gpio::D9;
-	engineConfiguration->injectionPins[7] = Gpio::D11;
-	engineConfiguration->injectionPins[8] = Gpio::D0;
-	engineConfiguration->injectionPins[9] = Gpio::B11;
-	engineConfiguration->injectionPins[10] = Gpio::C7;
-	engineConfiguration->injectionPins[11] = Gpio::E4;
-
-	/**
-	 * We want to initialize all outputs for test
-	 */
-	engineConfiguration->cylindersCount = 12;
-
-#else /* EFI_PWM_TESTER */
 	engineConfiguration->injectionPins[4] = Gpio::Unassigned;
 	engineConfiguration->injectionPins[5] = Gpio::Unassigned;
 	engineConfiguration->injectionPins[6] = Gpio::Unassigned;
@@ -203,7 +161,6 @@ void setFrankensoConfiguration() {
 	engineConfiguration->ignitionPins[2] = Gpio::C9;
 	// set_ignition_pin 4 PE10
 	engineConfiguration->ignitionPins[3] = Gpio::E10;
-#endif /* EFI_PWM_TESTER */
 
 	// todo: 8.2 or 10k?
 	engineConfiguration->vbattDividerCoeff = ((float) (10 + 33)) / 10 * 2;
@@ -264,10 +221,8 @@ void setFrankensoBoardTestConfiguration() {
 // set engine_type 58
 void setEtbTestConfiguration() {
 	// VAG test ETB
-	// set tps_min 54
 	engineConfiguration->tpsMin = 54;
 	// by the way this ETB has default position of ADC=74 which is about 4%
-	// set tps_max 540
 	engineConfiguration->tpsMax = 540;
 
 	// yes, 30K - that's a test configuration
@@ -312,7 +267,7 @@ void setEtbTestConfiguration() {
 	// see also setDefaultEtbBiasCurve
 }
 
-#if HW_FRANKENSO && EFI_PROD_CODE
+#if defined(HW_FRANKENSO) && EFI_PROD_CODE
 
 
 // todo: page_size + 2
@@ -494,11 +449,13 @@ void proteusBoardTest() {
 
 #endif // EFI_PROD_CODE
 
+#if EFI_ELECTRONIC_THROTTLE_BODY
 	setProteusHitachiEtbDefaults();
+#endif // EFI_ELECTRONIC_THROTTLE_BODY
 }
 #endif // HW_PROTEUS
 
-void setBodyControlUnit() {
+static void setBasicNotECUmode() {
     engineConfiguration->trigger.type = trigger_type_e::TT_HALF_MOON;
 
 	engineConfiguration->mapAveragingSchedulingAtIndex = 999; // this should disable map averaging right?
@@ -506,10 +463,6 @@ void setBodyControlUnit() {
 	engineConfiguration->wwaeTau = 0.0;
 	engineConfiguration->wwaeBeta = 0.0;
 
-	for (int i = 0; i < MAX_CYLINDER_COUNT;i++) {
-		engineConfiguration->ignitionPins[i] = Gpio::Unassigned;
-		engineConfiguration->injectionPins[i] = Gpio::Unassigned;
-	}
 	engineConfiguration->fanPin = Gpio::Unassigned;
 	engineConfiguration->triggerInputPins[0] = Gpio::Unassigned;
 
@@ -520,6 +473,13 @@ void setBodyControlUnit() {
 	engineConfiguration->map.sensor.hwChannel = EFI_ADC_NONE;
 }
 
+void setBodyControlUnit() {
+	for (int i = 0; i < MAX_CYLINDER_COUNT;i++) {
+		engineConfiguration->ignitionPins[i] = Gpio::Unassigned;
+		engineConfiguration->injectionPins[i] = Gpio::Unassigned;
+	}
+  setBasicNotECUmode();
+}
 
 void mreSecondaryCan() {
 	setBodyControlUnit();
@@ -691,16 +651,16 @@ static const float hardCodedHpfpLobeProfileAngle[16] = {0.0, 7.5, 16.5, 24.0,
 };
 
 void setBoschHDEV_5_injectors() {
-	copyArray(engineConfiguration->hpfpLobeProfileQuantityBins, hardCodedHpfpLobeProfileQuantityBins);
-	copyArray(engineConfiguration->hpfpLobeProfileAngle, hardCodedHpfpLobeProfileAngle);
-	setLinearCurve(engineConfiguration->hpfpDeadtimeVoltsBins, 8, 16, 0.5);
+	copyArray(config->hpfpLobeProfileQuantityBins, hardCodedHpfpLobeProfileQuantityBins);
+	copyArray(config->hpfpLobeProfileAngle, hardCodedHpfpLobeProfileAngle);
+	setLinearCurve(config->hpfpDeadtimeVoltsBins, 8, 16, 0.5);
 
-	setRpmTableBin(engineConfiguration->hpfpTargetRpmBins);
-	setLinearCurve(engineConfiguration->hpfpTargetLoadBins, 0, 180, 1);
-	setTable(engineConfiguration->hpfpTarget, 5000);
+	setRpmTableBin(config->hpfpTargetRpmBins);
+	setLinearCurve(config->hpfpTargetLoadBins, 0, 180, 1);
+	setTable(config->hpfpTarget, 5000);
 
-	setRpmTableBin(engineConfiguration->hpfpCompensationRpmBins);
-	setLinearCurve(engineConfiguration->hpfpCompensationLoadBins, 0.005, 0.120, 0.001);
+	setRpmTableBin(config->hpfpCompensationRpmBins);
+	setLinearCurve(config->hpfpCompensationLoadBins, 0.005, 0.120, 0.001);
 
 	// This is the configuration for bosch HDEV 5 injectors
 	// all times in microseconds/us
@@ -880,7 +840,7 @@ end
 
 function onTick()
   local targetVoltage = getAuxAnalog(0)
-  
+
 --  local target = interpolate(1, 0, 3.5, 100, targetVoltage)
   local target = interpolate(1, 0, 3.5, 100, voltageFromCan)
 -- clamp 0 to 100
@@ -915,12 +875,11 @@ end
 }
 
 void detectBoardType() {
-#if HW_HELLEN && !defined(HW_HELLEN_SKIP_BOARD_TYPE)
-#if !EFI_UNIT_TEST
+#if HW_HELLEN && EFI_PROD_CODE
 	detectHellenBoardType();
-#endif /* EFI_UNIT_TEST */
-#endif //HW_HELLEN
+#endif //HW_HELLEN EFI_PROD_CODE
 	// todo: add board ID detection?
+	// see hellen128 which has/had alternative i2c board id?
 }
 
 void fuelBenchMode() {
@@ -930,8 +889,8 @@ void fuelBenchMode() {
 #endif // EFI_ENGINE_CONTROL
 	setTable(engineConfiguration->postCrankingFactor, 1.0f);
 	setArrayValues(config->crankingFuelCoef, 1.0f);
-	setArrayValues(config->crankingCycleCoef, 1.0f);
-    setBodyControlUnit();
+	setTable(config->crankingCycleFuelCoef, 1.0f);
+	setBasicNotECUmode();
 }
 
 #if HW_PROTEUS
@@ -975,7 +934,7 @@ void proteusStimQc() {
 }
 #endif // HW_PROTEUS
 
-#if HW_HELLEN_4CHAN
+#ifdef HW_HELLEN_4CHAN
 // HELLEN_4CHAN_STIM_QC
 // set engine_type 74
 void alphax4chanStimQc() {
@@ -991,3 +950,18 @@ void alphax4chanStimQc() {
    	engineConfiguration->camInputs[3] = Gpio::H144_IN_SENS3; // E4
 }
 #endif // HW_HELLEN_4CHAN
+
+// set engine_type 93
+void testEngine6451() {
+#ifdef HW_FRANKENSO
+  setFrankensoConfiguration();
+#endif
+  engineConfiguration->trigger.type = trigger_type_e::TT_NARROW_SINGLE_TOOTH;
+
+	setWholeTimingTable(30);
+	setTable(config->ignitionIatCorrTable, 0);
+	engineConfiguration->cylindersCount = 6;
+	engineConfiguration->firingOrder = FO_1_5_3_6_2_4;
+	engineConfiguration->ignitionMode = IM_INDIVIDUAL_COILS;
+	engineConfiguration->triggerSimulatorRpm = 4800;
+}

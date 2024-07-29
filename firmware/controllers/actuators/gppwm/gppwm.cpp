@@ -7,12 +7,14 @@ static GppwmChannel channels[GPPWM_CHANNELS];
 static OutputPin pins[GPPWM_CHANNELS];
 static SimplePwm outputs[GPPWM_CHANNELS];
 
-static gppwm_Map3D_t table1;
-static gppwm_Map3D_t table2;
-static gppwm_Map3D_t table3;
-static gppwm_Map3D_t table4;
+typedef Map3D<GPPWM_RPM_COUNT, GPPWM_LOAD_COUNT, uint8_t, int16_t, int16_t> gppwm_Map3D_t;
 
-static gppwm_Map3D_t* tables[] = {
+static gppwm_Map3D_t table1{"gppwm1"};
+static gppwm_Map3D_t table2{"gppwm2"};
+static gppwm_Map3D_t table3{"gppwm3"};
+static gppwm_Map3D_t table4{"gppwm4"};
+
+static gppwm_Map3D_t* const tables[] = {
 	&table1,
 	&table2,
 	&table3,
@@ -46,7 +48,7 @@ void initGpPwm() {
 		}
 
 		// Set up this channel's lookup table
-		tables[i]->init(cfg.table, cfg.loadBins, cfg.rpmBins);
+		tables[i]->initTable(cfg.table, cfg.rpmBins, cfg.loadBins);
 
 		// Finally configure the channel
 		channels[i].init(usePwm, &outputs[i], &pins[i], tables[i], &cfg);

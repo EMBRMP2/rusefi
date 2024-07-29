@@ -29,6 +29,14 @@ private:
     uint16_t counter = 0;
 };
 
+class SimpleSwitchedState {
+public:
+  SimpleSwitchedState() : state(&value) {
+  }
+  int8_t value = 0;
+  SwitchedState state;
+};
+
 // Used if you want a function to be virtual only for unit testing purposes
 #if EFI_UNIT_TEST
 #define TEST_VIRTUAL virtual
@@ -50,7 +58,7 @@ public:
 	// dissociates pin from this output and un-registers it in pin repository
 	void deInit();
 
-	bool isInitialized();
+	bool isInitialized() const;
 
 	bool getAndSet(int logicValue);
 	void setValue(const char *msg, int logicValue, bool isForce = false);
@@ -61,8 +69,8 @@ public:
 	brain_pin_diag_e getDiag() const;
 
 #if EFI_GPIO_HARDWARE
-	ioportid_t port = 0;
-	uint8_t pin = 0;
+	ioportid_t m_port = 0;
+	uint8_t m_pin = 0;
 #endif /* EFI_GPIO_HARDWARE */
 
 #if EFI_UNIT_TEST || EFI_SIMULATOR
@@ -109,15 +117,18 @@ public:
 	virtual void setHigh();
 	virtual void setLow();
 	const char *getName() const;
+	void setName(const char*);
 	const char *getShortName() const;
 	/**
 	 * @return true if pin was stopped
 	 */
 	bool stop();
-	// todo: char pointer is a bit of a memory waste here, we can reduce RAM usage by software-based getName() method
-	const char *name = nullptr;
 	/**
 	 * rusEfi Engine Sniffer protocol uses these short names to reduce bytes usage
 	 */
 	const char *shortName = nullptr;
+
+private:
+	// todo: char pointer is a bit of a memory waste here, we can reduce RAM usage by software-based getName() method
+	const char *name = nullptr;
 };

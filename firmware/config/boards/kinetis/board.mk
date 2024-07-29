@@ -5,7 +5,8 @@ BOARDCPPSRC = $(BOARD_DIR)/board_configuration.cpp
 
 # Required include directories
 BOARDINC  = $(BOARD_DIR)
-BOARDINC += $(BOARD_DIR)/config/controllers/algo
+BOARDINC += $(BOARD_DIR)/config/controllers/generated \
+  $(BOARD_DIR)/config/controllers/algo
 
 BOARDCPPSRC += $(CONTROLLERS_ALGO_AUTO_GENERATED_ENUMS)
 
@@ -15,7 +16,6 @@ LDSCRIPT = $(STARTUPLD_KINETIS)/MKE1xF512.ld
 CONFDIR = $(BOARD_DIR)
 DDEFS += -DSTATIC_BOARD_ID=STATIC_BOARD_ID_KIN
 
-SHORT_BOARD_NAME=kin
 DDEFS += -DCPU_MKE16F512VLH16
 DDEFS += -DCPU_MKE16F512VLH16_cm4
 DDEFS += -D__USE_CMSIS

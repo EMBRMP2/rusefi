@@ -31,15 +31,51 @@ float getConfigValueByName(const char *name) {
 // maxAcClt
 		case 1569342546:
 			return engineConfiguration->maxAcClt;
+// compressionRatio
+		case 355839382:
+			return engineConfiguration->compressionRatio;
+// wastegatePositionMin
+		case 2097342691:
+			return engineConfiguration->wastegatePositionMin;
+// wastegatePositionMax
+		case 2097342437:
+			return engineConfiguration->wastegatePositionMax;
+// idlePositionMin
+		case -1256791716:
+			return engineConfiguration->idlePositionMin;
+// idlePositionMax
+		case -1256791970:
+			return engineConfiguration->idlePositionMax;
+// etbExpAverageLength
+		case -86185846:
+			return engineConfiguration->etbExpAverageLength;
+// launchFuelAdderPercent
+		case -904771683:
+			return engineConfiguration->launchFuelAdderPercent;
+// etbJamTimeout
+		case 1057701663:
+			return engineConfiguration->etbJamTimeout;
+// acIdleExtraOffset
+		case 1933500210:
+			return engineConfiguration->acIdleExtraOffset;
+// manIdlePosition
+		case 1401746228:
+			return engineConfiguration->manIdlePosition;
 // multisparkMaxSparkingAngle
 		case 402092253:
 			return engineConfiguration->multisparkMaxSparkingAngle;
 // multisparkMaxExtraSparkCount
 		case 726613349:
 			return engineConfiguration->multisparkMaxExtraSparkCount;
+// vvtControlMinRpm
+		case 1470846937:
+			return engineConfiguration->vvtControlMinRpm;
 // injector.flow
 		case 1542550121:
 			return engineConfiguration->injector.flow;
+// injectorSecondary.flow
+		case -289303407:
+			return engineConfiguration->injectorSecondary.flow;
 // isForcedInduction
 		case -617915487:
 			return engineConfiguration->isForcedInduction;
@@ -130,6 +166,12 @@ float getConfigValueByName(const char *name) {
 // overrideVvtTriggerGaps
 		case 840966724:
 			return engineConfiguration->overrideVvtTriggerGaps;
+// useSpiImu
+		case -1011866871:
+			return engineConfiguration->useSpiImu;
+// enableStagedInjection
+		case 1160459527:
+			return engineConfiguration->enableStagedInjection;
 // tpsMin
 		case 513872736:
 			return engineConfiguration->tpsMin;
@@ -223,6 +265,9 @@ float getConfigValueByName(const char *name) {
 // cylindersCount
 		case -1578655365:
 			return engineConfiguration->cylindersCount;
+// justATempTest
+		case -48120222:
+			return engineConfiguration->justATempTest;
 // cylinderBore
 		case 1425664391:
 			return engineConfiguration->cylinderBore;
@@ -247,6 +292,9 @@ float getConfigValueByName(const char *name) {
 // maxIdleVss
 		case 1408421157:
 			return engineConfiguration->maxIdleVss;
+// camDecoder2jzPrecision
+		case 306303086:
+			return engineConfiguration->camDecoder2jzPrecision;
 // minOilPressureAfterStart
 		case -855687130:
 			return engineConfiguration->minOilPressureAfterStart;
@@ -274,9 +322,6 @@ float getConfigValueByName(const char *name) {
 // canSleepPeriodMs
 		case 296563315:
 			return engineConfiguration->canSleepPeriodMs;
-// camDecoder2jzPrecision
-		case 306303086:
-			return engineConfiguration->camDecoder2jzPrecision;
 // byFirmwareVersion
 		case 171869155:
 			return engineConfiguration->byFirmwareVersion;
@@ -301,9 +346,9 @@ float getConfigValueByName(const char *name) {
 // acrRevolutions
 		case -1373423899:
 			return engineConfiguration->acrRevolutions;
-// globalFuelCorrection
-		case 1371979578:
-			return engineConfiguration->globalFuelCorrection;
+// calibrationBirthday
+		case -2136933308:
+			return engineConfiguration->calibrationBirthday;
 // adcVcc
 		case -244496183:
 			return engineConfiguration->adcVcc;
@@ -334,21 +379,18 @@ float getConfigValueByName(const char *name) {
 // idle.solenoidFrequency
 		case -568903712:
 			return engineConfiguration->idle.solenoidFrequency;
-// manIdlePosition
-		case 1401746228:
-			return engineConfiguration->manIdlePosition;
 // knockRetardAggression
 		case 1989648303:
 			return engineConfiguration->knockRetardAggression;
 // knockRetardReapplyRate
 		case -938609466:
 			return engineConfiguration->knockRetardReapplyRate;
-// vssFilterReciprocal
-		case -495855925:
-			return engineConfiguration->vssFilterReciprocal;
 // vssGearRatio
 		case -213773345:
 			return engineConfiguration->vssGearRatio;
+// vssFilterReciprocal
+		case -495855925:
+			return engineConfiguration->vssFilterReciprocal;
 // vssToothCount
 		case -1958312328:
 			return engineConfiguration->vssToothCount;
@@ -361,33 +403,12 @@ float getConfigValueByName(const char *name) {
 // mc33_t_min_boost
 		case 1129109559:
 			return engineConfiguration->mc33_t_min_boost;
-// acIdleExtraOffset
-		case 1933500210:
-			return engineConfiguration->acIdleExtraOffset;
 // finalGearRatio
 		case -869432403:
 			return engineConfiguration->finalGearRatio;
 // tcuInputSpeedSensorTeeth
 		case -2116746650:
 			return engineConfiguration->tcuInputSpeedSensorTeeth;
-// wastegatePositionMin
-		case 2097342691:
-			return engineConfiguration->wastegatePositionMin;
-// wastegatePositionMax
-		case 2097342437:
-			return engineConfiguration->wastegatePositionMax;
-// idlePositionMin
-		case -1256791716:
-			return engineConfiguration->idlePositionMin;
-// idlePositionMax
-		case -1256791970:
-			return engineConfiguration->idlePositionMax;
-// tunerStudioSerialSpeed
-		case 1467553180:
-			return engineConfiguration->tunerStudioSerialSpeed;
-// compressionRatio
-		case 355839382:
-			return engineConfiguration->compressionRatio;
 // fordInjectorSmallPulseSlope
 		case -1465119085:
 			return engineConfiguration->fordInjectorSmallPulseSlope;
@@ -478,9 +499,9 @@ float getConfigValueByName(const char *name) {
 // pauseEtbControl
 		case -24313313:
 			return engineConfiguration->pauseEtbControl;
-// alignEngineSnifferAtTDC
-		case 1836072195:
-			return engineConfiguration->alignEngineSnifferAtTDC;
+// tpsTpsPercentMode
+		case -676706647:
+			return engineConfiguration->tpsTpsPercentMode;
 // verboseKLine
 		case -485091122:
 			return engineConfiguration->verboseKLine;
@@ -499,6 +520,12 @@ float getConfigValueByName(const char *name) {
 // minimumBoostClosedLoopMap
 		case 596585178:
 			return engineConfiguration->minimumBoostClosedLoopMap;
+// initialIgnitionCutPercent
+		case -360834835:
+			return engineConfiguration->initialIgnitionCutPercent;
+// finalIgnitionCutPercentBeforeLaunch
+		case 47348059:
+			return engineConfiguration->finalIgnitionCutPercentBeforeLaunch;
 // vehicleWeight
 		case 1549866701:
 			return engineConfiguration->vehicleWeight;
@@ -517,6 +544,12 @@ float getConfigValueByName(const char *name) {
 // sdCardLogFrequency
 		case -773841334:
 			return engineConfiguration->sdCardLogFrequency;
+// launchCorrectionsEndRpm
+		case 223926129:
+			return engineConfiguration->launchCorrectionsEndRpm;
+// lambdaProtectionRestoreRpm
+		case 872435040:
+			return engineConfiguration->lambdaProtectionRestoreRpm;
 // mapMinBufferLength
 		case -561715997:
 			return engineConfiguration->mapMinBufferLength;
@@ -544,9 +577,6 @@ float getConfigValueByName(const char *name) {
 // lambdaProtectionTimeout
 		case -1645106444:
 			return engineConfiguration->lambdaProtectionTimeout;
-// lambdaProtectionRestoreRpm
-		case 872435040:
-			return engineConfiguration->lambdaProtectionRestoreRpm;
 // clutchUpPinInverted
 		case -1171325035:
 			return engineConfiguration->clutchUpPinInverted;
@@ -667,21 +697,27 @@ float getConfigValueByName(const char *name) {
 // boostPwmFrequency
 		case -1990709262:
 			return engineConfiguration->boostPwmFrequency;
+// tpsAccelLookback
+		case -1164331270:
+			return engineConfiguration->tpsAccelLookback;
+// noFuelTrimAfterDfcoTime
+		case 1286770247:
+			return engineConfiguration->noFuelTrimAfterDfcoTime;
 // launchSpeedThreshold
 		case -1743747394:
 			return engineConfiguration->launchSpeedThreshold;
-// launchTimingRpmRange
-		case 906908772:
-			return engineConfiguration->launchTimingRpmRange;
-// launchFuelAdded
-		case 975838686:
-			return engineConfiguration->launchFuelAdded;
-// launchBoostDuty
-		case -232786835:
-			return engineConfiguration->launchBoostDuty;
-// hardCutRpmRange
-		case -163078708:
-			return engineConfiguration->hardCutRpmRange;
+// launchRpmWindow
+		case -1798887513:
+			return engineConfiguration->launchRpmWindow;
+// triggerEventsTimeoutMs
+		case 665024981:
+			return engineConfiguration->triggerEventsTimeoutMs;
+// mapExpAverageAlpha
+		case -1852204335:
+			return engineConfiguration->mapExpAverageAlpha;
+// magicNumberAvailableForDevTricks
+		case -2071167002:
+			return engineConfiguration->magicNumberAvailableForDevTricks;
 // turbochargerFilter
 		case 983814707:
 			return engineConfiguration->turbochargerFilter;
@@ -730,12 +766,9 @@ float getConfigValueByName(const char *name) {
 // oddFireEngine
 		case -111377544:
 			return engineConfiguration->oddFireEngine;
-// boardUseTachPullUp
-		case 885690524:
-			return engineConfiguration->boardUseTachPullUp;
-// boardUseTempPullUp
-		case -1457484942:
-			return engineConfiguration->boardUseTempPullUp;
+// alwaysWriteSdCard
+		case 787397010:
+			return engineConfiguration->alwaysWriteSdCard;
 // yesUnderstandLocking
 		case -1985448683:
 			return engineConfiguration->yesUnderstandLocking;
@@ -754,9 +787,6 @@ float getConfigValueByName(const char *name) {
 // useLinearIatSensor
 		case 667504645:
 			return engineConfiguration->useLinearIatSensor;
-// boardUse2stepPullDown
-		case -1470758947:
-			return engineConfiguration->boardUse2stepPullDown;
 // tachPulseDurationAsDutyCycle
 		case 99110078:
 			return engineConfiguration->tachPulseDurationAsDutyCycle;
@@ -781,27 +811,6 @@ float getConfigValueByName(const char *name) {
 // launchSparkCutEnable
 		case -1829995308:
 			return engineConfiguration->launchSparkCutEnable;
-// boardUseCrankPullUp
-		case 1280316843:
-			return engineConfiguration->boardUseCrankPullUp;
-// boardUseCamPullDown
-		case 1304425152:
-			return engineConfiguration->boardUseCamPullDown;
-// boardUseCamVrPullUp
-		case -94892331:
-			return engineConfiguration->boardUseCamVrPullUp;
-// boardUseD2PullDown
-		case 1868156805:
-			return engineConfiguration->boardUseD2PullDown;
-// boardUseD3PullDown
-		case -472498042:
-			return engineConfiguration->boardUseD3PullDown;
-// boardUseD4PullDown
-		case 1481814407:
-			return engineConfiguration->boardUseD4PullDown;
-// boardUseD5PullDown
-		case -858840440:
-			return engineConfiguration->boardUseD5PullDown;
 // verboseIsoTp
 		case -487204662:
 			return engineConfiguration->verboseIsoTp;
@@ -1054,27 +1063,99 @@ float getConfigValueByName(const char *name) {
 // idlePidRpmDeadZone
 		case -528043591:
 			return engineConfiguration->idlePidRpmDeadZone;
-// targetVBatt
-		case 1160967565:
-			return engineConfiguration->targetVBatt;
+// mc33810DisableRecoveryMode
+		case -464979268:
+			return engineConfiguration->mc33810DisableRecoveryMode;
+// mc33810Gpgd0Mode
+		case -785386645:
+			return engineConfiguration->mc33810Gpgd0Mode;
+// mc33810Gpgd1Mode
+		case -784200724:
+			return engineConfiguration->mc33810Gpgd1Mode;
+// mc33810Gpgd2Mode
+		case -783014803:
+			return engineConfiguration->mc33810Gpgd2Mode;
+// mc33810Gpgd3Mode
+		case -781828882:
+			return engineConfiguration->mc33810Gpgd3Mode;
+// enableExtendedCanBroadcast
+		case 923152418:
+			return engineConfiguration->enableExtendedCanBroadcast;
+// luaCanRxWorkaround
+		case 1068374799:
+			return engineConfiguration->luaCanRxWorkaround;
+// flexSensorInverted
+		case 512911183:
+			return engineConfiguration->flexSensorInverted;
+// useHardSkipInTraction
+		case -1495799741:
+			return engineConfiguration->useHardSkipInTraction;
+// useAuxSpeedForSlipRatio
+		case -723870257:
+			return engineConfiguration->useAuxSpeedForSlipRatio;
+// useVssAsSecondWheelSpeed
+		case -195378748:
+			return engineConfiguration->useVssAsSecondWheelSpeed;
+// is_enabled_spi_5
+		case -722238358:
+			return engineConfiguration->is_enabled_spi_5;
+// is_enabled_spi_6
+		case -722238357:
+			return engineConfiguration->is_enabled_spi_6;
+// enableAemXSeriesEgt
+		case -1196188030:
+			return engineConfiguration->enableAemXSeriesEgt;
+// startRequestPinInverted
+		case 747573348:
+			return engineConfiguration->startRequestPinInverted;
+// tcu_rangeSensorPulldown
+		case -2079591860:
+			return engineConfiguration->tcu_rangeSensorPulldown;
+// brakePedalPinInverted
+		case -1969589096:
+			return engineConfiguration->brakePedalPinInverted;
+// devBit0
+		case 161953459:
+			return engineConfiguration->devBit0;
+// devBit1
+		case 161953460:
+			return engineConfiguration->devBit1;
+// devBit2
+		case 161953461:
+			return engineConfiguration->devBit2;
+// devBit3
+		case 161953462:
+			return engineConfiguration->devBit3;
+// devBit4
+		case 161953463:
+			return engineConfiguration->devBit4;
+// devBit5
+		case 161953464:
+			return engineConfiguration->devBit5;
+// devBit6
+		case 161953465:
+			return engineConfiguration->devBit6;
+// devBit7
+		case 161953466:
+			return engineConfiguration->devBit7;
+// invertExhaustCamVVTSignal
+		case -60727986:
+			return engineConfiguration->invertExhaustCamVVTSignal;
+// enableKnockSpectrogram
+		case -556893719:
+			return engineConfiguration->enableKnockSpectrogram;
 // afterCrankingIACtaperDuration
 		case 671504531:
 			return engineConfiguration->afterCrankingIACtaperDuration;
 // iacByTpsTaper
 		case -2065814304:
 			return engineConfiguration->iacByTpsTaper;
-// tpsAccelLookback
-		case -1164331270:
-			return engineConfiguration->tpsAccelLookback;
 // coastingFuelCutVssLow
 		case 329016035:
 			return engineConfiguration->coastingFuelCutVssLow;
 // coastingFuelCutVssHigh
 		case -2027523439:
 			return engineConfiguration->coastingFuelCutVssHigh;
-// noFuelTrimAfterDfcoTime
-		case 1286770247:
-			return engineConfiguration->noFuelTrimAfterDfcoTime;
 // tpsAccelEnrichmentThreshold
 		case 1313479950:
 			return engineConfiguration->tpsAccelEnrichmentThreshold;
@@ -1297,21 +1378,6 @@ float getConfigValueByName(const char *name) {
 // auxFrequencyFilter
 		case 383307083:
 			return engineConfiguration->auxFrequencyFilter;
-// vvtControlMinRpm
-		case 1470846937:
-			return engineConfiguration->vvtControlMinRpm;
-// launchFuelAdderPercent
-		case -904771683:
-			return engineConfiguration->launchFuelAdderPercent;
-// etbJamTimeout
-		case 1057701663:
-			return engineConfiguration->etbJamTimeout;
-// etbExpAverageLength
-		case -86185846:
-			return engineConfiguration->etbExpAverageLength;
-// etbDutyThreshold
-		case -275312941:
-			return engineConfiguration->etbDutyThreshold;
 // coastingFuelCutRpmHigh
 		case 1272017572:
 			return engineConfiguration->coastingFuelCutRpmHigh;
@@ -1435,27 +1501,12 @@ float getConfigValueByName(const char *name) {
 // triggerCompSensorSatRpm
 		case -953183719:
 			return engineConfiguration->triggerCompSensorSatRpm;
-// idleRpmPid2.pFactor
-		case 2018252734:
-			return engineConfiguration->idleRpmPid2.pFactor;
-// idleRpmPid2.iFactor
-		case 1567911543:
-			return engineConfiguration->idleRpmPid2.iFactor;
-// idleRpmPid2.dFactor
-		case -594461006:
-			return engineConfiguration->idleRpmPid2.dFactor;
-// idleRpmPid2.offset
-		case 1844327734:
-			return engineConfiguration->idleRpmPid2.offset;
-// idleRpmPid2.periodMs
-		case 1558588306:
-			return engineConfiguration->idleRpmPid2.periodMs;
-// idleRpmPid2.minValue
-		case -1013403216:
-			return engineConfiguration->idleRpmPid2.minValue;
-// idleRpmPid2.maxValue
-		case 1931108850:
-			return engineConfiguration->idleRpmPid2.maxValue;
+// disableFan1AtSpeed
+		case -1575487611:
+			return engineConfiguration->disableFan1AtSpeed;
+// disableFan2AtSpeed
+		case -1906717594:
+			return engineConfiguration->disableFan2AtSpeed;
 // mc33_i_boost
 		case -371707639:
 			return engineConfiguration->mc33_i_boost;
@@ -1501,9 +1552,9 @@ float getConfigValueByName(const char *name) {
 // hpfpCamLobes
 		case -1256141959:
 			return engineConfiguration->hpfpCamLobes;
-// auxiliarySetting1
-		case 298385452:
-			return engineConfiguration->auxiliarySetting1;
+// acLowRpmLimit
+		case -2138018615:
+			return engineConfiguration->acLowRpmLimit;
 // hpfpMinAngle
 		case 1494394654:
 			return engineConfiguration->hpfpMinAngle;
@@ -1561,9 +1612,6 @@ float getConfigValueByName(const char *name) {
 // tuneHidingKey
 		case -243078627:
 			return engineConfiguration->tuneHidingKey;
-// etbDutyShutdownThreshold
-		case -1743759953:
-			return engineConfiguration->etbDutyShutdownThreshold;
 // ALSMinRPM
 		case 1532957848:
 			return engineConfiguration->ALSMinRPM;
@@ -1600,9 +1648,6 @@ float getConfigValueByName(const char *name) {
 // ALSSkipRatio
 		case -1404414917:
 			return engineConfiguration->ALSSkipRatio;
-// ALSMaxDriverThrottleIntent
-		case 612659807:
-			return engineConfiguration->ALSMaxDriverThrottleIntent;
 // tpsSecondaryMaximum
 		case -1744146782:
 			return engineConfiguration->tpsSecondaryMaximum;
@@ -1738,6 +1783,57 @@ float getConfigValueByName(const char *name) {
 // speedometerPulsePerKm
 		case 1007396714:
 			return engineConfiguration->speedometerPulsePerKm;
+// maxInjectorDutyInstant
+		case 896753456:
+			return engineConfiguration->maxInjectorDutyInstant;
+// maxInjectorDutySustained
+		case 1651400031:
+			return engineConfiguration->maxInjectorDutySustained;
+// maxInjectorDutySustainedTimeout
+		case 263235302:
+			return engineConfiguration->maxInjectorDutySustainedTimeout;
+// auxSpeed1Multiplier
+		case -1644887108:
+			return engineConfiguration->auxSpeed1Multiplier;
+// brakeMeanEffectivePressureDifferential
+		case -4616606:
+			return engineConfiguration->brakeMeanEffectivePressureDifferential;
+// tunerStudioSerialSpeed
+		case 1467553180:
+			return engineConfiguration->tunerStudioSerialSpeed;
+// anotherCiTest
+		case -283215870:
+			return engineConfiguration->anotherCiTest;
+// tcu_rangeSensorBiasResistor
+		case -1480283119:
+			return engineConfiguration->tcu_rangeSensorBiasResistor;
+// mc33810Nomi
+		case -695344665:
+			return engineConfiguration->mc33810Nomi;
+// mc33810Maxi
+		case -695395485:
+			return engineConfiguration->mc33810Maxi;
+// acPressure.v1
+		case 1470507575:
+			return engineConfiguration->acPressure.v1;
+// acPressure.value1
+		case -1171243586:
+			return engineConfiguration->acPressure.value1;
+// acPressure.v2
+		case 1470507576:
+			return engineConfiguration->acPressure.v2;
+// acPressure.value2
+		case -1171243585:
+			return engineConfiguration->acPressure.value2;
+// minAcPressure
+		case -965637402:
+			return engineConfiguration->minAcPressure;
+// maxAcPressure
+		case 1953870952:
+			return engineConfiguration->maxAcPressure;
+// tcu_shiftTime
+		case -1658957891:
+			return config->tcu_shiftTime;
 	}
 	return EFI_ERROR_CODE;
 }
@@ -1789,6 +1885,56 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->maxAcClt = (int)value;
 		return 1;
 	}
+		case 355839382:
+	{
+		engineConfiguration->compressionRatio = value;
+		return 1;
+	}
+		case 2097342691:
+	{
+		engineConfiguration->wastegatePositionMin = (int)value;
+		return 1;
+	}
+		case 2097342437:
+	{
+		engineConfiguration->wastegatePositionMax = (int)value;
+		return 1;
+	}
+		case -1256791716:
+	{
+		engineConfiguration->idlePositionMin = (int)value;
+		return 1;
+	}
+		case -1256791970:
+	{
+		engineConfiguration->idlePositionMax = (int)value;
+		return 1;
+	}
+		case -86185846:
+	{
+		engineConfiguration->etbExpAverageLength = (int)value;
+		return 1;
+	}
+		case -904771683:
+	{
+		engineConfiguration->launchFuelAdderPercent = (int)value;
+		return 1;
+	}
+		case 1057701663:
+	{
+		engineConfiguration->etbJamTimeout = (int)value;
+		return 1;
+	}
+		case 1933500210:
+	{
+		engineConfiguration->acIdleExtraOffset = (int)value;
+		return 1;
+	}
+		case 1401746228:
+	{
+		engineConfiguration->manIdlePosition = value;
+		return 1;
+	}
 		case 402092253:
 	{
 		engineConfiguration->multisparkMaxSparkingAngle = (int)value;
@@ -1799,9 +1945,19 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->multisparkMaxExtraSparkCount = (int)value;
 		return 1;
 	}
+		case 1470846937:
+	{
+		engineConfiguration->vvtControlMinRpm = (int)value;
+		return 1;
+	}
 		case 1542550121:
 	{
 		engineConfiguration->injector.flow = value;
+		return 1;
+	}
+		case -289303407:
+	{
+		engineConfiguration->injectorSecondary.flow = value;
 		return 1;
 	}
 		case -617915487:
@@ -1954,6 +2110,16 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->overrideVvtTriggerGaps = (int)value;
 		return 1;
 	}
+		case -1011866871:
+	{
+		engineConfiguration->useSpiImu = (int)value;
+		return 1;
+	}
+		case 1160459527:
+	{
+		engineConfiguration->enableStagedInjection = (int)value;
+		return 1;
+	}
 		case 513872736:
 	{
 		engineConfiguration->tpsMin = (int)value;
@@ -2081,7 +2247,7 @@ bool setConfigValueByName(const char *name, float value) {
 	}
 		case 1226423210:
 	{
-		engineConfiguration->launchTimingRetard = (int)value;
+		engineConfiguration->launchTimingRetard = value;
 		return 1;
 	}
 		case -1310663509:
@@ -2107,6 +2273,11 @@ bool setConfigValueByName(const char *name, float value) {
 		case -1578655365:
 	{
 		engineConfiguration->cylindersCount = (int)value;
+		return 1;
+	}
+		case -48120222:
+	{
+		engineConfiguration->justATempTest = (int)value;
 		return 1;
 	}
 		case 1425664391:
@@ -2147,6 +2318,11 @@ bool setConfigValueByName(const char *name, float value) {
 		case 1408421157:
 	{
 		engineConfiguration->maxIdleVss = (int)value;
+		return 1;
+	}
+		case 306303086:
+	{
+		engineConfiguration->camDecoder2jzPrecision = (int)value;
 		return 1;
 	}
 		case -855687130:
@@ -2194,11 +2370,6 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->canSleepPeriodMs = (int)value;
 		return 1;
 	}
-		case 306303086:
-	{
-		engineConfiguration->camDecoder2jzPrecision = (int)value;
-		return 1;
-	}
 		case 171869155:
 	{
 		engineConfiguration->byFirmwareVersion = (int)value;
@@ -2239,9 +2410,9 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->acrRevolutions = (int)value;
 		return 1;
 	}
-		case 1371979578:
+		case -2136933308:
 	{
-		engineConfiguration->globalFuelCorrection = value;
+		engineConfiguration->calibrationBirthday = (int)value;
 		return 1;
 	}
 		case -244496183:
@@ -2294,11 +2465,6 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->idle.solenoidFrequency = (int)value;
 		return 1;
 	}
-		case 1401746228:
-	{
-		engineConfiguration->manIdlePosition = value;
-		return 1;
-	}
 		case 1989648303:
 	{
 		engineConfiguration->knockRetardAggression = (int)value;
@@ -2309,14 +2475,14 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->knockRetardReapplyRate = (int)value;
 		return 1;
 	}
-		case -495855925:
-	{
-		engineConfiguration->vssFilterReciprocal = (int)value;
-		return 1;
-	}
 		case -213773345:
 	{
 		engineConfiguration->vssGearRatio = (int)value;
+		return 1;
+	}
+		case -495855925:
+	{
+		engineConfiguration->vssFilterReciprocal = (int)value;
 		return 1;
 	}
 		case -1958312328:
@@ -2339,11 +2505,6 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->mc33_t_min_boost = (int)value;
 		return 1;
 	}
-		case 1933500210:
-	{
-		engineConfiguration->acIdleExtraOffset = (int)value;
-		return 1;
-	}
 		case -869432403:
 	{
 		engineConfiguration->finalGearRatio = (int)value;
@@ -2352,36 +2513,6 @@ bool setConfigValueByName(const char *name, float value) {
 		case -2116746650:
 	{
 		engineConfiguration->tcuInputSpeedSensorTeeth = (int)value;
-		return 1;
-	}
-		case 2097342691:
-	{
-		engineConfiguration->wastegatePositionMin = (int)value;
-		return 1;
-	}
-		case 2097342437:
-	{
-		engineConfiguration->wastegatePositionMax = (int)value;
-		return 1;
-	}
-		case -1256791716:
-	{
-		engineConfiguration->idlePositionMin = (int)value;
-		return 1;
-	}
-		case -1256791970:
-	{
-		engineConfiguration->idlePositionMax = (int)value;
-		return 1;
-	}
-		case 1467553180:
-	{
-		engineConfiguration->tunerStudioSerialSpeed = (int)value;
-		return 1;
-	}
-		case 355839382:
-	{
-		engineConfiguration->compressionRatio = value;
 		return 1;
 	}
 		case -1465119085:
@@ -2534,9 +2665,9 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->pauseEtbControl = (int)value;
 		return 1;
 	}
-		case 1836072195:
+		case -676706647:
 	{
-		engineConfiguration->alignEngineSnifferAtTDC = (int)value;
+		engineConfiguration->tpsTpsPercentMode = (int)value;
 		return 1;
 	}
 		case -485091122:
@@ -2569,6 +2700,16 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->minimumBoostClosedLoopMap = (int)value;
 		return 1;
 	}
+		case -360834835:
+	{
+		engineConfiguration->initialIgnitionCutPercent = (int)value;
+		return 1;
+	}
+		case 47348059:
+	{
+		engineConfiguration->finalIgnitionCutPercentBeforeLaunch = (int)value;
+		return 1;
+	}
 		case 1549866701:
 	{
 		engineConfiguration->vehicleWeight = (int)value;
@@ -2597,6 +2738,16 @@ bool setConfigValueByName(const char *name, float value) {
 		case -773841334:
 	{
 		engineConfiguration->sdCardLogFrequency = (int)value;
+		return 1;
+	}
+		case 223926129:
+	{
+		engineConfiguration->launchCorrectionsEndRpm = (int)value;
+		return 1;
+	}
+		case 872435040:
+	{
+		engineConfiguration->lambdaProtectionRestoreRpm = (int)value;
 		return 1;
 	}
 		case -561715997:
@@ -2642,11 +2793,6 @@ bool setConfigValueByName(const char *name, float value) {
 		case -1645106444:
 	{
 		engineConfiguration->lambdaProtectionTimeout = (int)value;
-		return 1;
-	}
-		case 872435040:
-	{
-		engineConfiguration->lambdaProtectionRestoreRpm = (int)value;
 		return 1;
 	}
 		case -1171325035:
@@ -2849,29 +2995,39 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->boostPwmFrequency = (int)value;
 		return 1;
 	}
+		case -1164331270:
+	{
+		engineConfiguration->tpsAccelLookback = (int)value;
+		return 1;
+	}
+		case 1286770247:
+	{
+		engineConfiguration->noFuelTrimAfterDfcoTime = (int)value;
+		return 1;
+	}
 		case -1743747394:
 	{
 		engineConfiguration->launchSpeedThreshold = (int)value;
 		return 1;
 	}
-		case 906908772:
+		case -1798887513:
 	{
-		engineConfiguration->launchTimingRpmRange = (int)value;
+		engineConfiguration->launchRpmWindow = (int)value;
 		return 1;
 	}
-		case 975838686:
+		case 665024981:
 	{
-		engineConfiguration->launchFuelAdded = (int)value;
+		engineConfiguration->triggerEventsTimeoutMs = value;
 		return 1;
 	}
-		case -232786835:
+		case -1852204335:
 	{
-		engineConfiguration->launchBoostDuty = (int)value;
+		engineConfiguration->mapExpAverageAlpha = value;
 		return 1;
 	}
-		case -163078708:
+		case -2071167002:
 	{
-		engineConfiguration->hardCutRpmRange = (int)value;
+		engineConfiguration->magicNumberAvailableForDevTricks = value;
 		return 1;
 	}
 		case 983814707:
@@ -2954,14 +3110,9 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->oddFireEngine = (int)value;
 		return 1;
 	}
-		case 885690524:
+		case 787397010:
 	{
-		engineConfiguration->boardUseTachPullUp = (int)value;
-		return 1;
-	}
-		case -1457484942:
-	{
-		engineConfiguration->boardUseTempPullUp = (int)value;
+		engineConfiguration->alwaysWriteSdCard = (int)value;
 		return 1;
 	}
 		case -1985448683:
@@ -2992,11 +3143,6 @@ bool setConfigValueByName(const char *name, float value) {
 		case 667504645:
 	{
 		engineConfiguration->useLinearIatSensor = (int)value;
-		return 1;
-	}
-		case -1470758947:
-	{
-		engineConfiguration->boardUse2stepPullDown = (int)value;
 		return 1;
 	}
 		case 99110078:
@@ -3037,41 +3183,6 @@ bool setConfigValueByName(const char *name, float value) {
 		case -1829995308:
 	{
 		engineConfiguration->launchSparkCutEnable = (int)value;
-		return 1;
-	}
-		case 1280316843:
-	{
-		engineConfiguration->boardUseCrankPullUp = (int)value;
-		return 1;
-	}
-		case 1304425152:
-	{
-		engineConfiguration->boardUseCamPullDown = (int)value;
-		return 1;
-	}
-		case -94892331:
-	{
-		engineConfiguration->boardUseCamVrPullUp = (int)value;
-		return 1;
-	}
-		case 1868156805:
-	{
-		engineConfiguration->boardUseD2PullDown = (int)value;
-		return 1;
-	}
-		case -472498042:
-	{
-		engineConfiguration->boardUseD3PullDown = (int)value;
-		return 1;
-	}
-		case 1481814407:
-	{
-		engineConfiguration->boardUseD4PullDown = (int)value;
-		return 1;
-	}
-		case -858840440:
-	{
-		engineConfiguration->boardUseD5PullDown = (int)value;
 		return 1;
 	}
 		case -487204662:
@@ -3494,9 +3605,139 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->idlePidRpmDeadZone = (int)value;
 		return 1;
 	}
-		case 1160967565:
+		case -464979268:
 	{
-		engineConfiguration->targetVBatt = value;
+		engineConfiguration->mc33810DisableRecoveryMode = (int)value;
+		return 1;
+	}
+		case -785386645:
+	{
+		engineConfiguration->mc33810Gpgd0Mode = (int)value;
+		return 1;
+	}
+		case -784200724:
+	{
+		engineConfiguration->mc33810Gpgd1Mode = (int)value;
+		return 1;
+	}
+		case -783014803:
+	{
+		engineConfiguration->mc33810Gpgd2Mode = (int)value;
+		return 1;
+	}
+		case -781828882:
+	{
+		engineConfiguration->mc33810Gpgd3Mode = (int)value;
+		return 1;
+	}
+		case 923152418:
+	{
+		engineConfiguration->enableExtendedCanBroadcast = (int)value;
+		return 1;
+	}
+		case 1068374799:
+	{
+		engineConfiguration->luaCanRxWorkaround = (int)value;
+		return 1;
+	}
+		case 512911183:
+	{
+		engineConfiguration->flexSensorInverted = (int)value;
+		return 1;
+	}
+		case -1495799741:
+	{
+		engineConfiguration->useHardSkipInTraction = (int)value;
+		return 1;
+	}
+		case -723870257:
+	{
+		engineConfiguration->useAuxSpeedForSlipRatio = (int)value;
+		return 1;
+	}
+		case -195378748:
+	{
+		engineConfiguration->useVssAsSecondWheelSpeed = (int)value;
+		return 1;
+	}
+		case -722238358:
+	{
+		engineConfiguration->is_enabled_spi_5 = (int)value;
+		return 1;
+	}
+		case -722238357:
+	{
+		engineConfiguration->is_enabled_spi_6 = (int)value;
+		return 1;
+	}
+		case -1196188030:
+	{
+		engineConfiguration->enableAemXSeriesEgt = (int)value;
+		return 1;
+	}
+		case 747573348:
+	{
+		engineConfiguration->startRequestPinInverted = (int)value;
+		return 1;
+	}
+		case -2079591860:
+	{
+		engineConfiguration->tcu_rangeSensorPulldown = (int)value;
+		return 1;
+	}
+		case -1969589096:
+	{
+		engineConfiguration->brakePedalPinInverted = (int)value;
+		return 1;
+	}
+		case 161953459:
+	{
+		engineConfiguration->devBit0 = (int)value;
+		return 1;
+	}
+		case 161953460:
+	{
+		engineConfiguration->devBit1 = (int)value;
+		return 1;
+	}
+		case 161953461:
+	{
+		engineConfiguration->devBit2 = (int)value;
+		return 1;
+	}
+		case 161953462:
+	{
+		engineConfiguration->devBit3 = (int)value;
+		return 1;
+	}
+		case 161953463:
+	{
+		engineConfiguration->devBit4 = (int)value;
+		return 1;
+	}
+		case 161953464:
+	{
+		engineConfiguration->devBit5 = (int)value;
+		return 1;
+	}
+		case 161953465:
+	{
+		engineConfiguration->devBit6 = (int)value;
+		return 1;
+	}
+		case 161953466:
+	{
+		engineConfiguration->devBit7 = (int)value;
+		return 1;
+	}
+		case -60727986:
+	{
+		engineConfiguration->invertExhaustCamVVTSignal = (int)value;
+		return 1;
+	}
+		case -556893719:
+	{
+		engineConfiguration->enableKnockSpectrogram = (int)value;
 		return 1;
 	}
 		case 671504531:
@@ -3509,11 +3750,6 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->iacByTpsTaper = (int)value;
 		return 1;
 	}
-		case -1164331270:
-	{
-		engineConfiguration->tpsAccelLookback = (int)value;
-		return 1;
-	}
 		case 329016035:
 	{
 		engineConfiguration->coastingFuelCutVssLow = (int)value;
@@ -3522,11 +3758,6 @@ bool setConfigValueByName(const char *name, float value) {
 		case -2027523439:
 	{
 		engineConfiguration->coastingFuelCutVssHigh = (int)value;
-		return 1;
-	}
-		case 1286770247:
-	{
-		engineConfiguration->noFuelTrimAfterDfcoTime = (int)value;
 		return 1;
 	}
 		case 1313479950:
@@ -3899,31 +4130,6 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->auxFrequencyFilter = value;
 		return 1;
 	}
-		case 1470846937:
-	{
-		engineConfiguration->vvtControlMinRpm = (int)value;
-		return 1;
-	}
-		case -904771683:
-	{
-		engineConfiguration->launchFuelAdderPercent = (int)value;
-		return 1;
-	}
-		case 1057701663:
-	{
-		engineConfiguration->etbJamTimeout = (int)value;
-		return 1;
-	}
-		case -86185846:
-	{
-		engineConfiguration->etbExpAverageLength = (int)value;
-		return 1;
-	}
-		case -275312941:
-	{
-		engineConfiguration->etbDutyThreshold = value;
-		return 1;
-	}
 		case 1272017572:
 	{
 		engineConfiguration->coastingFuelCutRpmHigh = (int)value;
@@ -4129,39 +4335,14 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->triggerCompSensorSatRpm = (int)value;
 		return 1;
 	}
-		case 2018252734:
+		case -1575487611:
 	{
-		engineConfiguration->idleRpmPid2.pFactor = value;
+		engineConfiguration->disableFan1AtSpeed = (int)value;
 		return 1;
 	}
-		case 1567911543:
+		case -1906717594:
 	{
-		engineConfiguration->idleRpmPid2.iFactor = value;
-		return 1;
-	}
-		case -594461006:
-	{
-		engineConfiguration->idleRpmPid2.dFactor = value;
-		return 1;
-	}
-		case 1844327734:
-	{
-		engineConfiguration->idleRpmPid2.offset = (int)value;
-		return 1;
-	}
-		case 1558588306:
-	{
-		engineConfiguration->idleRpmPid2.periodMs = (int)value;
-		return 1;
-	}
-		case -1013403216:
-	{
-		engineConfiguration->idleRpmPid2.minValue = (int)value;
-		return 1;
-	}
-		case 1931108850:
-	{
-		engineConfiguration->idleRpmPid2.maxValue = (int)value;
+		engineConfiguration->disableFan2AtSpeed = (int)value;
 		return 1;
 	}
 		case -371707639:
@@ -4239,9 +4420,9 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->hpfpCamLobes = (int)value;
 		return 1;
 	}
-		case 298385452:
+		case -2138018615:
 	{
-		engineConfiguration->auxiliarySetting1 = (int)value;
+		engineConfiguration->acLowRpmLimit = (int)value;
 		return 1;
 	}
 		case 1494394654:
@@ -4339,11 +4520,6 @@ bool setConfigValueByName(const char *name, float value) {
 		engineConfiguration->tuneHidingKey = (int)value;
 		return 1;
 	}
-		case -1743759953:
-	{
-		engineConfiguration->etbDutyShutdownThreshold = value;
-		return 1;
-	}
 		case 1532957848:
 	{
 		engineConfiguration->ALSMinRPM = (int)value;
@@ -4402,11 +4578,6 @@ bool setConfigValueByName(const char *name, float value) {
 		case -1404414917:
 	{
 		engineConfiguration->ALSSkipRatio = value;
-		return 1;
-	}
-		case 612659807:
-	{
-		engineConfiguration->ALSMaxDriverThrottleIntent = (int)value;
 		return 1;
 	}
 		case -1744146782:
@@ -4632,6 +4803,91 @@ bool setConfigValueByName(const char *name, float value) {
 		case 1007396714:
 	{
 		engineConfiguration->speedometerPulsePerKm = (int)value;
+		return 1;
+	}
+		case 896753456:
+	{
+		engineConfiguration->maxInjectorDutyInstant = (int)value;
+		return 1;
+	}
+		case 1651400031:
+	{
+		engineConfiguration->maxInjectorDutySustained = (int)value;
+		return 1;
+	}
+		case 263235302:
+	{
+		engineConfiguration->maxInjectorDutySustainedTimeout = (int)value;
+		return 1;
+	}
+		case -1644887108:
+	{
+		engineConfiguration->auxSpeed1Multiplier = value;
+		return 1;
+	}
+		case -4616606:
+	{
+		engineConfiguration->brakeMeanEffectivePressureDifferential = value;
+		return 1;
+	}
+		case 1467553180:
+	{
+		engineConfiguration->tunerStudioSerialSpeed = (int)value;
+		return 1;
+	}
+		case -283215870:
+	{
+		engineConfiguration->anotherCiTest = (int)value;
+		return 1;
+	}
+		case -1480283119:
+	{
+		engineConfiguration->tcu_rangeSensorBiasResistor = value;
+		return 1;
+	}
+		case -695344665:
+	{
+		engineConfiguration->mc33810Nomi = (int)value;
+		return 1;
+	}
+		case -695395485:
+	{
+		engineConfiguration->mc33810Maxi = (int)value;
+		return 1;
+	}
+		case 1470507575:
+	{
+		engineConfiguration->acPressure.v1 = value;
+		return 1;
+	}
+		case -1171243586:
+	{
+		engineConfiguration->acPressure.value1 = value;
+		return 1;
+	}
+		case 1470507576:
+	{
+		engineConfiguration->acPressure.v2 = value;
+		return 1;
+	}
+		case -1171243585:
+	{
+		engineConfiguration->acPressure.value2 = value;
+		return 1;
+	}
+		case -965637402:
+	{
+		engineConfiguration->minAcPressure = (int)value;
+		return 1;
+	}
+		case 1953870952:
+	{
+		engineConfiguration->maxAcPressure = (int)value;
+		return 1;
+	}
+		case -1658957891:
+	{
+		config->tcu_shiftTime = value;
 		return 1;
 	}
 	}

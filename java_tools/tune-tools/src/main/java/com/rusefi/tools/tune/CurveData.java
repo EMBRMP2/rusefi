@@ -4,13 +4,13 @@ import com.opensr5.ini.IniFileModel;
 import com.opensr5.ini.field.ArrayIniField;
 import com.opensr5.ini.field.IniField;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.util.Arrays;
 
-public class CurveData {
+public class CurveData implements CannableEntity {
     private final String curveName;
     private final float[] rawData;
 
@@ -25,7 +25,7 @@ public class CurveData {
                 break;
             countOfEqualElementsAtTheEnd++;
         }
-        System.out.println(countOfEqualElementsAtTheEnd + " equal elements at the end of the curve");
+//        System.out.println(countOfEqualElementsAtTheEnd + " equal elements at the end of the curve");
     }
 
     static CurveData processCurve(String msqFileName, String curveName, IniFileModel model, BufferedWriter w) throws IOException {
@@ -36,16 +36,20 @@ public class CurveData {
         return curveData;
     }
 
-    @NotNull
+    @Nullable
     public static CurveData valueOf(String msqFileName, String curveName, IniFileModel model) throws IOException {
         IniField iniField = model.allIniFields.get(curveName);
         if (!(iniField instanceof ArrayIniField))
             return null;
         ArrayIniField field = (ArrayIniField) iniField;
         int curveSize = field.getRows();
-        BufferedReader r = TS2C.readAndScroll(msqFileName, curveName + "\"");
         float[] curveValues = new float[curveSize];
-        readAxle(curveValues, r);
+        try (BufferedReader r = TS2C.readAndScroll(msqFileName, curveName + "\"", TS2C.fileFactory)) {
+            readAxle(curveValues, r);
+        } catch (NumberFormatException e) {
+            // we read potentially old tune using current IniFileModel, curve dimension might not match
+            System.err.println("[NumberFormatException] while " + curveName);
+        }
 
         return new CurveData(curveName, curveValues);
     }
@@ -76,7 +80,7 @@ public class CurveData {
             curve[index++] = Float.parseFloat(line);
         }
 
-        System.out.println("Got bins " + Arrays.toString(curve));
+//        System.out.println("Got bins " + Arrays.toString(curve));
     }
 
     @NotNull
@@ -96,19 +100,26 @@ public class CurveData {
         return rawData;
     }
 
-    public String getCsourceMethod(String reference) {
-        return "static void " + getCannedMethod() + " {\n"
+    @Override
+    public String getCsourceMethod(String reference, String methodNamePrefix, String name) {
+        return "static void " + getCannedMethod(methodNamePrefix) + " {\n"
                 + "\t" + getCsourceCode() +
-                "\tcopyArray(" + reference + curveName + ", " + getCannedName() + ");\n" +
+                "\tcopyArray(" + reference + name + ", " + getCannedName() + ");\n" +
                 "}\n\n";
     }
 
     @NotNull
-    private String getCannedMethod() {
-        return "canned" + curveName + "()";
+    private String getCannedMethod(String methodNamePrefix) {
+        return methodNamePrefix + "canned" + curveName + "()";
     }
 
-    public String getCinvokeMethod() {
-        return "\t" + getCannedMethod() + ";\n";
+    @Override
+    public String getCinvokeMethod(String methodNamePrefix) {
+        return "\t" + getCannedMethod(methodNamePrefix) + ";\n";
+    }
+
+    @Override
+    public String getName() {
+        return curveName;
     }
 }

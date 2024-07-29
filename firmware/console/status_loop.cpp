@@ -45,7 +45,6 @@
 #include "main_trigger_callback.h"
 #include "spark_logic.h"
 #include "idle_thread.h"
-#include "svnversion.h"
 #include "can_hw.h"
 #include "periodic_thread_controller.h"
 #include "cdm_ion_sense.h"
@@ -61,12 +60,12 @@
 #include "rtc_helper.h"
 #include "rusefi.h"
 #include "pin_repository.h"
-#include "max31855.h"
+#include "max3185x.h"
 #include "single_timer_executor.h"
 #include "periodic_task.h"
 #endif /* EFI_PROD_CODE */
 
-#if (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE)
+#if EFI_CONFIGURATION_STORAGE
 #include "flash_main.h"
 #endif
 
@@ -94,15 +93,17 @@ extern uint32_t maxLockedDuration;
  */
 static Timer printVersionTimer;
 
-static void printRusefiVersion(const char *engineTypeName, const char *firmwareBuildId) {
+// todo: unify with handleGetVersion?
+static void printVersionForConsole(const char *engineTypeName, const char *firmwareBuildId) {
 	// VersionChecker in rusEFI console is parsing these version string, please follow the expected format
-	efiPrintfProto(PROTOCOL_VERSION_TAG, "%d@%s %s %s %d",
-			getRusEfiVersion(), VCS_VERSION,
+	efiPrintfProto(PROTOCOL_VERSION_TAG, "%d@%u %s %s %ld",
+			getRusEfiVersion(), /*do we have a working way to print 64 bit values?!*/(unsigned int)SIGNATURE_HASH,
 			firmwareBuildId,
 			engineTypeName,
-			getTimeNowS());
+			(uint32_t)getTimeNowS());
 }
 
+#if EFI_PROD_CODE
 // Inform the console about the mapping between a pin's logical name (for example, injector 3)
 // and the physical MCU pin backing that function (for example, PE3)
 static void printOutPin(const char *pinName, brain_pin_e hwPin) {
@@ -118,6 +119,7 @@ static void printOutPin(const char *pinName, brain_pin_e hwPin) {
 
 	efiPrintfProto(PROTOCOL_OUTPIN, "%s@%s", pinName, hwPinName);
 }
+#endif // EFI_PROD_CODE
 
 // Print out the current mapping between logical and physical pins that
 // the engine sniffer cares about, so we can display a physical pin
@@ -142,6 +144,7 @@ static void printEngineSnifferPinMappings() {
 		printOutPin(enginePins.coils[i].getShortName(), engineConfiguration->ignitionPins[i]);
 		printOutPin(enginePins.trailingCoils[i].getShortName(), engineConfiguration->trailingCoilPins[i]);
 		printOutPin(enginePins.injectors[i].getShortName(), engineConfiguration->injectionPins[i]);
+		printOutPin(enginePins.injectorsStage2[i].getShortName(), engineConfiguration->injectionPinsStage2[i]);
 	}
 	for (int i = 0; i < AUX_DIGITAL_VALVE_COUNT;i++) {
 		printOutPin(enginePins.auxValve[i].getShortName(), engineConfiguration->auxValves[i]);
@@ -166,8 +169,8 @@ void printOverallStatus() {
 		// we're sending, reset the timer
 		printVersionTimer.reset();
 
-		// Output the firmware version, board type, git hash, uptime in seconds, etc
-		printRusefiVersion(getEngine_type_e(engineConfiguration->engineType), FIRMWARE_ID);
+		// Output the firmware version, board type, git hash, uptime in seconds, etc for rusEFI console
+		printVersionForConsole(getEngine_type_e(engineConfiguration->engineType), FIRMWARE_ID);
 
 		// Output the current engine sniffer pin mappings
 		printEngineSnifferPinMappings();
@@ -224,8 +227,10 @@ static systime_t timeOfPreviousReport = (systime_t) -1;
 #endif /* EFI_LOGIC_ANALYZER */
 }
 
+#if EFI_PROD_CODE
 static OutputPin* leds[] = { &enginePins.warningLedPin, &enginePins.runningLedPin,
 		&enginePins.errorLedPin, &enginePins.communicationLedPin, &enginePins.checkEnginePin };
+#endif // EFI_PROD_CODE
 
 void initWarningRunningPins() {
 #if EFI_PROD_CODE
@@ -261,15 +266,13 @@ class CommunicationBlinkingTask : public PeriodicTimerController {
 	void setAllLeds(int value) {
 		// make sure we do not turn the critical LED off if already have
 		// critical error by now
-		for (uint32_t i = 0; !hasFirmwareError() && i < sizeof(leds) / sizeof(leds[0]); i++) {
+		for (size_t i = 0; !hasFirmwareError() && i < efi::size(leds); i++) {
 			leds[i]->setValue(value, /*force*/true);
 		}
 	}
 
 	void PeriodicTask() override {
 		counter++;
-
-		bool lowVBatt = Sensor::getOrZero(SensorType::BatteryVoltage) < LOW_VBATT;
 
 		if (counter == 1) {
 			// first invocation of BlinkingTask
@@ -286,9 +289,7 @@ extern int totalLoggedBytes;
 			}
 #endif // HW_CHECK_SD
 
-			if (!lowVBatt) {
-				enginePins.warningLedPin.setValue(0);
-			}
+			enginePins.warningLedPin.setValue(0);
 		} else {
 #define BLINKING_PERIOD_MS 33
 
@@ -301,10 +302,10 @@ extern int totalLoggedBytes;
 			} else if (consoleByteArrived) {
 				offTimeMs = 100;
 				onTimeMs = 33;
-#if (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE)
+#if EFI_CONFIGURATION_STORAGE
 			} else if (getNeedToWriteConfiguration()) {
 				offTimeMs = onTimeMs = 500;
-#endif /* (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE) */
+#endif /* EFI_CONFIGURATION_STORAGE */
 			} else {
 				onTimeMs =
 #if EFI_USB_SERIAL
@@ -322,7 +323,7 @@ extern int totalLoggedBytes;
 //#endif // HW_CHECK_MODE
 
 	#if EFI_ENGINE_CONTROL
-			if (lowVBatt || isTriggerErrorNow()) {
+			if (isTriggerErrorNow()) {
 				// todo: at the moment warning codes do not affect warning LED?!
 				enginePins.warningLedPin.setValue(1);
 			}
@@ -386,6 +387,8 @@ static void updateTempSensors() {
 	engine->outputChannels.compressorDischargeTemp = compressorDischargeTemp.value_or(0);
 }
 
+void updateUnfilteredRawPedal();
+
 static void updateThrottles() {
 	SensorResult tps1 = Sensor::get(SensorType::Tps1);
 	engine->outputChannels.TPSValue = tps1.value_or(0);
@@ -410,6 +413,7 @@ static void updateThrottles() {
 	engine->outputChannels.tps12Split = Sensor::getOrZero(SensorType::Tps1) - Sensor::getOrZero(SensorType::Tps2);
 	// Pedal pri/sec split
 	engine->outputChannels.accPedalSplit = Sensor::getOrZero(SensorType::AcceleratorPedalPrimary) - Sensor::getOrZero(SensorType::AcceleratorPedalSecondary);
+	updateUnfilteredRawPedal();
 }
 
 static void updateLambda() {
@@ -437,6 +441,17 @@ static void updateFuelSensors() {
 	engine->outputChannels.fuelTankLevel = Sensor::getOrZero(SensorType::FuelLevel);
 }
 
+static void updateEgtSensors() {
+	engine->outputChannels.egt[0] = Sensor::getOrZero(SensorType::EGT1);
+	engine->outputChannels.egt[1] = Sensor::getOrZero(SensorType::EGT2);
+	engine->outputChannels.egt[2] = Sensor::getOrZero(SensorType::EGT3);
+	engine->outputChannels.egt[3] = Sensor::getOrZero(SensorType::EGT4);
+	engine->outputChannels.egt[4] = Sensor::getOrZero(SensorType::EGT5);
+	engine->outputChannels.egt[5] = Sensor::getOrZero(SensorType::EGT6);
+	engine->outputChannels.egt[6] = Sensor::getOrZero(SensorType::EGT7);
+	engine->outputChannels.egt[7] = Sensor::getOrZero(SensorType::EGT8);
+}
+
 static void updateVvtSensors() {
 #if EFI_SHAFT_POSITION_INPUT
 	// 248
@@ -450,10 +465,22 @@ static void updateVvtSensors() {
 static void updateVehicleSpeed() {
 #if EFI_VEHICLE_SPEED
 	engine->outputChannels.vehicleSpeedKph = Sensor::getOrZero(SensorType::VehicleSpeed);
+	engine->outputChannels.wheelSlipRatio = Sensor::getOrZero(SensorType::WheelSlipRatio);
 	engine->outputChannels.speedToRpmRatio = engine->module<GearDetector>()->getGearboxRatio();
 	engine->outputChannels.detectedGear = Sensor::getOrZero(SensorType::DetectedGear);
 #endif /* EFI_VEHICLE_SPEED */
 }
+
+static SensorType luaGaugeTypes[] = {
+  SensorType::LuaGauge1,
+  SensorType::LuaGauge2,
+  SensorType::LuaGauge3,
+  SensorType::LuaGauge4,
+  SensorType::LuaGauge5,
+  SensorType::LuaGauge6,
+  SensorType::LuaGauge7,
+  SensorType::LuaGauge8
+  };
 
 static void updateRawSensors() {
 	engine->outputChannels.rawTps1Primary = Sensor::getRaw(SensorType::Tps1Primary);
@@ -465,7 +492,11 @@ static void updateRawSensors() {
 	engine->outputChannels.rawBattery = Sensor::getRaw(SensorType::BatteryVoltage);
 	engine->outputChannels.rawClt = Sensor::getRaw(SensorType::Clt);
 	engine->outputChannels.rawIat = Sensor::getRaw(SensorType::Iat);
+	engine->outputChannels.rawAuxTemp1 = Sensor::getRaw(SensorType::AuxTemp1);
+	engine->outputChannels.rawAuxTemp2 = Sensor::getRaw(SensorType::AuxTemp2);
+	engine->outputChannels.rawAmbientTemp = Sensor::getRaw(SensorType::AmbientTemperature);
 	engine->outputChannels.rawOilPressure = Sensor::getRaw(SensorType::OilPressure);
+  engine->outputChannels.rawAcPressure = Sensor::getRaw(SensorType::AcPressure);
 	engine->outputChannels.rawLowFuelPressure = Sensor::getRaw(SensorType::FuelPressureLow);
 	engine->outputChannels.rawHighFuelPressure = Sensor::getRaw(SensorType::FuelPressureHigh);
 	engine->outputChannels.rawMaf = Sensor::getRaw(SensorType::Maf);
@@ -473,9 +504,14 @@ static void updateRawSensors() {
 	engine->outputChannels.rawMap = Sensor::getRaw(SensorType::MapSlow);
 	engine->outputChannels.rawWastegatePosition = Sensor::getRaw(SensorType::WastegatePosition);
 	engine->outputChannels.rawIdlePositionSensor = Sensor::getRaw(SensorType::IdlePosition);
+	engine->outputChannels.rawAuxAnalog1 = Sensor::getRaw(SensorType::AuxAnalog1);
+	engine->outputChannels.rawAuxAnalog2 = Sensor::getRaw(SensorType::AuxAnalog2);
+	engine->outputChannels.rawAuxAnalog3 = Sensor::getRaw(SensorType::AuxAnalog3);
+	engine->outputChannels.rawAuxAnalog4 = Sensor::getRaw(SensorType::AuxAnalog4);
 
-	engine->outputChannels.luaGauges[0] = Sensor::getOrZero(SensorType::LuaGauge1);
-	engine->outputChannels.luaGauges[1] = Sensor::getOrZero(SensorType::LuaGauge2);
+  for (size_t i = 0;i<LUA_GAUGE_COUNT;i++) {
+	  engine->outputChannels.luaGauges[i] = Sensor::getOrZero(luaGaugeTypes[i]);
+  }
 
 	for (int i = 0; i < LUA_ANALOG_INPUT_COUNT; i++) {
 		adc_channel_e channel = engineConfiguration->auxAnalogInputs[i];
@@ -491,6 +527,7 @@ static void updatePressures() {
 	engine->outputChannels.baroPressure = Sensor::getOrZero(SensorType::BarometricPressure);
 	engine->outputChannels.MAPValue = Sensor::getOrZero(SensorType::Map);
 	engine->outputChannels.oilPressure = Sensor::getOrZero(SensorType::OilPressure);
+    engine->outputChannels.acPressure = Sensor::getOrZero(SensorType::AcPressure);
 
 	engine->outputChannels.auxLinear1 = Sensor::getOrZero(SensorType::AuxLinear1);
 	engine->outputChannels.auxLinear2 = Sensor::getOrZero(SensorType::AuxLinear2);
@@ -518,6 +555,7 @@ static void updateSensors() {
 	updateRawSensors();
 	updateLambda();
 	updateFuelSensors();
+	updateEgtSensors();
 	updateVvtSensors();
 	updateVehicleSpeed();
 	updatePressures();
@@ -525,9 +563,10 @@ static void updateSensors() {
 }
 
 static void updateFuelCorrections() {
-	engine->outputChannels.fuelPidCorrection[0] = 100.0f * (engine->stftCorrection[0] - 1.0f);
-	engine->outputChannels.fuelPidCorrection[1] = 100.0f * (engine->stftCorrection[1] - 1.0f);
-	engine->outputChannels.Gego = 100.0f * engine->stftCorrection[0];
+	for (size_t i = 0; i < STFT_BANK_COUNT; i++) {
+		engine->outputChannels.fuelPidCorrection[i] = 100.0f * (engine->engineState.stftCorrection[i] - 1.0f);
+	}
+	engine->outputChannels.Gego = 100.0f * engine->engineState.stftCorrection[0];
 }
 
 static void updateFuelResults() {
@@ -576,9 +615,36 @@ static void updateFlags() {
 	engine->outputChannels.isTriggerError = isTriggerErrorNow();
 #endif // EFI_PROD_CODE
 
-#if (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE)
+#if EFI_CONFIGURATION_STORAGE
 	engine->outputChannels.needBurn = getNeedToWriteConfiguration();
-#endif /* (EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE) */
+#endif /* EFI_CONFIGURATION_STORAGE */
+#if EFI_FILE_LOGGING
+	updateSdCardLiveFlags();
+#endif
+}
+
+static void updateWarningCodes() {
+	TunerStudioOutputChannels *tsOutputChannels = &engine->outputChannels;
+
+	tsOutputChannels->warningCounter = engine->engineState.warnings.warningCounter;
+	tsOutputChannels->lastErrorCode = static_cast<uint16_t>(engine->engineState.warnings.lastErrorCode);
+
+	size_t i = 0;
+	for (size_t j = 0; j < engine->engineState.warnings.recentWarnings.getCount(); j++) {
+		warning_t& warn = engine->engineState.warnings.recentWarnings.get(j);
+		// if still active
+		if ((warn.Code != ObdCode::None) &&
+			(!warn.LastTriggered.hasElapsedSec(maxI(3, engineConfiguration->warningPeriod)))) {
+			tsOutputChannels->recentErrorCode[i] = static_cast<uint16_t>(warn.Code);
+			i++;
+			if (i >= efi::size(tsOutputChannels->recentErrorCode))
+				break;
+		}
+	}
+	// reset rest
+	for ( ; i < efi::size(tsOutputChannels->recentErrorCode); i++) {
+		tsOutputChannels->recentErrorCode[i] = 0;
+	}
 }
 
 // sensor state for EFI Analytics Tuner Studio
@@ -625,10 +691,10 @@ void updateTunerStudioState() {
 
 #if EFI_ENGINE_CONTROL
 	tsOutputChannels->injectorDutyCycle = minF(/*let's avoid scaled "uint8_t, 2" overflow*/127, getInjectorDutyCycle(rpm));
+	tsOutputChannels->injectorDutyCycleStage2 = getInjectorDutyCycleStage2(rpm);
 #endif
 
-	efitimesec_t timeSeconds = getTimeNowS();
-	tsOutputChannels->seconds = timeSeconds;
+	tsOutputChannels->seconds = getTimeNowS();
 
 	tsOutputChannels->engineMode = packEngineMode();
 	tsOutputChannels->firmwareVersion = getRusEfiVersion();
@@ -663,16 +729,7 @@ void updateTunerStudioState() {
 
 	tsOutputChannels->checkEngine = hasErrorCodes();
 
-#if EFI_MAX_31855
-	for (int i = 0; i < EGT_CHANNEL_COUNT; i++)
-		tsOutputChannels->egt[i] = getMax31855EgtValue(i);
-#endif /* EFI_MAX_31855 */
-
-	tsOutputChannels->warningCounter = engine->engineState.warnings.warningCounter;
-	tsOutputChannels->lastErrorCode = static_cast<uint16_t>(engine->engineState.warnings.lastErrorCode);
-	for (int i = 0; i < 8;i++) {
-		tsOutputChannels->recentErrorCode[i] = static_cast<uint16_t>(engine->engineState.warnings.recentWarnings.get(i).Code);
-	}
+	updateWarningCodes();
 
 	tsOutputChannels->starterState = enginePins.starterControl.getLogicValue();
 	tsOutputChannels->starterRelayDisable = enginePins.starterRelayDisable.getLogicValue();
@@ -718,11 +775,6 @@ void updateTunerStudioState() {
 		tsOutputChannels->debugIntField2 = instance.invalidResponsesCount;
 		break;
 #endif /* EFI_HIP_9011 */
-#if EFI_MAP_AVERAGING
-	case DBG_MAP:
-		postMapState(tsOutputChannels);
-		break;
-#endif /* EFI_MAP_AVERAGING */
 	case DBG_ION:
 #if EFI_CDM_INTEGRATION
 		ionPostState(tsOutputChannels);
@@ -733,10 +785,10 @@ void updateTunerStudioState() {
 		tle8888PostState();
 #endif /* BOARD_TLE8888_COUNT */
 		break;
-	case DBG_LOGIC_ANALYZER: 
-#if EFI_LOGIC_ANALYZER	
+	case DBG_LOGIC_ANALYZER:
+#if EFI_LOGIC_ANALYZER
 		reportLogicAnalyzerToTS();
-#endif /* EFI_LOGIC_ANALYZER */		
+#endif /* EFI_LOGIC_ANALYZER */
 		break;
 	default:
 		;

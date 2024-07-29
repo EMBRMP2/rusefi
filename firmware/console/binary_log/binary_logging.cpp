@@ -47,7 +47,7 @@ void writeSdLogLine(Writer& bufferedWriter) {
 	binaryLogCount++;
 }
 
-static constexpr uint16_t recordLength = computeFieldsRecordLength();
+static const uint16_t recordLength = computeFieldsRecordLength();
 
 void writeFileHeader(Writer& outBuffer) {
 	char buffer[MLQ_HEADER_SIZE];

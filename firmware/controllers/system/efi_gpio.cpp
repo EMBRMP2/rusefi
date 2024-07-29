@@ -51,7 +51,13 @@ static const char* const injectorNames[] = { "Injector 1", "Injector 2", "Inject
 		"Injector 7", "Injector 8", "Injector 9", "Injector 10", "Injector 11", "Injector 12"};
 
 static const char* const injectorShortNames[] = { PROTOCOL_INJ1_SHORT_NAME, "i2", "i3", "i4", "i5", "i6", "i7", "i8",
-		"j9", "iA", "iB", "iC"};
+		"i9", "iA", "iB", "iC"};
+
+static const char* const injectorStage2Names[] = { "Injector Second Stage 1", "Injector Second Stage 2", "Injector Second Stage 3", "Injector Second Stage 4", "Injector Second Stage 5", "Injector Second Stage 6",
+		"Injector Second Stage 7", "Injector Second Stage 8", "Injector Second Stage 9", "Injector Second Stage 10", "Injector Second Stage 11", "Injector Second Stage 12"};
+
+static const char* const injectorStage2ShortNames[] = { PROTOCOL_INJ1_STAGE2_SHORT_NAME, "j2", "j3", "j4", "j5", "j6", "j7", "j8",
+		"j9", "jA", "jB", "jC"};
 
 static const char* const auxValveShortNames[] = { "a1", "a2"};
 
@@ -159,9 +165,9 @@ EnginePins::EnginePins() :
 		triggerDecoderErrorPin("led: trigger debug", CONFIG_PIN_OFFSETS(triggerError)),
 		speedoOut("speedoOut", CONFIG_OFFSET(speedometerOutputPin))
 {
-	hpfpValve.name = PROTOCOL_HPFP_NAME;
+	hpfpValve.setName(PROTOCOL_HPFP_NAME);
 #if EFI_HD_ACR
-	harleyAcr.name = PROTOCOL_HPFP_NAME;
+	harleyAcr.setName(PROTOCOL_ACR_NAME);
 #endif // EFI_HD_ACR
 
 	static_assert(efi::size(sparkNames) >= MAX_CYLINDER_COUNT, "Too many ignition pins");
@@ -169,20 +175,24 @@ EnginePins::EnginePins() :
 	static_assert(efi::size(injectorNames) >= MAX_CYLINDER_COUNT, "Too many injection pins");
 	for (int i = 0; i < MAX_CYLINDER_COUNT;i++) {
 		enginePins.coils[i].coilIndex = i;
-		enginePins.coils[i].name = sparkNames[i];
+		enginePins.coils[i].setName(sparkNames[i]);
 		enginePins.coils[i].shortName = sparkShortNames[i];
 
-		enginePins.trailingCoils[i].name = trailNames[i];
+		enginePins.trailingCoils[i].setName(trailNames[i]);
 		enginePins.trailingCoils[i].shortName = trailShortNames[i];
 
 		enginePins.injectors[i].injectorIndex = i;
-		enginePins.injectors[i].name = injectorNames[i];
+		enginePins.injectors[i].setName(injectorNames[i]);
 		enginePins.injectors[i].shortName = injectorShortNames[i];
+
+		enginePins.injectorsStage2[i].injectorIndex = i;
+		enginePins.injectorsStage2[i].setName(injectorStage2Names[i]);
+		enginePins.injectorsStage2[i].shortName = injectorStage2ShortNames[i];
 	}
 
 	static_assert(efi::size(auxValveShortNames) >= AUX_DIGITAL_VALVE_COUNT, "Too many aux valve pins");
 	for (int i = 0; i < AUX_DIGITAL_VALVE_COUNT;i++) {
-		enginePins.auxValve[i].name = auxValveShortNames[i];
+		enginePins.auxValve[i].setName(auxValveShortNames[i]);
 	}
 }
 
@@ -207,6 +217,7 @@ bool EnginePins::stopPins() {
 	for (int i = 0; i < MAX_CYLINDER_COUNT; i++) {
 		result |= coils[i].stop();
 		result |= injectors[i].stop();
+		result |= injectorsStage2[i].stop();
 		result |= trailingCoils[i].stop();
 	}
 	for (int i = 0; i < AUX_DIGITAL_VALVE_COUNT; i++) {
@@ -238,7 +249,7 @@ void EnginePins::unregisterPins() {
 void EnginePins::debug() {
 	RegisteredOutputPin * pin = registeredOutputHead;
 	while (pin != nullptr) {
-		efiPrintf("%s %d", pin->registrationName, pin->currentLogicValue);
+		efiPrintf("%s %d", pin->getRegistrationName(), pin->currentLogicValue);
 		pin = pin->next;
 	}
 }
@@ -275,6 +286,7 @@ void EnginePins::stopIgnitionPins() {
 void EnginePins::stopInjectionPins() {
 	for (int i = 0; i < MAX_CYLINDER_COUNT; i++) {
 		unregisterOutputIfPinOrModeChanged(enginePins.injectors[i], injectionPins[i], injectionPinMode);
+		unregisterOutputIfPinOrModeChanged(enginePins.injectorsStage2[i], injectionPinsStage2[i], injectionPinMode);
 	}
 }
 
@@ -294,7 +306,7 @@ void EnginePins::startAuxValves() {
 		NamedOutputPin *output = &enginePins.auxValve[i];
 		// todo: do we need auxValveMode and reuse code?
 		if (isConfigurationChanged(auxValves[i])) {
-			output->initPin(output->name, engineConfiguration->auxValves[i]);
+			output->initPin(output->getName(), engineConfiguration->auxValves[i]);
 		}
 	}
 #endif /* EFI_PROD_CODE */
@@ -305,12 +317,12 @@ void EnginePins::startIgnitionPins() {
 	for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
 		NamedOutputPin *trailingOutput = &enginePins.trailingCoils[i];
 		if (isPinOrModeChanged(trailingCoilPins[i], ignitionPinMode)) {
-			trailingOutput->initPin(trailingOutput->name, engineConfiguration->trailingCoilPins[i], engineConfiguration->ignitionPinMode);
+			trailingOutput->initPin(trailingOutput->getName(), engineConfiguration->trailingCoilPins[i], engineConfiguration->ignitionPinMode);
 		}
 
 		NamedOutputPin *output = &enginePins.coils[i];
 		if (isPinOrModeChanged(ignitionPins[i], ignitionPinMode)) {
-			output->initPin(output->name, engineConfiguration->ignitionPins[i], engineConfiguration->ignitionPinMode);
+			output->initPin(output->getName(), engineConfiguration->ignitionPins[i], engineConfiguration->ignitionPinMode);
 		}
 	}
 #endif /* EFI_PROD_CODE */
@@ -322,7 +334,13 @@ void EnginePins::startInjectionPins() {
 	for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
 		NamedOutputPin *output = &enginePins.injectors[i];
 		if (isPinOrModeChanged(injectionPins[i], injectionPinMode)) {
-			output->initPin(output->name, engineConfiguration->injectionPins[i],
+			output->initPin(output->getName(), engineConfiguration->injectionPins[i],
+					engineConfiguration->injectionPinMode);
+		}
+
+		output = &enginePins.injectorsStage2[i];
+		if (isPinOrModeChanged(injectionPinsStage2[i], injectionPinMode)) {
+			output->initPin(output->getName(), engineConfiguration->injectionPinsStage2[i],
 					engineConfiguration->injectionPinMode);
 		}
 	}
@@ -380,6 +398,10 @@ NamedOutputPin::NamedOutputPin(const char *p_name) : OutputPin() {
 
 const char *NamedOutputPin::getName() const {
 	return name;
+}
+
+void NamedOutputPin::setName(const char* p_name) {
+	name = p_name;
 }
 
 const char *NamedOutputPin::getShortName() const {
@@ -508,17 +530,16 @@ void IgnitionOutputPin::setLow() {
 }
 
 void IgnitionOutputPin::reset() {
-	outOfOrder = false;
 	signalFallSparkId = 0;
 }
 
-bool OutputPin::isInitialized() {
+bool OutputPin::isInitialized() const {
 #if EFI_GPIO_HARDWARE && EFI_PROD_CODE
 #if (BOARD_EXT_GPIOCHIPS > 0)
 	if (ext)
 		return true;
 #endif /* (BOARD_EXT_GPIOCHIPS > 0) */
-	return port != NULL;
+	return m_port != NULL;
 #else /* EFI_GPIO_HARDWARE */
 	return true;
 #endif /* EFI_GPIO_HARDWARE */
@@ -542,7 +563,7 @@ void OutputPin::setOnchipValue(int electricalValue) {
 		warning(ObdCode::CUSTOM_ERR_6586, "attempting to change unassigned pin");
 		return;
 	}
-	palWritePad(port, pin, electricalValue);
+	palWritePad(m_port, m_pin, electricalValue);
 }
 #endif // EFI_PROD_CODE
 
@@ -557,9 +578,8 @@ void OutputPin::resetToggleStats() {
 }
 #endif // EFI_SIMULATOR
 
-extern bool qcDirectPinControlMode;
-
 void OutputPin::setValue(const char *msg, int logicValue, bool isForce) {
+extern bool qcDirectPinControlMode;
     UNUSED(msg);
     if ((qcDirectPinControlMode || getOutputOnTheBenchTest() == this) && !isForce) {
         return;
@@ -634,11 +654,15 @@ void OutputPin::setDefaultPinState(pin_output_mode_e outputMode) {
 }
 
 brain_pin_diag_e OutputPin::getDiag() const {
+#if EFI_PROD_CODE
 #if BOARD_EXT_GPIOCHIPS > 0
-	return gpiochips_getDiag(brainPin);
-#else
-	return PIN_OK;
+	if (!brain_pin_is_onchip(brainPin)) {
+		return gpiochips_getDiag(brainPin);
+	}
 #endif
+#endif /* EFI_PROD_CODE */
+	// TODO: add hook to board code for custom diagnostic, like it is done on S105
+	return PIN_UNKNOWN;
 }
 
 void initMiscOutputPins() {
@@ -704,11 +728,11 @@ void OutputPin::initPin(const char *msg, brain_pin_e p_brainPin, pin_output_mode
 		this->ext = false;
 	#endif
 	if (brain_pin_is_onchip(p_brainPin)) {
-		port = getHwPort(msg, p_brainPin);
-		pin = getHwPin(msg, p_brainPin);
+		m_port = getHwPort(msg, p_brainPin);
+		m_pin = getHwPin(msg, p_brainPin);
 
 		// Validate port
-		if (port == GPIO_NULL) {
+		if (m_port == GPIO_NULL) {
 			criticalError("OutputPin::initPin got invalid port for pin idx %d", static_cast<int>(p_brainPin));
 			return;
 		}
@@ -734,7 +758,7 @@ void OutputPin::initPin(const char *msg, brain_pin_e p_brainPin, pin_output_mode
 		// todo: handle OM_OPENDRAIN and OM_OPENDRAIN_INVERTED as well
 		if (outputMode == OM_DEFAULT || outputMode == OM_INVERTED) {
 #ifndef DISABLE_PIN_STATE_VALIDATION
-		    int actualValue = palReadPad(port, pin);
+		    int actualValue = palReadPad(m_port, m_pin);
 		    // we had enough drama with pin configuration in board.h and else that we shall self-check
 
 			const int logicalValue =
@@ -817,132 +841,3 @@ void turnAllPinsOff(void) {
 }
 #endif /* EFI_GPIO_HARDWARE */
 
-#if EFI_PROD_CODE
-/**
- * this method returns the numeric part of pin name. For instance, for PC13 this would return '13'
- */
-ioportmask_t getHwPin(const char *msg, brain_pin_e brainPin) {
-	if (!isBrainPinValid(brainPin))
-			return EFI_ERROR_CODE;
-
-	if (brain_pin_is_onchip(brainPin))
-		return getBrainPinIndex(brainPin);
-
-	firmwareError(ObdCode::CUSTOM_ERR_INVALID_PIN, "%s: Invalid on-chip Gpio: %d", msg, brainPin);
-	return EFI_ERROR_CODE;
-}
-#endif // EFI_PROD_CODE
-
-#if EFI_GPIO_HARDWARE && !EFI_UNIT_TEST
-ioportid_t getHwPort(const char *msg, brain_pin_e brainPin) {
-	(void)msg;
-
-	if (!isBrainPinValid(brainPin)) {
-/*
- *  https://github.com/dron0gus please help
-		firmwareError(ObdCode::CUSTOM_ERR_INVALID_PIN, "%s: Invalid Gpio: %d", msg, brainPin);
- */
-		return GPIO_NULL;
-	}
-	return getGpioPorts()[(brainPin - Gpio::A0) / PORT_SIZE];
-}
-
-int getBrainPinIndex(brain_pin_e brainPin) {
-	return (brainPin - Gpio::A0) % PORT_SIZE;
-}
-
-ioportid_t getBrainPinPort(brain_pin_e brainPin) {
-	return getGpioPorts()[(brainPin - Gpio::A0) / PORT_SIZE];
-}
-
-/**
- * @deprecated - use hwPortname() instead
- */
-const char *portname(ioportid_t GPIOx) {
-	if (GPIOx == GPIOA)
-		return "PA";
-	if (GPIOx == GPIOB)
-		return "PB";
-	if (GPIOx == GPIOC)
-		return "PC";
-	if (GPIOx == GPIOD)
-		return "PD";
-#if defined(GPIOF)
-	if (GPIOx == GPIOE)
-		return "PE";
-#endif /* GPIOE */
-#if defined(GPIOF)
-	if (GPIOx == GPIOF)
-		return "PF";
-#endif /* GPIOF */
-#if defined(GPIOG)
-	if (GPIOx == GPIOG)
-		return "PG";
-#endif /* GPIOG */
-#if defined(GPIOH)
-	if (GPIOx == GPIOH)
-		return "PH";
-#endif /* GPIOH */
-#if defined(GPIOI)
-	if (GPIOx == GPIOI)
-		return "PI";
-#endif /* GPIOI */
-#if defined(GPIOJ_BASE)
-	if (GPIOx == GPIOJ)
-		return "PJ";
-#endif /* GPIOJ_BASE */
-#if defined(GPIOK_BASE)
-	if (GPIOx == GPIOK)
-		return "PK";
-#endif /* GPIOK_BASE */
-	return "unknown";
-}
-
-static int getPortIndex(ioportid_t port) {
-	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, port != NULL, "null port", -1);
-	if (port == GPIOA)
-		return 0;
-	if (port == GPIOB)
-		return 1;
-	if (port == GPIOC)
-		return 2;
-	if (port == GPIOD)
-		return 3;
-#if defined(GPIOF)
-	if (port == GPIOE)
-		return 4;
-#endif /* GPIOE */
-#if defined(GPIOF)
-	if (port == GPIOF)
-		return 5;
-#endif /* GPIOF */
-#if defined(GPIOG)
-	if (port == GPIOG)
-		return 6;
-#endif /* GPIOG */
-#if defined(GPIOH)
-	if (port == GPIOH)
-		return 7;
-#endif /* GPIOH */
-#if defined(GPIOI)
-	if (port == GPIOI)
-		return 8;
-#endif /* STM32_HAS_GPIOI */
-#if defined(GPIOJ_BASE)
-	if (port == GPIOJ)
-		return 9;
-#endif /* GPIOJ_BASE */
-#if defined(GPIOK_BASE)
-	if (port == GPIOK)
-		return 10;
-#endif /* GPIOK_BASE */
-	firmwareError(ObdCode::CUSTOM_ERR_UNKNOWN_PORT, "unknown port");
-	return -1;
-}
-
-int getPortPinIndex(ioportid_t port, ioportmask_t pin) {
-	int portIndex = getPortIndex(port);
-	return portIndex * PORT_SIZE + pin;
-}
-
-#endif // EFI_GPIO_HARDWARE

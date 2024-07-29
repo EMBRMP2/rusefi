@@ -45,7 +45,7 @@ static OutputPin emulatorOutputs[NUM_EMULATOR_CHANNELS][PWM_PHASE_MAX_WAVE_PER_P
 
 void TriggerEmulatorHelper::handleEmulatorCallback(int channel, const MultiChannelStateSequence& multiChannelStateSequence, int stateIndex) {
 	efitick_t stamp = getTimeNowNt();
-	
+
 	// todo: code duplication with TriggerStimulatorHelper::feedSimulatedEvent?
 #if EFI_SHAFT_POSITION_INPUT
 	for (size_t i = 0; i < PWM_PHASE_MAX_WAVE_PER_PWM; i++) {
@@ -76,23 +76,27 @@ static int atTriggerVersions[NUM_EMULATOR_CHANNELS] = { 0 };
  * todo: oh this method has only one usage? there must me another very similar method!
  */
 static float getRpmMultiplier(operation_mode_e mode) {
-	if (mode == FOUR_STROKE_THREE_TIMES_CRANK_SENSOR) {
-		return SYMMETRICAL_THREE_TIMES_CRANK_SENSOR_DIVIDER / 2;
-	} else if (mode == FOUR_STROKE_SYMMETRICAL_CRANK_SENSOR) {
-		return SYMMETRICAL_CRANK_SENSOR_DIVIDER / 2;
-	} else if (mode == FOUR_STROKE_TWELVE_TIMES_CRANK_SENSOR) {
-		return SYMMETRICAL_TWELVE_TIMES_CRANK_SENSOR_DIVIDER / 2;
-	} else if (mode == FOUR_STROKE_CAM_SENSOR) {
-		return 0.5;
-	} else if (mode == FOUR_STROKE_CRANK_SENSOR) {
-		// unit test coverage still runs if the value below is changed to '2' not a great sign!
-		return 1;
-	}
-
+  switch (mode) {
+    case FOUR_STROKE_SYMMETRICAL_CRANK_SENSOR:
+  	case FOUR_STROKE_THREE_TIMES_CRANK_SENSOR:
+    case FOUR_STROKE_SIX_TIMES_CRANK_SENSOR:
+	  case FOUR_STROKE_TWELVE_TIMES_CRANK_SENSOR:
+	  case FOUR_STROKE_CRANK_SENSOR:
+	  case FOUR_STROKE_CAM_SENSOR:
+	  case OM_NONE:
+  		return getCrankDivider(mode) / 2.0;
+	  case TWO_STROKE:
+		  // unit test coverage still runs if the value below is changed to '2' not a great sign!
+		  // but HW CI insists that we have '1' here
+		  return 1;
+	};
+	criticalError("We should not have reach this line");
 	return 1;
 }
 
 void setTriggerEmulatorRPM(int rpm) {
+  criticalAssertVoid(rpm >= 0 && rpm <= 30000, "emulator RPM out of range");
+
 	engineConfiguration->triggerSimulatorRpm = rpm;
 	/**
 	 * All we need to do here is to change the periodMs
@@ -120,7 +124,7 @@ static void updateTriggerWaveformIfNeeded(PwmConfig *state) {
 
     if (atTriggerVersions[channel] < triggerEmulatorWaveforms[channel]->version) {
 			atTriggerVersions[channel] = triggerEmulatorWaveforms[channel]->version;
-			efiPrintf("Stimulator: updating trigger shape for ch%d: %d/%d %d", channel, atTriggerVersions[channel],
+			efiPrintf("Stimulator: updating trigger shape for ch%d: %d/%d %ld", channel, atTriggerVersions[channel],
 				engine->getGlobalConfigurationVersion(), getTimeNowMs());
 
 			copyPwmParameters(state, &triggerEmulatorWaveforms[channel]->wave);
@@ -172,7 +176,7 @@ static void startSimulatedTriggerSignal() {
 	}
 
 	setTriggerEmulatorRPM(engineConfiguration->triggerSimulatorRpm);
-	
+
 	for (int channel = 0; channel < NUM_EMULATOR_CHANNELS; channel++) {
 		TriggerWaveform *s = triggerEmulatorWaveforms[channel];
 		if (s->getSize() == 0)
@@ -237,20 +241,29 @@ void startTriggerEmulatorPins() {
 		for (size_t i = 0; i < efi::size(emulatorOutputs[channel]); i++) {
 			triggerEmulatorSignals[channel].outputPins[i] = &emulatorOutputs[channel][i];
 
-			// todo: add pin configs for cam simulator channels
-			if (channel != 0)
-				continue;
-			brain_pin_e pin = engineConfiguration->triggerSimulatorPins[i];
+#if EFI_PROD_CODE
+      brain_pin_e pin;
+
+      pin_output_mode_e outputMode;
+			if (channel == 0) {
+  			pin = engineConfiguration->triggerSimulatorPins[i];
+  			outputMode = engineConfiguration->triggerSimulatorPinModes[i];
+  		} else if (channel == 1 && i == 0) {
+  		  pin = engineConfiguration->camSimulatorPin;
+  		  outputMode = engineConfiguration->camSimulatorPinMode;
+  		} else {
+			  // todo: add pin configs for cam simulator channels
+  		  continue;
+  		}
 
 			// Only bother trying to set output pins if they're configured
 			if (isBrainPinValid(pin)) {
 				hasStimPins = true;
 			}
 
-#if EFI_PROD_CODE
 			if (isConfigurationChanged(triggerSimulatorPins[i])) {
 				triggerEmulatorSignals[channel].outputPins[i]->initPin("Trigger emulator", pin,
-					engineConfiguration->triggerSimulatorPinModes[i]);
+					outputMode);
 			}
 #endif // EFI_PROD_CODE
 		}

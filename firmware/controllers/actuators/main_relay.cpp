@@ -1,12 +1,13 @@
 #include "pch.h"
 
 #include "main_relay.h"
+#include "ignition_controller.h"
 
 void MainRelayController::onSlowCallback() {
 #if EFI_MAIN_RELAY_CONTROL
 #if defined(IGN_KEY_DIVIDER)
     if (isAdcChannelValid(engineConfiguration->ignKeyAdcChannel)) {
-      hasIgnitionVoltage = Sensor::getOrZero(SensorType::IgnKeyVoltage) > 5;
+      hasIgnitionVoltage = isIgnVoltage();
     } else
 #endif // IGN_KEY_DIVIDER
     if (engineConfiguration->ignitionKeyDigitalPin != Gpio::Unassigned) {
@@ -14,7 +15,7 @@ void MainRelayController::onSlowCallback() {
         // key-on is usually a bit smaller voltage than main relay but sometimes even 1v off!
         hasIgnitionVoltage = efiReadPin(engineConfiguration->ignitionKeyDigitalPin);
     } else {
-	    hasIgnitionVoltage = Sensor::getOrZero(SensorType::BatteryVoltage) > 5;
+	    hasIgnitionVoltage = isIgnVoltage();
 	}
 
 	if (hasIgnitionVoltage) {

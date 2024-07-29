@@ -38,7 +38,7 @@ public:
 	// Called when the configuration may have changed.  Controller will
 	// reset if necessary.
 	void onConfigurationChange(pid_s* previousConfiguration);
-	
+
 	// Print this throttle's status.
 	void showStatus();
 
@@ -69,6 +69,10 @@ public:
 		return 0;
 	}
 
+  float getCurrentTarget() const override {
+    return etbCurrentTarget;
+  }
+
 	// Lua throttle adjustment
 	void setLuaAdjustment(percent_t adjustment) override;
 	float getLuaAdjustment() const;
@@ -98,7 +102,7 @@ private:
 	 * @return true if OK, false if should be disabled
 	 */
 	bool checkStatus();
-	bool isEtbMode() {
+	bool isEtbMode() const override {
 		return m_function == DC_Throttle1 || m_function == DC_Throttle2;
 	}
 
@@ -108,7 +112,7 @@ private:
 	Timer m_jamDetectTimer;
 
 	// Pedal -> target map
-	const ValueProvider3D* m_pedalMap = nullptr;
+	const ValueProvider3D* m_pedalProvider = nullptr;
 
 	float m_idlePosition = 0;
 
@@ -117,14 +121,14 @@ private:
 
 	// Autotune helpers
 	bool m_lastIsPositive = false;
-	efitick_t m_cycleStartTime = 0;
+	Timer m_autotuneCycleStart;
 	float m_minCycleTps = 0;
 	float m_maxCycleTps = 0;
 	// Autotune measured parameters: gain and ultimate period
 	// These are set to correct order of magnitude starting points
 	// so we converge more quickly on the correct values
 	float m_a = 8;
-	float m_tu = 0.1f; 
+	float m_tu = 0.1f;
 
 	uint8_t m_autotuneCounter = 0;
 	uint8_t m_autotuneCurrentParam = 0;

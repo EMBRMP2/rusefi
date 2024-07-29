@@ -7,10 +7,15 @@
 
 #pragma once
 
-#include <rusefi/timer.h>
 #include "launch_control_state_generated.h"
 
 void initLaunchControl();
+
+enum class LaunchCondition {
+	PreLaunch,
+	Launch,
+	NotMet
+};
 
 class LaunchControlBase : public launch_control_state_s {
 public:
@@ -18,20 +23,25 @@ public:
 	// Update the state of the launch control system
 	void update();
 
-    bool getFuelCoefficient() const;
+  float getFuelCoefficient() const;
 	bool isInsideSpeedCondition() const;
 	bool isInsideTpsCondition() const;
 	bool isInsideSwitchCondition();
-	bool isInsideRPMCondition(int rpm) const;
-	bool isLaunchConditionMet(int rpm);
+	LaunchCondition calculateRPMLaunchCondition(int rpm);
+	LaunchCondition calculateLaunchCondition(int rpm);
 
 	bool isLaunchSparkRpmRetardCondition() const;
 	bool isLaunchFuelRpmRetardCondition() const;
 
+	float getSparkSkipRatio() const { return sparkSkipRatio; }
+
 private:
 	bool isLaunchRpmRetardCondition() const;
 
-	Timer m_launchTimer;
+	float calculateSparkSkipRatio(int rpm) const;
+
+
+	float sparkSkipRatio = 0.0f;
 };
 
 /**
@@ -39,15 +49,20 @@ private:
  */
 class SoftSparkLimiter {
 public:
-    SoftSparkLimiter(bool allowHardCut);
+    SoftSparkLimiter(bool p_allowHardCut);
 	/**
 	 * targetSkipRatio of '0' means 'do not skip', would always return false
 	 */
-	void setTargetSkipRatio(float targetSkipRatio);
+	void updateTargetSkipRatio(
+		float luaSoftSparkSkip,
+		float tractionControlSparkSkip,
+		float launchControllerSparkSkipRatio = 0.0f
+	);
+	[[nodiscard]] float getTargetSkipRatio() const { return targetSkipRatio; }
 
 	bool shouldSkip();
 private:
-    bool allowHardCut;
+    const bool allowHardCut;
 	bool wasJustSkipped = false;
 	float targetSkipRatio = 0;
 };

@@ -8,20 +8,19 @@ import com.opensr5.io.ConfigurationImageFile;
 import com.rusefi.binaryprotocol.MsqFactory;
 import com.rusefi.tools.tune.CurveData;
 import com.rusefi.tools.tune.TS2C;
-import com.rusefi.tools.tune.TuneCanTool;
+import com.rusefi.tools.tune.TuneCanToolConstants;
 import com.rusefi.tune.xml.Constant;
 import com.rusefi.tune.xml.Msq;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TuneReadWriteTest {
-    private static final String PATH = TuneCanTool.SRC_TEST_RESOURCES + "frankenso/";
+    private static final String PATH = TuneCanToolConstants.SRC_TEST_RESOURCES + "frankenso/";
     static final String TUNE_NAME = PATH + "test-CurrentTune.msq";
     static final String TEST_INI = PATH + "test-mainController.ini";
     private static final String TEST_BINARY_FILE = PATH + "current_configuration.rusefi_binary";
@@ -32,9 +31,9 @@ public class TuneReadWriteTest {
     @Test
     public void testIniReader() throws IOException {
         assertTrue(model.getTables().contains("fueltable"));
-        Assert.assertEquals(21, model.getTables().size());
-        Assert.assertEquals("fuelRpmBins", model.getXBin("FUELTable"));
-        Assert.assertEquals("fuelLoadBins", model.getYBin("fuelTable"));
+        assertEquals(21, model.getTables().size());
+        assertEquals("fuelRpmBins", model.getXBin("FUELTable"));
+        assertEquals("fuelLoadBins", model.getYBin("fuelTable"));
 
         String tableName = "ignitionIatCorrTable";
         String xRpmBinsName = model.getXBin(tableName);
@@ -44,14 +43,14 @@ public class TuneReadWriteTest {
 
         CurveData xRpmCurve = CurveData.valueOf(TUNE_NAME, xRpmBinsName, model);
 
-        Assert.assertEquals("static const float hardCodedignitionIatCorrRpmBins[16] = " +
+        assertEquals("static const float hardCodedignitionIatCorrRpmBins[16] = " +
                 "{880.0, 1260.0, 1640.0, 2020.0, 2400.0, 2780.0, 3000.0, 3380.0, 3760.0, 4140.0, 4520.0, 5000.0, 5700.0, 6500.0, 7200.0, 8000.0};\n", xRpmCurve.getCsourceCode());
 
-        Assert.assertEquals("static void cannedignitionIatCorrRpmBins() {\n" +
+        assertEquals("static void prefixcannedignitionIatCorrRpmBins() {\n" +
                 "\tstatic const float hardCodedignitionIatCorrRpmBins[16] = {880.0, 1260.0, 1640.0, 2020.0, 2400.0, 2780.0, 3000.0, 3380.0, 3760.0, 4140.0, 4520.0, 5000.0, 5700.0, 6500.0, 7200.0, 8000.0};\n" +
                 "\tcopyArray(config->ignitionIatCorrRpmBins, hardCodedignitionIatCorrRpmBins);\n" +
                 "}\n" +
-                "\n", xRpmCurve.getCsourceMethod("config->"));
+                "\n", xRpmCurve.getCsourceMethod("config->", "prefix", xRpmCurve.getName()));
 
         TS2C.FINGER_PRINT = "/*unittest*/\n";
         String tableSource = TS2C.getTableCSourceCode2(TUNE_NAME, tableName, model);
@@ -79,7 +78,7 @@ public class TuneReadWriteTest {
 
     @Test
     public void testALotTogether() throws IOException {
-        String expected = "static void cannedveTable() {\n" +
+        String expected = "static void prefixcannedveTable() {\n" +
                 "\tstatic const float hardCodedveRpmBins[16] = {650.0, 800.0, 1100.0, 1400.0, 1700.0, 2000.0, 2300.0, 2600.0, 2900.0, 3200.0, 3500.0, 3800.0, 4100.0, 4400.0, 4700.0, 7000.0};\n" +
                 "\tstatic const float hardCodedveLoadBins[16] = {10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0};\n" +
                 "static const float hardCodedveTable[16][16] = {\n" +
@@ -117,7 +116,7 @@ public class TuneReadWriteTest {
 
         String tableSource = TS2C.getTableCSourceCode2(TUNE_NAME, tableName, model);
 
-        String completeMethod = "static void canned" + tableName + "() {\n" +
+        String completeMethod = "static void prefixcanned" + tableName + "() {\n" +
                 "\t" + xRpmCurve.getCsourceCode() +
                 "\t" + yLoadCurve.getCsourceCode() +
                 tableSource +
@@ -147,7 +146,7 @@ public class TuneReadWriteTest {
 
         Constant flow = tsTune.findPage().findParameter("injector_flow");
         assertNotNull(flow);
-        Assert.assertEquals("2", flow.getDigits());
+        assertEquals("2", flow.getDigits());
 
         ConfigurationImage tsBinaryData = tsTune.asImage(model, LEGACY_TOTAL_CONFIG_SIZE);
 
@@ -171,24 +170,24 @@ public class TuneReadWriteTest {
 
         Constant batteryCorrection = tuneFromBinary.findPage().findParameter("injector_battLagCorrBins");
         assertNotNull(batteryCorrection);
-        Assert.assertEquals("2", batteryCorrection.getDigits());
+        assertEquals("2", batteryCorrection.getDigits());
 
         Constant flow = tuneFromBinary.findPage().findParameter("injector_flow");
         assertNotNull(flow);
-        Assert.assertEquals("2", flow.getDigits());
+        assertEquals("2", flow.getDigits());
 
-        Constant nonEmptyFormula = tuneFromBinary.findPage().findParameter("fsioFormulas1");
+        Constant nonEmptyFormula = tuneFromBinary.findPage().findParameter("legacyFormulas1");
         assertNotNull(nonEmptyFormula);
 
         /**
          * Empty strings values should be omitted from the tune
          */
-        Constant emptyFormula = tuneFromBinary.findPage().findParameter("fsioFormulas2");
+        Constant emptyFormula = tuneFromBinary.findPage().findParameter("legacyFormulas2");
         assertNull(emptyFormula);
 
         Constant enumField = tuneFromBinary.findPage().findParameter("acRelayPin");
         // quotes are expected
-        Assert.assertEquals("\"NONE\"", enumField.getValue());
+        assertEquals("\"NONE\"", enumField.getValue());
 
         // and now reading that XML back
         Msq tuneFromFile = Msq.readTune(fileName);
@@ -200,7 +199,7 @@ public class TuneReadWriteTest {
          * Looks like I am not getting something right around Field#FIELD_PRECISION
          * See also TuneWriterTest :(
          */
-        assertEquals("Binary match expected", 66, compareImages(binaryDataFromXml, fileBinaryData, model));
+        assertEquals(66, compareImages(binaryDataFromXml, fileBinaryData, model), "Binary match expected");
         // todo: looks like this is not removing the temporary file?
         Files.delete(path);
     }

@@ -32,6 +32,8 @@
 // Console thread 
 #define PRIO_CONSOLE (NORMALPRIO + 1)
 
+#define WIFI_THREAD_PRIORITY (NORMALPRIO)
+
 // Less important things
 #define PRIO_MMC (NORMALPRIO - 1)
 
@@ -49,3 +51,6 @@
 
 // Lua interpreter must be lowest priority, as the user's code may get stuck in an infinite loop
 #define PRIO_LUA LOWPRIO + 10
+
+// MAX31855 driver
+#define MAX31855_PRIO NORMALPRIO

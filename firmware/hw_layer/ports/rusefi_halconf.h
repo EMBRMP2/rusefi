@@ -53,7 +53,9 @@
 #endif
 
 // If USB and File logging, enable USB Mass Storage & community
+#ifndef HAL_USE_USB_MSD
 #define HAL_USE_USB_MSD (EFI_FILE_LOGGING && EFI_USB_SERIAL)
+#endif // HAL_USE_USB_MSD
 #define HAL_USE_COMMUNITY (EFI_FILE_LOGGING && EFI_USB_SERIAL) || HAL_USE_EEPROM
 #define USB_MSD_LUN_COUNT 2
 
@@ -165,11 +167,16 @@
 #define PAL_USE_CALLBACKS           TRUE
 
 // USB Serial
+#ifndef SERIAL_USB_BUFFERS_SIZE
 #define SERIAL_USB_BUFFERS_SIZE     768
+#endif
+
+#ifndef SERIAL_USB_BUFFERS_NUMBER
 #define SERIAL_USB_BUFFERS_NUMBER   2
+#endif
 
 // USB Mass Storage
-#ifdef EFI_USE_COMPRESSED_INI_MSD
+#if EFI_USE_COMPRESSED_INI_MSD
 // if enabled, we do gzip decompression on the MSD thread - it requires more stack space
 #define USB_MSD_THREAD_WA_SIZE 2048
 #endif

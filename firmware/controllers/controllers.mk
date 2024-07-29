@@ -21,14 +21,13 @@ CONTROLLERS_SRC_CPP = \
 	$(CONTROLLERS_DIR)/actuators/idle_thread.cpp \
 	$(CONTROLLERS_DIR)/actuators/ignition_controller.cpp \
 	$(CONTROLLERS_DIR)/actuators/main_relay.cpp \
-	$(CONTROLLERS_DIR)/actuators/pwm_tester.cpp \
 	$(CONTROLLERS_DIR)/actuators/vvt.cpp \
+	$(CONTROLLERS_DIR)/actuators/gppwm_channel_reader.cpp \
 	$(CONTROLLERS_DIR)/actuators/gppwm/gppwm_channel.cpp \
 	$(CONTROLLERS_DIR)/actuators/gppwm/gppwm.cpp \
 	$(CONTROLLERS_DIR)/gauges/tachometer.cpp \
 	$(CONTROLLERS_DIR)/gauges/speedometer.cpp \
 	$(CONTROLLERS_DIR)/gauges/malfunction_indicator.cpp \
-	$(CONTROLLERS_DIR)/system/timer/signal_executor_sleep.cpp \
 	$(CONTROLLERS_DIR)/system/timer/single_timer_executor.cpp \
 	$(CONTROLLERS_DIR)/system/timer/pwm_generator_logic.cpp \
 	$(CONTROLLERS_DIR)/system/timer/event_queue.cpp \
@@ -53,6 +52,7 @@ CONTROLLERS_SRC_CPP = \
 	$(CONTROLLERS_DIR)/can/can_tx.cpp \
 	$(CONTROLLERS_DIR)/can/can_dash.cpp \
 	$(CONTROLLERS_DIR)/can/can_dash_ms.cpp \
+	$(CONTROLLERS_DIR)/can/can_dash_nissan.cpp \
 	$(CONTROLLERS_DIR)/can/can_vss.cpp \
  	$(CONTROLLERS_DIR)/engine_controller.cpp \
  	$(CONTROLLERS_DIR)/engine_controller_misc.cpp \
@@ -64,8 +64,10 @@ CONTROLLERS_SRC_CPP = \
 	$(CONTROLLERS_DIR)/tcu/tcu.cpp \
 	$(CONTROLLERS_DIR)/tcu/gear_controller.cpp \
 	$(CONTROLLERS_DIR)/tcu/gc_generic.cpp \
+	$(CONTROLLERS_DIR)/tcu/gc_auto.cpp \
 	$(CONTROLLERS_DIR)/tcu/simple_tcu.cpp \
 	$(CONTROLLERS_DIR)/tcu/tc_4l6x.cpp \
+	$(CONTROLLERS_DIR)/tcu/tc_4.cpp \
 	$(CONTROLLERS_DIR)/shutdown_controller.cpp \
 	$(CONTROLLERS_DIR)/limp_manager.cpp \
 

@@ -30,6 +30,9 @@ void CsvReader::open(const char *fileName, const int* triggerColumnIndeces, cons
 }
 
 bool CsvReader::haveMore() {
+	if (fp == nullptr) {
+		throw std::runtime_error("No file");
+	}
 	bool result = fgets(buffer, sizeof(buffer), fp) != nullptr;
 	m_lineIndex++;
 	if (m_lineIndex == 0) {
@@ -116,7 +119,7 @@ void CsvReader::processLine(EngineTestHelper *eth) {
 		}
 
 		efitick_t nowNt = getTimeNowNt();
-		TriggerValue event = newVvtState[vvtIndex] ^ engineConfiguration->invertCamVVTSignal ? TriggerValue::RISE : TriggerValue::FALL;
+		TriggerValue event = newVvtState[vvtIndex] ^ flipVvtOnRead ^ engineConfiguration->invertCamVVTSignal ? TriggerValue::RISE : TriggerValue::FALL;
 		// todo: configurable selection of vvt mode - dual bank or dual cam single bank
 		int bankIndex;
 		int camIndex;

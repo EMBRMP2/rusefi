@@ -19,6 +19,7 @@
 
 #include "efifeatures.h"
 #include "rusefi_types.h"
+#include "efi_quote.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -29,6 +30,11 @@
 #include "efilib.h"
 #include "efitime.h"
 
+// FIRMWARE_ID is only used to display custom nicer board names to the user in console window and error message
+#ifndef FIRMWARE_ID
+#define FIRMWARE_ID QUOTE(SHORT_BOARD_NAME)
+#endif
+
 #ifdef __cplusplus
 #include "datalogging.h"
 #include "cli_registry.h"
@@ -36,5 +42,10 @@
 
 #define EXPECTED_REMAINING_STACK 128
 
+#define EFI_CONFIGURATION_STORAGE	(EFI_STORAGE_INT_FLASH == TRUE) || (EFI_STORAGE_MFS == TRUE)
+
 // see also validateStack
 #define hasLotsOfRemainingStack() (getCurrentRemainingStack() > EXPECTED_REMAINING_STACK)
+
+// this macro helps locate all board Public API methods
+#define PUBLIC_API_WEAK __attribute__((weak))

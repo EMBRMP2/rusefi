@@ -9,7 +9,7 @@
 #include "stepper.h"
 #include "tunerstudio_io.h"
 #include "idle_thread.h"
-#include "global_execution_queue.h"
+#include "test_executor.h"
 
 #include "gmock/gmock.h"
 
@@ -20,13 +20,14 @@ public:
 
 	// IEtbController mocks
 	MOCK_METHOD(void, reset, (), (override));
-	MOCK_METHOD(bool, isEtbMode, (), (override));
+	MOCK_METHOD(bool, isEtbMode, (), (const, override));
 	MOCK_METHOD(void, update, (), (override));
 	MOCK_METHOD(bool, init, (dc_function_e function, DcMotor* motor, pid_s* pidParameters, const ValueProvider3D* pedalMap, bool initializeThrottles), (override));
 	MOCK_METHOD(void, setIdlePosition, (percent_t pos), (override));
 	MOCK_METHOD(void, setWastegatePosition, (percent_t pos), (override));
 	MOCK_METHOD(void, autoCalibrateTps, (), (override));
 	MOCK_METHOD(const pid_state_s&, getPidState, (), (const, override));
+	MOCK_METHOD(float, getCurrentTarget, (), (const, override));
 	MOCK_METHOD(void, setLuaAdjustment, (percent_t adjustment), (override));
 
 
@@ -79,9 +80,7 @@ public:
 	MockExecutor();
 	virtual ~MockExecutor();
 
-	MOCK_METHOD(void, scheduleByTimestamp, (const char *msg, scheduling_s *scheduling, efitimeus_t timeUs, action_s action), (override));
 	MOCK_METHOD(void, scheduleByTimestampNt, (const char *msg, scheduling_s *scheduling, efitick_t timeNt, action_s action), (override));
-	MOCK_METHOD(void, scheduleForLater, (const char *msg, scheduling_s *scheduling, int delayUs, action_s action), (override));
 	MOCK_METHOD(void, cancel, (scheduling_s*), (override));
 };
 

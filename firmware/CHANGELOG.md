@@ -11,22 +11,123 @@ Release template (copy/paste this for new release):
 ## Month 202x Release - "Release Name"
 
 ### Breaking Changes
- - 
+ -
 
 ### Added
  -
 
 ### Fixed
- - 
+ -
 
 ### Removed
- - 
+ -
 
  -->
 
 # Changelog
 
+### Added
+ - new rusEFI console tab: Knock analyzer #6467
+ - Suzuki K6A (NON VVTI Trigger) #6490
+ - explicit error if 32 bit java is used #6497
+ - configurable Open Loop Boost vertical axis #4778
+ - reduce JRE download complexity #6569
+ - simpler basic firmware updater #5577
+ - prohibit mcu_standby on ECU start-up #6589
+ - Allow to choose lower RPM cutoff for AC Compressor #6597
+ - New TPS/TPS enrichment mode: percent adder #3167
+ - Launch control has a variable ignition cut BEFORE the main Hard cut #6566
+ - Experimental mapExpAverageAlpha filtering #6579
+ - minimum priming delay of 0.1 second
+ - Launch to accept lua-based clutch and brake pedals #6658
+ - Console command `set_sensor_mock` now accepts a sensor by name, instead of index. Example: `set_sensor_mock CLT 85.5`
+ - STM32Cube v2.17
+ - Better validation of thermistor configuration #6724
+ - Full layout vs tuning layout #5154
+
+### Fixed
+ - knock logic not activated until any configuration change via TS #6462
+ - VE Table have wrong units on Y-Axis #6479
+ - General Purpose PWM tables have wrong names on X-axis and Y-axis #6491
+ - Ignition scheduling errors after 40+ hours of uptime #6451
+ - luaSoftSparkSkip/luaHardSparkSkip probably bug #6528
+ - improved 4G63/4G9x cam wheel definition #6544
+ - Launch RPM + Launch Control window is not correct #6533
+ - MAX3185X_REFRESH_TIME is now 0.1 sec.
+ - ADC array out of bounds when using analog muxes #6376
+
+### Breaking Changes
+ - "60/2 VW" trigger wheel renamed to "60-2 Wrong Polarity" #988
+ - exhaust VVTs now use it's onw Edge Select setting
+ - removing weird 1+16 trigger wheel #6418
+ - critical error in case of unneeded second channel #6419
+ - Open Loop Boost vertical axis needs to be configured #4778
+ - Cranking Cycle Multiplier is now a Map with Coolant Temp as the additional axis. #6584
+ - Now we use "Alternator Voltage Target Table" instead of "Target(Volts)" setting on "Alternator Settings" area to calculate alternator voltage target. #6523
+
 ## Unreleased
+
+## April 2024 "Day 785"
+
+### Added
+ - Boost Open Loop gear-based modifier takes negative values #6189
+ - "12 tooth crank" renamed to "12crank/24cam" #6192
+ - second CAN WBO channel detailed logging #6306
+ - Make sure TUNERSTUDIO IS DISCONNECTED FROM ECU #6325
+ - 1_6_5_10_2_7_3_8_4_9 firing order BMW S85, also Audi 5.2 R8 and huracan GDI
+ - boost duty gauge is now clamped to match actuator #6339
+ - "MAP estimate table" is only available in speed density mode #6344
+ - 1-8-6-2-7-3-4-5 Ferrari-Maserati F136 firing order
+
+### Fixed
+ - ETB traction control drop is affected by not-highlighted cell #5952
+ - Aux Speed sensors stopped working on calibration change #6157
+ - EGO renamed to O2 sensor to reduce confusion #6159
+ - Disabling slow connectivity mode for now #6170
+ - hellen128 better ETB pin choice between rev A/B and C
+ - Base map values for Open Loop Boost Duty should be 0% #6188
+ - HPFP control on cam with variable timing #6245
+ - Negative timing is not displayed correctly fix #5250
+ - update-ts-cacerts work-around is no longer needed #6327
+ - uaEFI board knock configuration #6338
+ - Fix a scenario where noisy trigger can cause overdwell #6349
+ - knock retard calibration lookup #6370
+
+### Breaking Changes
+ - wrong trigger naming for missing teeth #6258
+ - flipping timing_offset_cylinder direction #6095
+ - clutch and flex inputs inverted options renamed #2808
+
+## March 2024 "Day 740"
+
+### Breaking Changes
+ - Trigger Edge settings renamed from "true"/"false" to "Falling"/"Rising"
+
+### Added
+ - Allow brief operation over 100% injector duty cycle and add configurable duty cycle limits #4798
+ - Staged injection support #5247
+ - Ford Voodoo 1-5-4-8-3-7-2-6 firing order
+ - 6/0 CKP trigger pattern for 1995 Lamborghini Diablo #5876
+ - VE/Ign/Boost blend tables can select a Y axis override for even more flexibility
+ - Disable radiator fans after certain vehicle speed #5875
+ - LIS2DW12TR on-board Accelerometer support #4870
+ - Wheel slip ratio using aux speed inputs #5897
+ - 4 cylinder daihatsu cam sensor decoder #5925
+ - allow inverted flex input #6131
+
+### Fixed
+ - Honda CBR 600 cam decoder #5909
+ - boosted applications to log VE above 127
+ - removing confusing numeric options from enumerable drop downs #5942
+ - Subaru 6/7 improvement for cranking
+ - Improve performance with Lua CAN reception of a high volume of frames #5841
+ - odd fire timing_offset_cylinder not accounted by injection #6095
+ - odd fire first spark out of order coilIndex logic in prepareCylinderIgnitionSchedule #6094
+
+### Removed
+ - Narrow to Wideband approximation
+
+## December 2023 "Day 677"
 
 ### Breaking Changes
  - "acIdleRpmBump" renamed to "acIdleRpmTarget", and changed the way of RPM rise needed for proper A/C operation from added to absolute target #5628
@@ -34,11 +135,13 @@ Release template (copy/paste this for new release):
 
 ### Added
  - DAC with Lua #5601
- - TunerStudio cacerts fix script #5536 
+ - TunerStudio cacerts fix script #5536
  - Idle Timing Control - Soft Entry mechanism, in case of aggressive PID tuning this can help when engine enters close loop idle
  - Idle Timing Control - I factor configurable now #5635
  - Make TPS/PPS split threshold configurable #5620
  - Mitsubishi 6G72 CAM Trigger Pattern #5593
+ - 3/0 trigger #5788
+ - CANbus front to rear axle speed slip rate gauge on Nissan 350z and modern Hyundai/Kia #5842
 
 ### Fixed
  - Changing idle stepper settings causes kernel panic
@@ -80,7 +183,7 @@ Release template (copy/paste this for new release):
  - Configurable ignition timing limits, adding safety particularly for engines running wasted spark with a large cam FOME#211
 
 ### Fixed
- - fuel_pump_control is accessible as getOutput("isFuelPumpOn") in Lua #5239 
+ - fuel_pump_control is accessible as getOutput("isFuelPumpOn") in Lua #5239
  - start button logic does not crank started for first X seconds since ECU boot #5324
  - launch control: Speed threshold should not depend on launch mode, also zero speed limit handling #5419
  - hard fault due to misaligned big buffer on F7 firmware #5354
@@ -282,7 +385,7 @@ All notable user-facing or behavior-altering changes will be documented in this 
  - Mitsubishi 36-2-1-1 trigger wheel
  - Mitsubishi 3A92 VVT trigger
  - Toyota 4-1 VVT trigger
- - use extra RAM for lua if your microRusEFI unit has stm32f42x microcontroller 
+ - use extra RAM for lua if your microRusEFI unit has stm32f42x microcontroller
  - VVT activation delay #3443
  - Allow setting injection phase by start or center of injection #4068
  - New 'View' menu in TunerStudio showing a lot of live data points #3614
@@ -292,10 +395,10 @@ All notable user-facing or behavior-altering changes will be documented in this 
 ### Added
  - Use board-specific output and digital input pin names in error messages #3886
  - Support LPS22 in addition to LPS25 baro sensors #3900
- - Proteus F7 flashing work-around 
+ - Proteus F7 flashing work-around
 
 ### Fixed
- - SD card logging with SDIO hardware #3873 
+ - SD card logging with SDIO hardware #3873
  - rusEFI console stability improvement #3912
  - console updater does not work if folder name contains spaces #3927
  - SD card logs PPS as TPS #3943
@@ -332,7 +435,7 @@ All notable user-facing or behavior-altering changes will be documented in this 
 ## November 2021 Release - "Loosen Up Lighten Up Day"
 
 ### Added
- - Higher Data Rate with TS 3.1.06.14 Beta or newer 
+ - Higher Data Rate with TS 3.1.06.14 Beta or newer
  - turbo speed sensor #2935
  - A TON of Lua progress
  - Overall performance
@@ -381,17 +484,17 @@ All notable user-facing or behavior-altering changes will be documented in this 
 ## July 2021 Release "Ice Cream Day"
 
 ### Breaking Changes
- - vvtOffset field migrated to four vvtOffsets fields. Anyone using VVT would need to manually adjust their configuration.  
+ - vvtOffset field migrated to four vvtOffsets fields. Anyone using VVT would need to manually adjust their configuration.
 
 ### Added
  - Injector nonlinearity (small pulse) correction - so far just polynomial, but table modes coming soon.
  - 1-4-3-6-2-5 firing order for VAG v6
  - vq30de trigger wheel decoder #2974
  - new hardware testing console commands #2978
- 
+
 ### Fixed
  - rusEFI console start-up speed #2964
- - wrong handling of symmetrical crank wheels NB2 VQ35 Renix #2980   
+ - wrong handling of symmetrical crank wheels NB2 VQ35 Renix #2980
 
 ## June 2021 Release "National Logistics Day"
 
@@ -399,7 +502,7 @@ All notable user-facing or behavior-altering changes will be documented in this 
  - Improved cranking defaults
  - Simplified/clarified idle and cranking TunerStudio pages
  - Minor change of Miata NA trigger shape #2855
- - Improved trigger sync for 60/2 36/1 36/22 triggers as part of VW warnings on cranking part #1 #2861   
+ - Improved trigger sync for 60/2 36/1 36/22 triggers as part of VW warnings on cranking part #1 #2861
 
 ### Added
  - Idle improvements! Open loop corrections are now applied in closed loop mode.
@@ -415,14 +518,14 @@ All notable user-facing or behavior-altering changes will be documented in this 
 ### Added
  - Per-bank closed loop fuel correction (each cylinder corrected by the sensor that sees its exhaust)
 
-## April 2021 Release - "Malbec" 
+## April 2021 Release - "Malbec"
 ### Added
  - mount SD card and drive containing TunerStudio ini at the same time
  - VAG MQB tachometer CAN integration
 ### Fixed
  - fix error/warning buffer overflow #2456
  - engine sniffer "show only interesting" fix #2528
- - SD card logs bugfix #2556 
+ - SD card logs bugfix #2556
  - Too many small logs are zero size #2553
  - Launcher splash screen is freezy #2560
  - NB2 trigger decoder #2533
@@ -437,7 +540,7 @@ All notable user-facing or behavior-altering changes will be documented in this 
 
 ### Added
  - VAG MQB tachometer CAN integration
-    
+
 ### Fixed
  - fix error/warning buffer overflow #2456
 
@@ -499,7 +602,7 @@ All notable user-facing or behavior-altering changes will be documented in this 
 
 ### Fixed
  -  minor bugfix - engine sniffer missing pin names #1995
- 
+
 ## November 2020 Release - "Black Friday"
 
 ### Breaking Changes
@@ -509,7 +612,7 @@ All notable user-facing or behavior-altering changes will be documented in this 
 ### Added
  -   High & low pressure fuel sensor channels
  -   Electronic throttle-style wastegate control found on some VW turbos (and VGTs)
- -   Improved TLE8888 driver on microRusEFI 
+ -   Improved TLE8888 driver on microRusEFI
  -   Improved setting ECU presets/defaults from TunerStudio
 
 ### Fixed
@@ -533,7 +636,7 @@ All notable user-facing or behavior-altering changes will be documented in this 
 | Release date  | Revision  | Details |
 | ------------  | --------- | ------- |
 | 07/26/2020    | r24635    | improvement #1637: DC motor idle air valve for late 90s German vehicles |
-| 07/21/2020    |           | bugfix #1592 injectors could stay open on transition from cranking to running under certain conditions | 
+| 07/21/2020    |           | bugfix #1592 injectors could stay open on transition from cranking to running under certain conditions |
 | 06/17/2020    | r23656    | bugfix #1491 major performance/scheduling improvement |
 | 05/21/2020    | r22961    | rusEFI console start-up time improvements |
 | 04/18/2020    | r22231    | Renix 44-2-2 trigger support added |
@@ -575,9 +678,9 @@ All notable user-facing or behavior-altering changes will be documented in this 
 | 03/09/2017    | r13146    | bugfix #370: duty cycle vs error code 6050 |
 | 03/06/2017    | r13123    | bugfix #363: 2/1 skipped wheel is a corner-case |
 | 03/05/2017    | r13108    | bugfix #363: trigger front only processing |
-| 02/22/2017    | r12980    | bugfix: false error message in case of single coil or simultaneous injection | 
+| 02/22/2017    | r12980    | bugfix: false error message in case of single coil or simultaneous injection |
 | 02/22/2017    | r12973    | unused property 'custom Use Rise Edge' removed |
-| 02/22/2017    | r12972    | protocol signature changed to 'v0.02' (this would happen from time to time to ensure version match between console and TS project | 
+| 02/22/2017    | r12972    | protocol signature changed to 'v0.02' (this would happen from time to time to ensure version match between console and TS project |
 | 02/20/2017    | r12939    | https://github.com/rusefi/rusefi is now the official primary repository |
 | 02/18/2017    | r11565    | improvement: level1 default brown out https://sourceforge.net/p/rusefi/tickets/354/ |
 | 02/18/2017    | r11554    | bugfix: rusEfi console program/erase buttons fixed with ST-LINK 2.1 |
@@ -587,7 +690,7 @@ All notable user-facing or behavior-altering changes will be documented in this 
 | 07/06/2015	| r8554     | more CAN, better console, bugfixes, performance
 | 04/26/2015	| r7938	    | vehicle speed sensor, stepper idle valve, lots of improvements
 | 11/13/2014	| r5327	    | ChibiOS/RT 2.6.6, better cold start logic, bugfixes, bugfixes, bugfixes...
-| 06/12/2014	| r3477	    | Precise event scheduling, protocol selection 
+| 06/12/2014	| r3477	    | Precise event scheduling, protocol selection
 | 03/26/2014	| r2413	    | C++, refactoring & improvements
 | 02/23/2013	| r1777	    | trigger is now configurable via TunerStudio
 | 01/30/2014	| r1309	    | true trigger angles, VBatt signal

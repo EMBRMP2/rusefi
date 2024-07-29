@@ -5,13 +5,6 @@
 #include "pch.h"
 #include "hip9011_logic.h"
 
-/**
- * @brief   Board-specific pin configuration code overrides. Needed by bootloader code.
- * @todo    Add your board-specific code, if any.
- */
-void setPinConfigurationOverrides() {
-}
-
 static void setDefaultFrankensoStepperIdleParameters() {
 	engineConfiguration->idle.stepperDirectionPin = Gpio::E10;
 	engineConfiguration->idle.stepperStepPin = Gpio::E12;
@@ -31,7 +24,7 @@ Gpio getWarningLedPin() {
 }
 
 Gpio getCommsLedPin() {
-	return Gpio::D15; // blue LED on discovery
+	return engineConfiguration->communityCommsLedPid;
 }
 
 Gpio getRunningLedPin() {
@@ -74,7 +67,7 @@ static void setHip9011FrankensoPinout() {
 }
 #endif
 
-#if EFI_MEMS
+#if EFI_ONBOARD_MEMS
 static void configureAccelerometerPins() {
 //	engineConfiguration->accelerometerCsPin = Gpio::E3; // we have a conflict with VVT output on Miata
 // 	engineConfiguration->is_enabled_spi_1 = true; // we have a conflict with PA5 input pin
@@ -84,7 +77,7 @@ static void configureAccelerometerPins() {
 	engineConfiguration->spi1misoPin = Gpio::A6;
 	engineConfiguration->spi1sckPin = Gpio::A5;
 }
-#endif // EFI_MEMS
+#endif // EFI_ONBOARD_MEMS
 
 /**
  * @brief	Hardware board-specific default configuration (GPIO pins, ADC channels, SPI configs etc.)
@@ -93,15 +86,17 @@ void setBoardDefaultConfiguration() {
 	setDefaultFrankensoStepperIdleParameters();
 	setCanFrankensoDefaults();
 
+	engineConfiguration->communityCommsLedPid = Gpio::D15;  // blue LED on discovery
+
 #if EFI_HIP_9011
 	setHip9011FrankensoPinout();
 #endif /* EFI_HIP_9011 */
 
 	// set optional subsystem configs
-#if EFI_MEMS
+#if EFI_ONBOARD_MEMS
 	// this would override some values from above
 	configureAccelerometerPins();
-#endif /* EFI_MEMS */
+#endif /* EFI_ONBOARD_MEMS */
 
 
 
@@ -116,7 +111,7 @@ void setBoardDefaultConfiguration() {
 	engineConfiguration->triggerSimulatorPins[1] = Gpio::D2;
 
 	engineConfiguration->triggerInputPins[0] = Gpio::C6;
-	engineConfiguration->triggerInputPins[1] = Gpio::A5;
+//	engineConfiguration->triggerInputPins[1] = Gpio::A5;
 
 	// set this to SPI_DEVICE_3 to enable stimulation
 	//engineConfiguration->digitalPotentiometerSpiDevice = SPI_DEVICE_3;
@@ -150,7 +145,7 @@ void setBoardDefaultConfiguration() {
 
 // weak linkage
 void boardInitHardware() {
-#if HW_FRANKENSO
+
 static const struct mc33810_config mc33810 = {
 	.spi_bus = &SPID3,
 	.spi_config = {
@@ -198,5 +193,4 @@ static const struct mc33810_config mc33810 = {
 	        efiPrintf("injinfo index=%d", engine->fuelComputer.brokenInjector);
 	    });
 	}
-#endif // HW_FRANKENSO
 }

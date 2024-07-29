@@ -51,7 +51,9 @@ enum class SensorType : unsigned char {
 
 	// Redundant and combined sensors for acc pedal
 	AcceleratorPedal,
+	// pedal according to only first physical sensor
 	AcceleratorPedalPrimary,
+	// pedal according to only second physical sensor
 	AcceleratorPedalSecondary,
 
 	// This maps to the pedal if we have one, and Tps1 if not.
@@ -75,6 +77,7 @@ enum class SensorType : unsigned char {
 	FuelLevel,
 
 	VehicleSpeed,
+	WheelSlipRatio,
 
 	TurbochargerSpeed,
 
@@ -88,6 +91,12 @@ enum class SensorType : unsigned char {
 
 	EGT1,
 	EGT2,
+	EGT3,
+	EGT4,
+	EGT5,
+	EGT6,
+	EGT7,
+	EGT8,
 
 	Maf2,	// Second bank MAF sensor
 
@@ -104,6 +113,13 @@ enum class SensorType : unsigned char {
 
 	DetectedGear,
 
+	RangeInput1,
+	RangeInput2,
+	RangeInput3,
+	RangeInput4,
+	RangeInput5,
+	RangeInput6,
+
 	// analog voltage inputs for Lua
 	AuxAnalog1,
 	AuxAnalog2,
@@ -116,8 +132,21 @@ enum class SensorType : unsigned char {
 
 	LuaGauge1,
 	LuaGauge2,
+	LuaGauge3,
+	LuaGauge4,
+	LuaGauge5,
+	LuaGauge6,
+	LuaGauge7,
+	LuaGauge8,
 
   IgnKeyVoltage,
+
+  DashOverrideRpm,
+  DashOverrideVehicleSpeed,
+  DashOverrideClt,
+  DashOverrideBatteryVoltage,
+
+  AcPressure,
 
 	AuxLinear1,
 	AuxLinear2,

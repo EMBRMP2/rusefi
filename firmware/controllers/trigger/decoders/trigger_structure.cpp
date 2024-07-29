@@ -99,18 +99,23 @@ int TriggerWaveform::getTriggerWaveformSynchPointIndex() const {
  */
 angle_t TriggerWaveform::getCycleDuration() const {
 	switch (operationMode) {
-	case FOUR_STROKE_THREE_TIMES_CRANK_SENSOR:
-		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_THREE_TIMES_CRANK_SENSOR_DIVIDER;
 	case FOUR_STROKE_SYMMETRICAL_CRANK_SENSOR:
 		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_CRANK_SENSOR_DIVIDER;
+	case FOUR_STROKE_THREE_TIMES_CRANK_SENSOR:
+		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_THREE_TIMES_CRANK_SENSOR_DIVIDER;
+	case FOUR_STROKE_SIX_TIMES_CRANK_SENSOR:
+		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_SIX_TIMES_CRANK_SENSOR_DIVIDER;
 	case FOUR_STROKE_TWELVE_TIMES_CRANK_SENSOR:
 		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_TWELVE_TIMES_CRANK_SENSOR_DIVIDER;
 	case FOUR_STROKE_CRANK_SENSOR:
 	case TWO_STROKE:
 		return TWO_STROKE_CYCLE_DURATION;
-	default:
+	case OM_NONE:
+  case FOUR_STROKE_CAM_SENSOR:
 		return FOUR_STROKE_CYCLE_DURATION;
 	}
+	criticalError("unreachable getCycleDuration");
+	return 0;
 }
 
 bool TriggerWaveform::needsDisambiguation() const {
@@ -118,15 +123,17 @@ bool TriggerWaveform::needsDisambiguation() const {
 		case FOUR_STROKE_CRANK_SENSOR:
 		case FOUR_STROKE_SYMMETRICAL_CRANK_SENSOR:
 		case FOUR_STROKE_THREE_TIMES_CRANK_SENSOR:
+		case FOUR_STROKE_SIX_TIMES_CRANK_SENSOR:
 		case FOUR_STROKE_TWELVE_TIMES_CRANK_SENSOR:
 			return true;
 		case FOUR_STROKE_CAM_SENSOR:
 		case TWO_STROKE:
+		case OM_NONE:
 			return false;
-		default:
-			criticalError("bad operationMode() in needsDisambiguation");
-			return true;
+	/* let's NOT handle default in order to benefit from -Werror=switch	*/
 	}
+	criticalError("unreachable needsDisambiguation");
+	return true;
 }
 
 /**
@@ -268,7 +275,7 @@ void TriggerWaveform::addEvent(angle_t angle, TriggerValue const state, TriggerW
 	}
 
 	if (angle <= 0 || angle > 1) {
-		firmwareError(ObdCode::CUSTOM_ERR_6599, "angle should be positive not above 1: index=%d angle %f", channelIndex, angle);
+		firmwareError(ObdCode::CUSTOM_ERR_6599, "angle should be positive not above 1: index=%d angle %f", (int)channelIndex, angle);
 		return;
 	}
 	if (wave.phaseCount > 0) {
@@ -435,6 +442,10 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		initializeMazdaMiataVVtTestShape(this);
 		break;
 
+	case trigger_type_e::TT_SUZUKI_K6A:
+		initializeSuzukiK6A(this);
+		break;
+
 	case trigger_type_e::TT_SUZUKI_G13B:
 		initializeSuzukiG13B(this);
 		break;
@@ -503,7 +514,6 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		setTriggerSynchronizationGap3(/*gapIndex*/1, /*from*/0.75, 1.25);
 		break;
 
-    case trigger_type_e::UNUSED72:
 	case trigger_type_e::TT_NISSAN_QR25:
 		initializeNissanQR25crank(this);
 		break;
@@ -572,8 +582,12 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		configureMazdaProtegeSOHC(this);
 		break;
 
-	case trigger_type_e::TT_DAIHATSU:
-		configureDaihatsu4(this);
+	case trigger_type_e::TT_DAIHATSU_3_CYL:
+		configureDaihatsu3cyl(this);
+		break;
+
+	case trigger_type_e::TT_DAIHATSU_4_CYL:
+		configureDaihatsu4cyl(this);
 		break;
 
 	case trigger_type_e::TT_VVT_TOYOTA_3_TOOTH:
@@ -606,7 +620,7 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		setTriggerSynchronizationGap3(/*gapIndex*/1, /*from*/0.7, 1.3); // second gap is not required to synch on perfect signal but is needed to handle to reject cranking transition noise
 		break;
 
-	case trigger_type_e::TT_60_2_VW:
+	case trigger_type_e::TT_60_2_WRONG_POLARITY:
 		setVwConfiguration(this);
 		break;
 
@@ -638,6 +652,10 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 	    initializeMazdaSkyactivCam(this);
         break;
 
+	case trigger_type_e::TT_VVT_MAZDA_L:
+		initializeMazdaLCam(this);
+		break;
+
 	case trigger_type_e::TT_BENELLI_TRE:
 	    configureBenelli(this);
         break;
@@ -645,14 +663,17 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 	case trigger_type_e::TT_MITSU_4G63_CRANK:
 	    initializeMitsubishi4gSymmetricalCrank(this);
         break;
+	case trigger_type_e::TT_DEV:
+	    configureFordCoyote2(this);
+        break;
 	case trigger_type_e::TT_VVT_FORD_COYOTE:
 	    configureFordCoyote(this);
         break;
 	case trigger_type_e::TT_60DEG_TOOTH:
 		/** @note
-		 * Have a something like TT_ONE_PHASED trigger with 
-		 * externally setuped blind width will be a good 
-		 * approach to utilize ::Rise(and::Both in future) 
+		 * Have a something like TT_ONE_PHASED trigger with
+		 * externally setuped blind width will be a good
+		 * approach to utilize ::Rise(and::Both in future)
 		 * with both edges phase-sync, but to stay simple I suggest
 		 * just to use another enum for each trigger type. */
 		configure60degSingleTooth(this);
@@ -670,9 +691,6 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 	case trigger_type_e::TT_MITSU_4G9x_CAM:
 	    initializeMitsubishi4g9xCam(this);
         break;
-	case trigger_type_e::TT_1_16:
-		configureOnePlus16(this);
-		break;
 
 	case trigger_type_e::TT_HONDA_CBR_600:
 		configureHondaCbr600(this);
@@ -706,6 +724,14 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		initialize2jzGE3_34_simulation_shape(this);
 		break;
 
+	case trigger_type_e::TT_3_TOOTH_CRANK:
+		configure3ToothCrank(this);
+		break;
+
+	case trigger_type_e::TT_6_TOOTH_CRANK:
+		configure6ToothCrank(this);
+		break;
+
 	case trigger_type_e::TT_12_TOOTH_CRANK:
 		configure12ToothCrank(this);
 		break;
@@ -726,11 +752,11 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		configureTriTach(this);
 		break;
 
-	case trigger_type_e::TT_GM_24x:
+	case trigger_type_e::TT_GM_24x_5:
 		initGmLS24_5deg(this);
 		break;
 
-	case trigger_type_e::TT_GM_24x_2:
+	case trigger_type_e::TT_GM_24x_3:
 		initGmLS24_3deg(this);
 		break;
 
@@ -753,6 +779,17 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 	default:
 		setShapeDefinitionError(true);
 		warning(ObdCode::CUSTOM_ERR_NO_SHAPE, "initializeTriggerWaveform() not implemented: %d", triggerType.type);
+	}
+
+	if (!needSecondTriggerInput &&
+#if EFI_UNIT_TEST
+ 	engineConfiguration != nullptr &&
+#endif
+	engineConfiguration->triggerInputPins[1] != Gpio::Unassigned) {
+// todo: technical debt: HW CI should not require special treatment
+#ifndef HARDWARE_CI
+	  criticalError("Single-channel trigger %s selected while two inputs were configured", getTrigger_type_e(triggerType.type));
+#endif
 	}
 
 	/**

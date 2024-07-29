@@ -1,6 +1,7 @@
 
-ifeq ("$(wildcard $(RULESFILE))","")
-$(info $(RULESFILE) not found. Chibios: Invoking "git submodule update --init")
+CHIBIOS_FILE=$(CHIBIOS)/os/readme.txt
+ifeq ("$(wildcard $(CHIBIOS_FILE))","")
+$(info $(CHIBIOS_FILE) not found. Chibios: Invoking "git submodule update --init")
 $(shell git submodule update --init)
 $(info Invoked "git submodule update --init")
 # make is not happy about newly checked out module for some reason but next invocation would work
@@ -17,14 +18,23 @@ $(error Please run 'make' again. Please make sure you have 'git' command in PATH
 endif
 
 ifeq ($(PROJECT_BOARD),)
+ifneq ($(SHORT_BOARD_NAME),)
+  PROJECT_BOARD = $(SHORT_BOARD_NAME)
+else
   PROJECT_BOARD = f407-discovery
+endif
 endif
 
 BOARDS_DIR = $(PROJECT_DIR)/config/boards
 
+ifneq ($(META_OUTPUT_ROOT_FOLDER),)
+  ALLINC += $(PROJECT_DIR)/$(META_OUTPUT_ROOT_FOLDER)controllers/generated
+endif
+
 # allow passing a custom board dir, otherwise generate it based on the board name
 ifeq ($(BOARD_DIR),)
 	BOARD_DIR = $(BOARDS_DIR)/$(PROJECT_BOARD)
+	-include $(BOARD_DIR)/meta-info.env
 endif
 
 ifeq ($(PROJECT_CPU),)

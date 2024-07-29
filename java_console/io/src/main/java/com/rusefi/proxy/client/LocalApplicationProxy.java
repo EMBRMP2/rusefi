@@ -3,6 +3,7 @@ package com.rusefi.proxy.client;
 import com.devexperts.logging.Logging;
 import com.rusefi.NamedThreadFactory;
 import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.io.IoStream;
 import com.rusefi.io.commands.GetOutputsCommand;
 import com.rusefi.io.commands.HelloCommand;
@@ -115,7 +116,7 @@ public class LocalApplicationProxy implements Closeable {
                     if (isTimeForApplicationToConnect(lastActivity.get(), BINARY_IO_TIMEOUT / 2)) {
                         // TODO: why is this logic duplicated from BinaryProtocol?
                         byte[] commandPacket = new byte[5];
-                        commandPacket[0] = Fields.TS_OUTPUT_COMMAND;
+                        commandPacket[0] = Integration.TS_OUTPUT_COMMAND;
                         System.arraycopy(GetOutputsCommand.createRequest(), 0, commandPacket, 1, 4);
 
                         // we do not really need the data, we just need to take response from the socket
@@ -160,7 +161,7 @@ public class LocalApplicationProxy implements Closeable {
     public void close() {
         serverHolder.close();
         byte[] request = new byte[2];
-        request[0] = Fields.TS_ONLINE_PROTOCOL;
+        request[0] = Integration.TS_ONLINE_PROTOCOL;
         request[1] = NetworkConnector.DISCONNECT;
         try {
             authenticatorToProxyStream.sendPacket(request);

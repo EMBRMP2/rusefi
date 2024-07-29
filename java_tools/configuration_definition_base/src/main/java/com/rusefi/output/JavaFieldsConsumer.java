@@ -47,7 +47,7 @@ public abstract class JavaFieldsConsumer implements ConfigurationConsumer {
     }
 
     private boolean isStringField(ConfigField configField) {
-        String custom = state.getTsCustomLine().get(configField.getType());
+        String custom = state.getTsCustomLine().get(configField.getTypeName());
         return custom != null && custom.toLowerCase().startsWith(IniFileModel.FIELD_TYPE_STRING);
     }
 
@@ -75,7 +75,7 @@ public abstract class JavaFieldsConsumer implements ConfigurationConsumer {
                 String nameWithPrefix = prefix + configField.getName();
 
                 if (configField.isBit()) {
-                    if (!configField.getName().startsWith(ConfigStructure.UNUSED_ANYTHING_PREFIX)) {
+                    if (isUsefulField(configField)) {
                         writeJavaFieldName(nameWithPrefix, tsPosition);
                         content.append("FieldType.BIT, " + bitIndex + ")" + terminateField());
                     }
@@ -83,34 +83,36 @@ public abstract class JavaFieldsConsumer implements ConfigurationConsumer {
                     return tsPosition;
                 }
 
-                if (TypesHelper.isFloat(configField.getType())) {
+                if (TypesHelper.isFloat(configField.getTypeName())) {
                     writeJavaFieldName(nameWithPrefix, tsPosition);
                     content.append("FieldType.FLOAT)" + terminateField());
                 } else {
-                    String enumOptions = state.getVariableRegistry().get(configField.getType() + VariableRegistry.ARRAY_FORMAT_ENUM);
+                    String enumOptions = state.getVariableRegistry().get(configField.getTypeName() + VariableRegistry.ARRAY_FORMAT_ENUM);
                     if (enumOptions == null)
-                        enumOptions = state.getVariableRegistry().get(configField.getType() + VariableRegistry.KEY_VALUE_FORMAT_ENUM);
+                        enumOptions = state.getVariableRegistry().get(configField.getTypeName() + VariableRegistry.KEY_VALUE_FORMAT_ENUM);
 
-                    if (enumOptions != null && !existingJavaEnums.contains(configField.getType())) {
-                        existingJavaEnums.add(configField.getType());
-                        content.append("\tpublic static final String[] " + configField.getType() + " = {" + enumOptions + "};" + EOL);
+                    if (enumOptions != null && !existingJavaEnums.contains(configField.getTypeName())) {
+                        existingJavaEnums.add(configField.getTypeName());
+                        content.append("\tpublic static final String[] " + configField.getTypeName() + " = {" + enumOptions + "};" + EOL);
                     }
 
 
-                    writeJavaFieldName(nameWithPrefix, tsPosition);
-                    if (isStringField(configField)) {
-                        String custom = state.getTsCustomLine().get(configField.getType());
-                        String[] tokens = custom.split(",");
-                        String stringSize = tokens[3].trim();
-                        content.append(stringSize + ", FieldType.STRING");
-                    } else {
-                        content.append(getJavaType(configField.getElementSize()));
-                    }
-                    if (enumOptions != null) {
-                        content.append(", " + configField.getType());
-                    }
-                    content.append(")" + ".setScale(" + configField.autoscaleSpecNumber() + ")" +
+                    if (isUsefulField(configField)) {
+                        writeJavaFieldName(nameWithPrefix, tsPosition);
+                        if (isStringField(configField)) {
+                            String custom = state.getTsCustomLine().get(configField.getTypeName());
+                            String[] tokens = custom.split(",");
+                            String stringSize = tokens[3].trim();
+                            content.append(stringSize + ", FieldType.STRING");
+                        } else {
+                            content.append(getJavaType(configField.getElementSize()));
+                        }
+                        if (enumOptions != null) {
+                            content.append(", " + configField.getTypeName());
+                        }
+                        content.append(")" + ".setScale(" + configField.autoscaleSpecNumber() + ")" +
                             terminateField());
+                    }
                 }
 
                 tsPosition += configField.getSize(next);
@@ -119,6 +121,10 @@ public abstract class JavaFieldsConsumer implements ConfigurationConsumer {
             }
         };
         fieldsStrategy.run(state, structure, 0);
+    }
+
+    private static boolean isUsefulField(ConfigField configField) {
+        return !configField.getName().startsWith(ConfigStructure.UNUSED_ANYTHING_PREFIX);
     }
 
     private String terminateField() {

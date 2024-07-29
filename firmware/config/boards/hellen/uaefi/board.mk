@@ -2,10 +2,6 @@
 
 # Target ECU board design
 BOARDCPPSRC = $(BOARD_DIR)/board_configuration.cpp
-# Set this if you want a default engine type other than normal
-ifeq ($(VAR_DEF_ENGINE_TYPE),)
-#  VAR_DEF_ENGINE_TYPE = -DDEFAULT_ENGINE_TYPE=engine_type_e::
-endif
 
 DDEFS += -DEFI_MAIN_RELAY_CONTROL=TRUE
 
@@ -14,9 +10,21 @@ DDEFS += -DEFI_MAIN_RELAY_CONTROL=TRUE
 # Add them all together
 DDEFS += -DFIRMWARE_ID=\"uaefi\" $(VAR_DEF_ENGINE_TYPE)
 DDEFS += -DEFI_SOFTWARE_KNOCK=TRUE -DSTM32_ADC_USE_ADC3=TRUE
-
-SHORT_BOARD_NAME=uaefi
+# EGT chip
+DDEFS += -DEFI_MAX_31855=TRUE
 
 DDEFS += -DHELLEN_BOARD_ID_DEBUG
 
+# on the one hand we do not use boardID YET and it takes 350ms, on the other hand who knows what the future would bring
+# as long as we only have one boardID for all units the only consumer of boardID is HW QC process
+# DDEFS += -DHW_HELLEN_SKIP_BOARD_TYPE=TRUE
+
+DDEFS += -DHW_HELLEN_UAEFI=1
+DDEFS += -DDIAG_5VP_PIN=Gpio::MM100_SPI3_MOSI
+
+ONBOARD_MEMS_TYPE=LIS2DH12
+
 include $(BOARDS_DIR)/hellen/hellen-common100.mk
+
+DDEFS += $(PRIMARY_COMMUNICATION_PORT_USART2)
+

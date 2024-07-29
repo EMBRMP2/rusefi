@@ -23,7 +23,7 @@ TEST(engine, testPlainCrankingWithoutAdvancedFeatures) {
 
 
 	eth.fireRise(/* delayMs */ 200);
-	ASSERT_EQ( 300,  Sensor::getOrZero(SensorType::Rpm)) << "RPM#2";
+	eth.assertRpm(300, "RPM#2");
 	// two simultaneous injections
 	ASSERT_EQ( 4,  engine->executor.size()) << "plain#2";
 
@@ -48,7 +48,7 @@ TEST(priming, duration) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 
 	MockInjectorModel2 injectorModel;
-	engine->module<InjectorModel>().set(&injectorModel);
+	engine->module<InjectorModelPrimary>().set(&injectorModel);
 
 	for (size_t i = 0; i < efi::size(engineConfiguration->primeBins); i++) {
 		engineConfiguration->primeBins[i] = i * 10;

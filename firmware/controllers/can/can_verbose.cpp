@@ -18,6 +18,9 @@
 #include "fuel_math.h"
 #include "spark_logic.h"
 
+#define CAN_PEDAL_TPS_OFFSET 2
+#define CAN_SENSOR_1_OFFSET 3
+
 struct Status {
 	uint16_t warningCounter;
 	uint16_t lastErrorCode;
@@ -41,7 +44,7 @@ static void populateFrame(Status& msg) {
 	msg.warningCounter = engine->engineState.warnings.warningCounter;
 	msg.lastErrorCode = static_cast<uint16_t>(engine->engineState.warnings.lastErrorCode);
 
-	msg.revLimit = Sensor::getOrZero(SensorType::Rpm) > engineConfiguration->rpmHardLimit;
+	msg.revLimit = !engine->module<LimpManager>()->allowInjection() || !engine->module<LimpManager>()->allowIgnition();
 	msg.mainRelay = enginePins.mainRelay.getLogicValue();
 	msg.fuelPump = enginePins.fuelPumpRelay.getLogicValue();
 	msg.checkEngine = enginePins.checkEnginePin.getLogicValue();
@@ -165,8 +168,8 @@ static void populateFrame(Fueling2& msg) {
 	msg.fuelConsumedGram = engine->module<TripOdometer>()->getConsumedGrams();
 	msg.fuelFlowRate = engine->module<TripOdometer>()->getConsumptionGramPerSecond();
 
-	for (size_t i = 0; i < 2; i++) {
-		msg.fuelTrim[i] = 100.0f * (engine->stftCorrection[i] - 1.0f);
+	for (size_t i = 0; i < STFT_BANK_COUNT; i++) {
+		msg.fuelTrim[i] = 100.0f * (engine->engineState.stftCorrection[i] - 1.0f);
 	}
 }
 
@@ -210,6 +213,15 @@ static void populateFrame(Cams& msg) {
 	msg.Bank2ExhaustTarget = engine->outputChannels.vvtTargets[3];
 }
 
+struct Egts {
+	uint8_t egt[8];
+};
+
+static void populateFrame(Egts& msg) {
+	msg.egt[0] = Sensor::getOrZero(SensorType::EGT1) / 5;
+	msg.egt[1] = Sensor::getOrZero(SensorType::EGT2) / 5;
+}
+
 void sendCanVerbose() {
 	auto base = engineConfiguration->verboseCanBaseAddress;
 	auto isExt = engineConfiguration->rusefiVerbose29b;
@@ -224,6 +236,8 @@ void sendCanVerbose() {
 	transmitStruct<Fueling2>	(CanCategory::VERBOSE, base + 6, isExt, canChannel);
 	transmitStruct<Fueling3>	(CanCategory::VERBOSE, base + 7, isExt, canChannel);
 	transmitStruct<Cams>		(CanCategory::VERBOSE, base + 8, isExt, canChannel);
+
+	transmitStruct<Egts>	(CanCategory::VERBOSE, base + 9, isExt, canChannel);
 }
 
 #endif // EFI_CAN_SUPPORT

@@ -31,39 +31,29 @@
 #define EFI_CONSOLE_RX_BRAIN_PIN Gpio::D9
 #endif
 
-// note order of include - first we set F7 defaults (above) and only later we apply F4 defaults
-#include "../stm32f4ems/efifeatures.h"
+// see also EFI_EMBED_INI_MSD which is disabled above
+#ifndef EFI_USE_COMPRESSED_INI_MSD
+#define EFI_USE_COMPRESSED_INI_MSD TRUE
+#endif
 
-// todo: get rid of the 'undef' patter just move all defaults above f4 include?
-
-#undef EFI_POTENTIOMETER
-#define EFI_POTENTIOMETER FALSE
-
-#undef EFI_MAX_31855
-#define EFI_MAX_31855 FALSE
-
-#undef BOARD_L9779_COUNT
-#define BOARD_L9779_COUNT FALSE
-
-#undef EFI_MCP_3208
-#define EFI_MCP_3208 FALSE
-
-#undef EFI_MC33816
-#define EFI_MC33816 FALSE
-
-// todo: our "DMA-half" ChibiOS patch not implemented for USARTv2/STM32F7/STM32H7
-#undef EFI_USE_UART_DMA
-#define EFI_USE_UART_DMA FALSE
+#ifndef LUA_USER_HEAP
+#define LUA_USER_HEAP 100000
+#endif
 
 // UART driver not implemented on F7
-
+#ifndef AUX_SERIAL_DEVICE
 #define AUX_SERIAL_DEVICE (&SD6)
+#endif
 
-// see also EFI_EMBED_INI_MSD which is disabled above
-#define EFI_USE_COMPRESSED_INI_MSD
+// todo: our "DMA-half" ChibiOS patch not implemented for USARTv2/STM32F7/STM32H7
+#ifndef EFI_USE_UART_DMA
+#define EFI_USE_UART_DMA FALSE
+#endif
 
 // F7 may have dual bank, so flash on its own (low priority) thread so as to not block any other operations
+#ifndef EFI_FLASH_WRITE_THREAD
 #define EFI_FLASH_WRITE_THREAD TRUE
+#endif
 
-#undef LUA_USER_HEAP
-#define LUA_USER_HEAP 100000
+// note order of include - first we set F7 defaults (above) and only later we apply F4 defaults
+#include "../stm32f4ems/efifeatures.h"

@@ -7,6 +7,7 @@
 #include "init.h"
 #include "cli_registry.h"
 #include "io_pins.h"
+#include "lua_hooks.h"
 
 static void initSensorCli();
 
@@ -61,11 +62,50 @@ static void initAuxDigital() {
 #endif // EFI_PROD_CODE
 }
 
+void pokeAuxDigital() {
+#if EFI_PROD_CODE
+	for (size_t i = 0;i<efi::size(engineConfiguration->luaDigitalInputPins);i++) {
+	  engine->luaDigitalInputState[i].state.update(getAuxDigital(i));
+	}
+#endif // EFI_PROD_CODE
+}
+
 static void deInitAuxDigital() {
 	for (size_t i = 0;i<efi::size(activeConfiguration.luaDigitalInputPins);i++) {
 		brain_pin_markUnused(activeConfiguration.luaDigitalInputPins[i]);
 	}
 }
+
+static LuaOverrideSensor overrideRpm(SensorType::DashOverrideRpm, SensorType::Rpm);
+static LuaOverrideSensor overrideVehicleSpeed(SensorType::DashOverrideVehicleSpeed, SensorType::VehicleSpeed);
+static LuaOverrideSensor overrideClt(SensorType::DashOverrideClt, SensorType::Clt);
+static LuaOverrideSensor overrideBatteryVoltage(SensorType::DashOverrideBatteryVoltage, SensorType::BatteryVoltage);
+
+void initOverrideSensors() {
+	  overrideRpm.Register();
+	  overrideVehicleSpeed.Register();
+	  overrideClt.Register();
+	  overrideBatteryVoltage.Register();
+}
+
+// todo: closer alignment with 'stopSensors'
+static void sensorStartUpOrReconfiguration(bool isFirstTime) {
+	initVbatt();
+	initMap();
+	initTps();
+	initFluidPressure();
+	initThermistors();
+	initVehicleSpeedSensor();
+	initTurbochargerSpeedSensor();
+	initAuxSensors();
+	initAuxSpeedSensors();
+	initInputShaftSpeedSensor();
+#if EFI_TCU
+	initRangeSensors();
+#endif
+	initFlexSensor(isFirstTime);
+}
+
 
 // one-time start-up
 // see also 'reconfigureSensors'
@@ -74,19 +114,14 @@ void initNewSensors() {
 	initCanSensors();
 #endif
 
-	initVbatt();
-	initMap();
-	initTps();
-	initFluidPressure();
-	initThermistors();
+	initOverrideSensors();
+
+  sensorStartUpOrReconfiguration(true);
+  // todo:
 	initLambda();
-	initFlexSensor(true);
+	// todo: 'isFirstTime' approach for initEgt vs startEgt
+	initEgt();
 	initBaro();
-	initAuxSensors();
-	initVehicleSpeedSensor();
-	initTurbochargerSpeedSensor();
-	initAuxSpeedSensors();
-	initInputShaftSpeedSensor();
 
 	#if !EFI_UNIT_TEST
 		initFuelLevel();
@@ -118,36 +153,43 @@ void stopSensors() {
 	deInitAuxDigital();
 	deInitOldAnalogInputs();
 
+	deinitVbatt();
 	deinitTps();
 	deinitFluidPressure();
-	deinitVbatt();
 	deinitThermistors();
 	deInitFlexSensor();
+	deinitAuxSensors();
 	deInitVehicleSpeedSensor();
 	deinitTurbochargerSpeedSensor();
 	deinitAuxSpeedSensors();
 	deinitMap();
 	deinitInputShaftSpeedSensor();
+	stopEgt();
 }
 
 void reconfigureSensors() {
-	initMap();
-	initTps();
-	initFluidPressure();
-	initVbatt();
-	initThermistors();
-	initFlexSensor(false);
-	initVehicleSpeedSensor();
-	initTurbochargerSpeedSensor();
-	initInputShaftSpeedSensor();
+	sensorStartUpOrReconfiguration(false);
+	startEgt();
 
 	initOldAnalogInputs();
 }
 
 // Mocking/testing helpers
 static void initSensorCli() {
-	addConsoleActionIF(CMD_SET_SENSOR_MOCK, Sensor::setMockValue);
-	addConsoleAction(CMD_RESET_SENSOR_MOCKS, Sensor::resetAllMocks);
+	addConsoleActionSS("set_sensor_mock", [](const char* typeName, const char* valueStr) {
+		SensorType type = findSensorTypeByName(typeName);
+
+		if (type == SensorType::Invalid) {
+			efiPrintf("Invalid sensor type specified: %s", typeName);
+			return;
+		}
+
+		float value = atoff(valueStr);
+
+		Sensor::setMockValue(type, value);
+	});
+
+	addConsoleAction("reset_sensor_mocks", Sensor::resetAllMocks);
 	addConsoleAction("show_sensors", Sensor::showAllSensorInfo);
 	addConsoleActionI("show_sensor",
 		[](int idx) {

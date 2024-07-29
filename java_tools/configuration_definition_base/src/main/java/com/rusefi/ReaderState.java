@@ -10,6 +10,8 @@ import java.util.Map;
 public interface ReaderState {
     void setWithC_Defines(boolean withC_Defines);
 
+    EnumsReader getEnumsReader();
+
     void doJob() throws IOException;
 
     String getHeader();
@@ -19,6 +21,8 @@ public interface ReaderState {
     void addCHeaderDestination(String cHeader);
 
     void addPrepend(String fileName);
+
+    void addPrependNotInput(String fileName);
 
     void addDestination(ConfigurationConsumer... consumers);
 
@@ -35,8 +39,6 @@ public interface ReaderState {
     String getTsFileOutputName();
 
     void setTsFileOutputName(String tsFileOutputName);
-
-    List<String> getPrependFiles();
 
     boolean isStackEmpty();
 

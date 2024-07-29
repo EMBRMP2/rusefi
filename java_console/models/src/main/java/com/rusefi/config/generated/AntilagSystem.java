@@ -1,6 +1,6 @@
 package com.rusefi.config.generated;
 
-// this file was generated automatically by rusEFI tool config_definition_base.jar based on (unknown script) controllers/algo/antilag_system_state.txt Mon Nov 27 20:20:53 UTC 2023
+// this file was generated automatically by rusEFI tool config_definition_base-all.jar based on (unknown script) controllers/algo/antilag_system_state.txt Fri Jul 19 23:44:20 UTC 2024
 
 // by class com.rusefi.output.FileJavaFieldsConsumer
 import com.rusefi.config.*;
@@ -17,6 +17,7 @@ public class AntilagSystem {
 	public static final String GAUGE_CATEGORY_SYNC = "Sync";
 	public static final String GAUGE_CATEGORY_TIMING = "Timing";
 	public static final String GAUGE_COIL_DWELL_TIME = "Ignition: coil charge time";
+	public static final String GAUGE_NAME_AC_PRESSURE = "A/C pressure";
 	public static final String GAUGE_NAME_ACCEL_LAT = "Accel: Lateral";
 	public static final String GAUGE_NAME_ACCEL_LON = "Accel: Longitudinal";
 	public static final String GAUGE_NAME_ACCEL_VERT = "Accel: Vertical";
@@ -74,8 +75,10 @@ public class AntilagSystem {
 	public static final String GAUGE_NAME_FUEL_FLOW = "Fuel: Flow rate";
 	public static final String GAUGE_NAME_FUEL_IAT_CORR = "Fuel: IAT correction";
 	public static final String GAUGE_NAME_FUEL_INJ_DUTY = "Fuel: injector duty cycle";
+	public static final String GAUGE_NAME_FUEL_INJ_DUTY_STAGE_2 = "Fuel: injector duty cycle stage 2";
 	public static final String GAUGE_NAME_FUEL_INJECTION_TIMING = "Fuel: Injection timing SOI";
 	public static final String GAUGE_NAME_FUEL_LAST_INJECTION = "Fuel: Last inj pulse width";
+	public static final String GAUGE_NAME_FUEL_LAST_INJECTION_STAGE_2 = "Fuel: Last inj pulse width stg 2";
 	public static final String GAUGE_NAME_FUEL_LEVEL = "Fuel level";
 	public static final String GAUGE_NAME_FUEL_LOAD = "Fuel: Load";
 	public static final String GAUGE_NAME_FUEL_PRESSURE_HIGH = "Fuel pressure (high)";
@@ -102,11 +105,12 @@ public class AntilagSystem {
 	public static final String GAUGE_NAME_INJECTOR_LAG = "Fuel: injector lag";
 	public static final String GAUGE_NAME_ISS = "TCU: Input Shaft Speed";
 	public static final String GAUGE_NAME_KNOCK_COUNTER = "Knock: Count";
+	public static final String GAUGE_NAME_KNOCK_FREQ = "knock: frequency";
 	public static final String GAUGE_NAME_KNOCK_LEVEL = "Knock: Current level";
 	public static final String GAUGE_NAME_KNOCK_RETARD = "Knock: Retard";
 	public static final String GAUGE_NAME_LAMBDA = "Lambda";
 	public static final String GAUGE_NAME_LAMBDA2 = "Lambda 2";
-	public static final String GAUGE_NAME_LAST_ERROR = "Last error";
+	public static final String GAUGE_NAME_LAST_ERROR = "Warning: last";
 	public static final String GAUGE_NAME_MAF = "MAF";
 	public static final String GAUGE_NAME_MAP = "MAP";
 	public static final String GAUGE_NAME_OIL_PRESSURE = "Oil Pressure";
@@ -148,12 +152,13 @@ public class AntilagSystem {
 	public static final String INDICATOR_NAME_CLUTCH_DOWN = "Clutch: down";
 	public static final String INDICATOR_NAME_CLUTCH_UP = "Clutch: up";
 	public static final int LUA_ANALOG_INPUT_COUNT = 8;
-	public static final int LUA_GAUGE_COUNT = 2;
+	public static final int LUA_GAUGE_COUNT = 8;
 	public static final int MAX_CYLINDER_COUNT = 12;
 	public static final int PACK_ADD_TEMPERATURE = 40;
 	public static final int PACK_MULT_AFR = 1000;
 	public static final int PACK_MULT_AFR_CFG = 10;
 	public static final int PACK_MULT_ANGLE = 50;
+	public static final int PACK_MULT_EGTEMPERATURE = 4;
 	public static final int PACK_MULT_FLEX = 2;
 	public static final int PACK_MULT_FUEL_FLOW = 200;
 	public static final int PACK_MULT_FUEL_MASS = 100;
@@ -167,22 +172,23 @@ public class AntilagSystem {
 	public static final int PACK_MULT_TEMPERATURE = 100;
 	public static final int PACK_MULT_VOLTAGE = 1000;
 	public static final int PACK_MULT_VSS = 100;
+	public static final int STFT_BANK_COUNT = 2;
 	public static final int TCU_GEAR_COUNT = 10;
 	public static final int TPS_2_BYTE_PACKING_MULT = 100;
 	public static final int VE_BLEND_COUNT = 4;
-	public static final Field ISANTILAGCONDITION = Field.create("ISANTILAGCONDITION", 0, FieldType.BIT, 0).setBaseOffset(984);
-	public static final Field ALSMINRPMCONDITION = Field.create("ALSMINRPMCONDITION", 0, FieldType.BIT, 1).setBaseOffset(984);
-	public static final Field ALSMAXRPMCONDITION = Field.create("ALSMAXRPMCONDITION", 0, FieldType.BIT, 2).setBaseOffset(984);
-	public static final Field ALSMINCLTCONDITION = Field.create("ALSMINCLTCONDITION", 0, FieldType.BIT, 3).setBaseOffset(984);
-	public static final Field ALSMAXCLTCONDITION = Field.create("ALSMAXCLTCONDITION", 0, FieldType.BIT, 4).setBaseOffset(984);
-	public static final Field ALSMAXTHROTTLEINTENTCONDITION = Field.create("ALSMAXTHROTTLEINTENTCONDITION", 0, FieldType.BIT, 5).setBaseOffset(984);
-	public static final Field ISALSSWITCHACTIVATED = Field.create("ISALSSWITCHACTIVATED", 0, FieldType.BIT, 6).setBaseOffset(984);
-	public static final Field ALSACTIVATEPINSTATE = Field.create("ALSACTIVATEPINSTATE", 0, FieldType.BIT, 7).setBaseOffset(984);
-	public static final Field ALSSWITCHCONDITION = Field.create("ALSSWITCHCONDITION", 0, FieldType.BIT, 8).setBaseOffset(984);
-	public static final Field ALSTIMERCONDITION = Field.create("ALSTIMERCONDITION", 0, FieldType.BIT, 9).setBaseOffset(984);
-	public static final Field FUELALSCORRECTION = Field.create("FUELALSCORRECTION", 4, FieldType.FLOAT).setBaseOffset(984);
-	public static final Field TIMINGALSCORRECTION = Field.create("TIMINGALSCORRECTION", 8, FieldType.INT16).setScale(0.01).setBaseOffset(984);
-	public static final Field TIMINGALSSKIP = Field.create("TIMINGALSSKIP", 10, FieldType.INT16).setScale(0.01).setBaseOffset(984);
+	public static final Field ISANTILAGCONDITION = Field.create("ISANTILAGCONDITION", 0, FieldType.BIT, 0).setBaseOffset(1044);
+	public static final Field ALSMINRPMCONDITION = Field.create("ALSMINRPMCONDITION", 0, FieldType.BIT, 1).setBaseOffset(1044);
+	public static final Field ALSMAXRPMCONDITION = Field.create("ALSMAXRPMCONDITION", 0, FieldType.BIT, 2).setBaseOffset(1044);
+	public static final Field ALSMINCLTCONDITION = Field.create("ALSMINCLTCONDITION", 0, FieldType.BIT, 3).setBaseOffset(1044);
+	public static final Field ALSMAXCLTCONDITION = Field.create("ALSMAXCLTCONDITION", 0, FieldType.BIT, 4).setBaseOffset(1044);
+	public static final Field ALSMAXTHROTTLEINTENTCONDITION = Field.create("ALSMAXTHROTTLEINTENTCONDITION", 0, FieldType.BIT, 5).setBaseOffset(1044);
+	public static final Field ISALSSWITCHACTIVATED = Field.create("ISALSSWITCHACTIVATED", 0, FieldType.BIT, 6).setBaseOffset(1044);
+	public static final Field ALSACTIVATEPINSTATE = Field.create("ALSACTIVATEPINSTATE", 0, FieldType.BIT, 7).setBaseOffset(1044);
+	public static final Field ALSSWITCHCONDITION = Field.create("ALSSWITCHCONDITION", 0, FieldType.BIT, 8).setBaseOffset(1044);
+	public static final Field ALSTIMERCONDITION = Field.create("ALSTIMERCONDITION", 0, FieldType.BIT, 9).setBaseOffset(1044);
+	public static final Field FUELALSCORRECTION = Field.create("FUELALSCORRECTION", 4, FieldType.FLOAT).setBaseOffset(1044);
+	public static final Field TIMINGALSCORRECTION = Field.create("TIMINGALSCORRECTION", 8, FieldType.INT16).setScale(0.01).setBaseOffset(1044);
+	public static final Field TIMINGALSSKIP = Field.create("TIMINGALSSKIP", 10, FieldType.INT16).setScale(0.01).setBaseOffset(1044);
 	public static final Field[] VALUES = {
 	ISANTILAGCONDITION,
 	ALSMINRPMCONDITION,

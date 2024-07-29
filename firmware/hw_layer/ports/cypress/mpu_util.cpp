@@ -65,7 +65,8 @@ void HardFaultVector(void) {
 }
 
 #if HAL_USE_SPI || defined(__DOXYGEN__)
-bool isSpiInitialized[5] = { false, false, false, false, false };
+/* zero index is SPI_NONE */
+bool isSpiInitialized[SPI_TOTAL_COUNT + 1] = { true, false, false, false, false, false, false };
 
 static int getSpiAf(SPIDriver *driver) {
 #if STM32_SPI_USE_SPI1
@@ -84,48 +85,6 @@ static int getSpiAf(SPIDriver *driver) {
 	}
 #endif
 	return -1;
-}
-
-brain_pin_e getMisoPin(spi_device_e device) {
-	switch(device) {
-	case SPI_DEVICE_1:
-		return engineConfiguration->spi1misoPin;
-	case SPI_DEVICE_2:
-		return engineConfiguration->spi2misoPin;
-	case SPI_DEVICE_3:
-		return engineConfiguration->spi3misoPin;
-	default:
-		break;
-	}
-	return Gpio::Unassigned;
-}
-
-brain_pin_e getMosiPin(spi_device_e device) {
-	switch(device) {
-	case SPI_DEVICE_1:
-		return engineConfiguration->spi1mosiPin;
-	case SPI_DEVICE_2:
-		return engineConfiguration->spi2mosiPin;
-	case SPI_DEVICE_3:
-		return engineConfiguration->spi3mosiPin;
-	default:
-		break;
-	}
-	return Gpio::Unassigned;
-}
-
-brain_pin_e getSckPin(spi_device_e device) {
-	switch(device) {
-	case SPI_DEVICE_1:
-		return engineConfiguration->spi1sckPin;
-	case SPI_DEVICE_2:
-		return engineConfiguration->spi2sckPin;
-	case SPI_DEVICE_3:
-		return engineConfiguration->spi3sckPin;
-	default:
-		break;
-	}
-	return Gpio::Unassigned;
 }
 
 void turnOnSpi(spi_device_e device) {
@@ -186,12 +145,23 @@ void initSpiModule(SPIDriver *driver, brain_pin_e sck, brain_pin_e miso,
 	efiSetPadMode("SPI master in ", miso, PAL_MODE_ALTERNATE(getSpiAf(driver)) /*| misoMode | PAL_STM32_OSPEED_HIGHEST*/);
 }
 
-void initSpiCs(SPIConfig *spiConfig, brain_pin_e csPin) {
-	spiConfig->end_cb = NULL;
+void initSpiCsNoOccupy(SPIConfig *spiConfig, brain_pin_e csPin) {
 	ioportid_t port = getHwPort("spi", csPin);
 	ioportmask_t pin = getHwPin("spi", csPin);
 	spiConfig->ssport = port;
 	spiConfig->sspad = pin;
+}
+
+void initSpiCs(SPIConfig *spiConfig, brain_pin_e csPin) {
+	/* TODO: why this is here? */
+#ifdef _CHIBIOS_RT_CONF_VER_6_1_
+	spiConfig->end_cb = nullptr;
+#else
+	spiConfig->data_cb = nullptr;
+	spiConfig->error_cb = nullptr;
+#endif
+
+	initSpiCsNoOccupy(spiConfig, csPin);
 	// CS is controlled inside 'hal_spi_lld' driver using both software and hardware methods.
 	//efiSetPadMode("chip select", csPin, PAL_MODE_OUTPUT_OPENDRAIN);
 }
@@ -289,19 +259,17 @@ bool readSlowAnalogInputs(adcsample_t* convertedSamples) {
 	return true;
 }
 
-static constexpr FastAdcToken invalidToken = (FastAdcToken)(-1);
-
-FastAdcToken enableFastAdcChannel(const char*, adc_channel_e channel) {
+AdcToken enableFastAdcChannel(const char*, adc_channel_e channel) {
 	if (!isAdcChannelValid(channel)) {
-		return invalidToken;
+		return invalidAdcToken;
 	}
 
 	// TODO: implement me!
-	return invalidToken;
+	return invalidAdcToken;
 }
 
-adcsample_t getFastAdc(FastAdcToken token) {
-	if (token == invalidToken) {
+adcsample_t getFastAdc(AdcToken token) {
+	if (token == invalidAdcToken) {
 		return 0;
 	}
 

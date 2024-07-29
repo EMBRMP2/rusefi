@@ -2,14 +2,14 @@ package com.rusefi.test;
 
 import com.rusefi.EnumsReader;
 import com.rusefi.ReaderStateImpl;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static com.rusefi.AssertCompatibility.assertEquals;
+import static com.rusefi.AssertCompatibility.assertNotNull;
 
 public class EnumAsTsVariable {
     @Test

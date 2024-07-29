@@ -7,6 +7,7 @@
  */
 
 #include "pch.h"
+#include "os_util.h"
 
 int at32GetMcuType(uint32_t id, const char **pn, const char **package, uint32_t *flashSize)
 {
@@ -101,6 +102,7 @@ static void reset_and_jump(void) {
     NVIC_SystemReset();
 }
 
+#if EFI_DFU_JUMP
 void jump_to_bootloader() {
     // leave DFU breadcrumb which assembly startup code would check, see [rusefi][DFU] section in assembly code
 
@@ -108,6 +110,7 @@ void jump_to_bootloader() {
 
     reset_and_jump();
 }
+#endif
 
 void jump_to_openblt() {
 #if EFI_USE_OPENBLT
@@ -166,7 +169,7 @@ EXTERNC int getRemainingStack(thread_t *otp) {
     otp->activeStack = r13;
 
     int remainingStack;
-    if (ch.dbg.isr_cnt > 0) {
+    if (ch0.dbg.isr_cnt > 0) {
         // ISR context
         remainingStack = (int)(r13 - 1) - (int)&__main_stack_base__;
     } else {

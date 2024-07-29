@@ -27,7 +27,7 @@ pins:
     color: purple
 
   - pin: A4
-    meta: H144_GP3
+    meta: H144_GP_IO3
     class: outputs
     function: Tachometer Output
     ts_name: A4 - Tachometer
@@ -175,10 +175,17 @@ pins:
   - pin: C7
     id: [H144_IN_CAM, H144_IN_CAM, EFI_ADC_6]
     class: [event_inputs, switch_inputs, analog_inputs]
-    function: Camshaft HALL Sensor or Generic Digital Input
+    function: Camshaft Intake Hall Sensor or Generic Digital Input
     type: hall
     ts_name: C7 - CAM Hall/Digital
     color: brown
+
+  - pin: C7vr
+    meta: H144_GP_IO7
+    class: event_inputs
+    function: Camshaft Intake VR Sensor
+    type: hall
+    ts_name: C7 - CAM2 VR
 
   - pin: C8
     meta: H144_OUT_PWM1

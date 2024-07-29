@@ -27,7 +27,6 @@
 #include "eficonsole.h"
 #include "console_io.h"
 #include "mpu_util.h"
-#include "svnversion.h"
 
 static void testCritical() {
 	chDbgCheck(0);
@@ -41,17 +40,41 @@ static void testHardFault() {
 	causeHardFault();
 }
 
+#if defined(STM32F4) || defined(STM32F7) || defined(STM32H7)
+static void printUid() {
+	uint32_t *uid = ((uint32_t *)UID_BASE);
+	engine->outputChannels.deviceUid = crc8((const uint8_t*)uid, 12);
+	efiPrintf("********************** UID=%lx:%lx:%lx crc=%d ******************************", uid[0], uid[1], uid[2], engine->outputChannels.deviceUid);
+	engineConfiguration->device_uid[0] = uid[0];
+	engineConfiguration->device_uid[1] = uid[1];
+	engineConfiguration->device_uid[2] = uid[2];
+}
+#endif
+
+/*
+ * I was a little bit surprised that we declare __attribute__((weak)) before returning type in a function definition.
+ * In the most sources this declaration is placed either before function name or after function parentheses, see:
+ * - https://gcc.gnu.org/onlinedocs/gcc-4.0.0/gcc/Function-Attributes.html#Function-Attributes
+ * - https://en.wikipedia.org/wiki/Weak_symbol
+ * But it looks like our manner of __attribute__((weak)) declaration works at well, and I hope it will not cause
+ * problems in the future.
+ */
+PUBLIC_API_WEAK void boardSayHello() {
+}
+
 static void sayHello() {
-	efiPrintf(PROTOCOL_HELLO_PREFIX " rusEFI LLC (c) 2012-2023. All rights reserved.");
-	efiPrintf(PROTOCOL_HELLO_PREFIX " rusEFI v%d@%s", getRusEfiVersion(), VCS_VERSION);
+	efiPrintf(PROTOCOL_HELLO_PREFIX " rusEFI LLC (c) 2012-2024. All rights reserved.");
+	efiPrintf(PROTOCOL_HELLO_PREFIX " rusEFI v%d@%u now=%d", getRusEfiVersion(), /*do we have a working way to print 64 bit values?!*/(int)SIGNATURE_HASH, (int)getTimeNowMs());
 	efiPrintf(PROTOCOL_HELLO_PREFIX " Chibios Kernel:       %s", CH_KERNEL_VERSION);
 	efiPrintf(PROTOCOL_HELLO_PREFIX " Compiled:     " __DATE__ " - " __TIME__ "");
 	efiPrintf(PROTOCOL_HELLO_PREFIX " COMPILER=%s", __VERSION__);
-#if USE_OPENBLT
+#if EFI_USE_OPENBLT
 	efiPrintf(PROTOCOL_HELLO_PREFIX " with OPENBLT");
 #endif
 
-#if ENABLE_AUTO_DETECT_HSE
+  boardSayHello();
+
+#if EFI_PROD_CODE && ENABLE_AUTO_DETECT_HSE
 	extern float hseFrequencyMhz;
 	extern uint8_t autoDetectedRoundedMhz;
 	efiPrintf(PROTOCOL_HELLO_PREFIX " detected HSE clock %.2f MHz PLLM = %d", hseFrequencyMhz, autoDetectedRoundedMhz);
@@ -60,8 +83,7 @@ static void sayHello() {
 	efiPrintf("hellenBoardId=%d", engine->engineState.hellenBoardId);
 
 #if defined(STM32F4) || defined(STM32F7) || defined(STM32H7)
-	uint32_t *uid = ((uint32_t *)UID_BASE);
-	efiPrintf("UID=%x %x %x", uid[0], uid[1], uid[2]);
+  printUid();
 
 #if defined(STM32F4) && !defined(AT32F4XX)
 	efiPrintf("can read 0x20000010 %d", ramReadProbe((const char *)0x20000010));
@@ -70,8 +92,6 @@ static void sayHello() {
 
 	efiPrintf("isStm32F42x %s", boolToString(isStm32F42x()));
 #endif // STM32F4
-
-#define 	TM_ID_GetFlashSize()    (*(__IO uint16_t *) (FLASHSIZE_BASE))
 
 #ifndef MIN_FLASH_SIZE
 #define MIN_FLASH_SIZE 1024
@@ -90,10 +110,10 @@ static void sayHello() {
 	uint32_t pnFlashSize;
 	int ret = at32GetMcuType(DBGMCU->IDCODE, &partNumber, &package, &pnFlashSize);
 	if (ret == 0) {
-		efiPrintf("MCU IDCODE %s in %s with %d KB flash",
+		efiPrintf("MCU IDCODE %s in %s with %ld KB flash",
 			partNumber, package, pnFlashSize);
 	} else {
-		efiPrintf("MCU IDCODE unknown 0x%x", DBGMCU->IDCODE);
+		efiPrintf("MCU IDCODE unknown 0x%lx", DBGMCU->IDCODE);
 	}
 	efiPrintf("MCU SER_ID %s rev %c",
 		(mcuSerId == 0x0d) ? "AT32F435" : ((mcuSerId == 0x0e) ? "AT32F437" : "UNKNOWN"),
@@ -111,8 +131,8 @@ static void sayHello() {
 	efiPrintf("CH_CFG_ST_FREQUENCY=%d", CH_CFG_ST_FREQUENCY);
 #endif
 
-#ifdef CORTEX_MAX_KERNEL_PRIORITY
-	efiPrintf("CORTEX_MAX_KERNEL_PRIORITY=%d", CORTEX_MAX_KERNEL_PRIORITY);
+#ifdef ENABLE_PERF_TRACE
+	efiPrintf("ENABLE_PERF_TRACE=%d", ENABLE_PERF_TRACE);
 #endif
 
 #ifdef STM32_ADCCLK
@@ -143,14 +163,6 @@ static void sayHello() {
 	efiPrintf("EFI_TUNER_STUDIO=%d", 0);
 #endif
 
-#ifdef EFI_SIGNAL_EXECUTOR_SLEEP
-	efiPrintf("EFI_SIGNAL_EXECUTOR_SLEEP=%d", EFI_SIGNAL_EXECUTOR_SLEEP);
-#endif
-
-#ifdef EFI_SIGNAL_EXECUTOR_HW_TIMER
-	efiPrintf("EFI_SIGNAL_EXECUTOR_HW_TIMER=%d", EFI_SIGNAL_EXECUTOR_HW_TIMER);
-#endif
-
 #if defined(EFI_SHAFT_POSITION_INPUT)
 	efiPrintf("EFI_SHAFT_POSITION_INPUT=%d", EFI_SHAFT_POSITION_INPUT);
 #endif
@@ -160,6 +172,7 @@ static void sayHello() {
 
 	/**
 	 * Time to finish output. This is needed to avoid mix-up of this methods output and console command confirmation
+	 * this code here dates back to 2015. today in 2024 I have no idea what it does :(
 	 */
 	chThdSleepMilliseconds(5);
 }
@@ -191,7 +204,7 @@ static void cmd_threads() {
 
 	while (tp) {
 		int freeBytes = CountFreeStackSpace(tp->wabase);
-		efiPrintf("%s\t%08x\t%lu\t%d", tp->name, tp->wabase, tp->time, freeBytes);
+		efiPrintf("%s\t%08x\t%lu\t%d", tp->name, (unsigned int)tp->wabase, tp->time, freeBytes);
 
 		if (freeBytes < 100) {
 			criticalError("Ran out of stack on thread %s, %d bytes remain", tp->name, freeBytes);
@@ -239,6 +252,10 @@ void initializeConsole() {
 
 	startConsole(&handleConsoleLine);
 
+#if defined(STM32F4) || defined(STM32F7) || defined(STM32H7)
+	addConsoleAction("uid", printUid);
+#endif
+
 	sayHello();
 	addConsoleAction("test", [](){ /* do nothing */});
 	addConsoleActionI("echo", echo);
@@ -252,6 +269,8 @@ void initializeConsole() {
 	addConsoleAction("hard_fault", testHardFault);
 	addConsoleAction("threadsinfo", cmd_threads);
 
+#if HAL_USE_WDG
 	addConsoleActionI("set_watchdog_timeout", startWatchdog);
 	addConsoleActionI("set_watchdog_reset", setWatchdogResetPeriod);
+#endif
 }

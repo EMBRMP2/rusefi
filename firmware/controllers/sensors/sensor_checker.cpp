@@ -128,9 +128,13 @@ static ObdCode getCodeForInjector(int idx, brain_pin_diag_e diag) {
 		return ObdCode::None;
 	}
 
-	// TODO: do something more intelligent with `diag`?
-	UNUSED(diag);
+	if ((diag & PIN_OPEN) || (diag & PIN_SHORT_TO_GND)) {
+		return (ObdCode)((int)ObdCode::OBD_Injector_Circuit_1_Low + (idx * 3));
+	} else if ((diag & PIN_SHORT_TO_BAT) || (diag & PIN_OVERLOAD)) {
+		return (ObdCode)((int)ObdCode::OBD_Injector_Circuit_1_High + (idx * 3));
+	}
 
+	/* else common error code */
 	return (ObdCode)((int)ObdCode::OBD_Injector_Circuit_1 + idx);
 }
 #endif // EFI_ENGINE_CONTROL
@@ -145,7 +149,24 @@ static ObdCode getCodeForIgnition(int idx, brain_pin_diag_e diag) {
 
 	return (ObdCode)((int)ObdCode::OBD_Ignition_Circuit_1 + idx);
 }
+
+static uint8_t getTSErrorCode(brain_pin_diag_e diag)
+{
+	/* Error codes reported to TS:
+	 *  0 - output is not used
+	 *  1 - ok status/no diagnostic available (TODO: separate codes)
+	 * >1 - see brain_pin_diag_e, first least significant 1-bit position + 1 *
+	 * Keep in sync with outputDiagErrorList in tunerstudio.template.ini
+	 * Note:
+	 * diag can be combination of few errors,
+	 * while we report only one error to simplify hadling on TS side
+	 * find position of least significant 1-bit */
+	return __builtin_ffs(diag) + 1;
+}
 #endif // BOARD_EXT_GPIOCHIPS > 0 && EFI_PROD_CODE
+
+PUBLIC_API_WEAK void boardSensorChecker() {
+}
 
 void SensorChecker::onSlowCallback() {
 	// Don't check when the ignition is off, or when it was just turned on (let things stabilize)
@@ -178,6 +199,7 @@ void SensorChecker::onSlowCallback() {
 
 // only bother checking these if we have GPIO chips actually capable of reporting an error
 #if BOARD_EXT_GPIOCHIPS > 0 && EFI_PROD_CODE
+	TunerStudioOutputChannels *state = getTunerStudioOutputChannels();
 	// Check injectors
 #if EFI_ENGINE_CONTROL
 	int unhappyInjector = 0;
@@ -186,11 +208,12 @@ void SensorChecker::onSlowCallback() {
 
 		// Skip not-configured pins
 		if (!isBrainPinValid(pin.brainPin)) {
+			state->injectorDiagnostic[i] = 0;
 			continue;
 		}
 
 		auto diag = pin.getDiag();
-		if (diag != PIN_OK && diag != PIN_INVALID) {
+		if (diag != PIN_OK && diag != PIN_UNKNOWN) {
 		    unhappyInjector = 1 + i;
 			auto code = getCodeForInjector(i, diag);
 
@@ -198,6 +221,7 @@ void SensorChecker::onSlowCallback() {
 			pinDiag2string(description, efi::size(description), diag);
 			warning(code, "Injector %d fault: %s", i + 1, description);
 		}
+		state->injectorDiagnostic[i] = getTSErrorCode(diag);
 	}
 	engine->fuelComputer.brokenInjector = unhappyInjector;
 	engine->fuelComputer.injectorHwIssue = (unhappyInjector != 0);
@@ -209,19 +233,22 @@ void SensorChecker::onSlowCallback() {
 
 		// Skip not-configured pins
 		if (!isBrainPinValid(pin.brainPin)) {
+			state->ignitorDiagnostic[i] = 0;
 			continue;
 		}
 
 		auto diag = pin.getDiag();
-		if (diag != PIN_OK && diag != PIN_INVALID) {
+		if (diag != PIN_OK && diag != PIN_UNKNOWN) {
 			auto code = getCodeForIgnition(i, diag);
 
 			char description[32];
 			pinDiag2string(description, efi::size(description), diag);
 			warning(code, "Ignition %d fault: %s", i + 1, description);
 		}
+		state->ignitorDiagnostic[i] = getTSErrorCode(diag);
 	}
 #endif // BOARD_EXT_GPIOCHIPS > 0
+  boardSensorChecker();
 }
 
 void SensorChecker::onIgnitionStateChanged(bool ignitionOn) {

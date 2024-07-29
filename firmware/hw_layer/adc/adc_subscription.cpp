@@ -2,11 +2,10 @@
 
 #include "adc_subscription.h"
 
-#include "biquad.h"
-
 #if EFI_UNIT_TEST
 
-/*static*/ void AdcSubscription::SubscribeSensor(FunctionalSensor&, adc_channel_e, float, float) {
+/*static*/ AdcSubscriptionEntry * AdcSubscription::SubscribeSensor(FunctionalSensor&, adc_channel_e, float, float) {
+  return nullptr;
 }
 
 /*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensor&) {
@@ -16,14 +15,6 @@
 }
 
 #else
-
-struct AdcSubscriptionEntry {
-	FunctionalSensor *Sensor;
-	float VoltsPerAdcVolt;
-	Biquad Filter;
-	adc_channel_e Channel;
-	bool HasUpdated = false;
-};
 
 static AdcSubscriptionEntry s_entries[16];
 
@@ -42,22 +33,22 @@ static AdcSubscriptionEntry* findEntry() {
 	return findEntry(nullptr);
 }
 
-/*static*/ void AdcSubscription::SubscribeSensor(FunctionalSensor &sensor,
+/*static*/ AdcSubscriptionEntry* AdcSubscription::SubscribeSensor(FunctionalSensor &sensor,
 									  adc_channel_e channel,
 									  float lowpassCutoff,
 									  float voltsPerAdcVolt /*= 0.0f*/) {
 	// Don't subscribe null channels
 	if (!isAdcChannelValid(channel)) {
-		return;
+		return nullptr;
 	}
 
 	// If you passed the same sensor again, resubscribe it with the new parameters
-	auto entry = findEntry(&sensor);
+	AdcSubscriptionEntry* entry = findEntry(&sensor);
 
 	if (entry) {
 		// If the channel didn't change, we're already set
 		if (entry->Channel == channel) {
-			return;
+			return entry;
 		}
 
 		// avoid updates to this while we're mucking with the configuration
@@ -72,7 +63,7 @@ static AdcSubscriptionEntry* findEntry() {
 	// Ensure that a free entry was found
 	if (!entry) {
 		firmwareError(ObdCode::CUSTOM_INVALID_ADC, "too many ADC subscriptions subscribing %s", name);
-		return;
+		return nullptr;
 	}
 
 #if EFI_PROD_CODE && HAL_USE_ADC
@@ -82,8 +73,13 @@ TODO: this code is similar to initIfValid, what is the plan? shall we extract he
  */
 	brain_pin_e pin = getAdcChannelBrainPin(name, channel);
 	if (pin != Gpio::Invalid) {
-	// todo: external muxes for internal ADC #3350
-	    efiSetPadMode(name, pin, PAL_MODE_INPUT_ANALOG);
+		// todo: external muxes for internal ADC #3350
+		/* reuqest pin only for first muxed channel */
+		if (!adcIsMuxedInput(channel)) {
+			efiSetPadMode(name, pin, PAL_MODE_INPUT_ANALOG);
+		} else {
+			efiSetPadModeWithoutOwnershipAcquisition(name, pin, PAL_MODE_INPUT_ANALOG);
+		}
 	}
 
 	// if 0, default to the board's divider coefficient for given channel
@@ -99,6 +95,7 @@ TODO: this code is similar to initIfValid, what is the plan? shall we extract he
 
 	// Set the sensor last - it's the field we use to determine whether this entry is in use
 	entry->Sensor = &sensor;
+	return entry;
 }
 
 /*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensor& sensor) {
@@ -133,6 +130,13 @@ TODO: this code is similar to initIfValid, what is the plan? shall we extract he
 	}
 }
 
+void AdcSubscription::ResetFilters() {
+	for (size_t i = 0; i < efi::size(s_entries); i++) {
+		auto &entry = s_entries[i];
+		entry.HasUpdated = false;
+	}
+}
+
 void AdcSubscription::UpdateSubscribers(efitick_t nowNt) {
 	ScopePerf perf(PE::AdcSubscriptionUpdateSubscribers);
 
@@ -145,17 +149,17 @@ void AdcSubscription::UpdateSubscribers(efitick_t nowNt) {
 		}
 
 		float mcuVolts = getVoltage("sensor", entry.Channel);
-		float sensorVolts = mcuVolts * entry.VoltsPerAdcVolt;
+		entry.sensorVolts = mcuVolts * entry.VoltsPerAdcVolt;
 
 		// On the very first update, preload the filter as if we've been
 		// seeing this value for a long time.  This prevents a slow ramp-up
 		// towards the correct value just after startup
 		if (!entry.HasUpdated) {
-			entry.Filter.cookSteadyState(sensorVolts);
+			entry.Filter.cookSteadyState(entry.sensorVolts);
 			entry.HasUpdated = true;
 		}
 
-		float filtered = entry.Filter.filter(sensorVolts);
+		float filtered = entry.Filter.filter(entry.sensorVolts);
 
 		entry.Sensor->postRawValue(filtered, nowNt);
 	}
@@ -182,8 +186,8 @@ void AdcSubscription::PrintInfo() {
 			"%s ADC%d m=%d %s adc=%.2f/input=%.2fv/divider=%.2f",
 			name,
 			channel,
-			getAdcMode(channel),
-			getPinNameByAdcChannel(name, channel, pinNameBuffer),
+			(int)getAdcMode(channel),
+			getPinNameByAdcChannel(name, channel, pinNameBuffer, sizeof(pinNameBuffer)),
 			mcuVolts, sensorVolts, entry.VoltsPerAdcVolt
 		);
 	}

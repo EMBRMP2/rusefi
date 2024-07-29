@@ -22,19 +22,20 @@
 
 static bool fs_ready = false;
 
+#if EFI_PROD_CODE
+
 int totalLoggedBytes = 0;
 static int fileCreatedCounter = 0;
 static int writeCounter = 0;
 static int totalWritesCounter = 0;
 static int totalSyncCounter = 0;
 
-#if EFI_PROD_CODE
-
 #include <stdio.h>
 #include <string.h>
 #include "mmc_card.h"
 #include "ff.h"
 #include "mass_storage_init.h"
+#include "hellen_meta.h"
 
 #include "rtc_helper.h"
 
@@ -77,10 +78,19 @@ static spi_device_e mmcSpiDevice = SPI_NONE;
 MMCDriver MMCD1;
 
 /* MMC/SD over SPI driver configuration.*/
-static MMCConfig mmccfg = { NULL, &mmc_ls_spicfg, &mmc_hs_spicfg };
+static MMCConfig mmccfg = {
+	.spip = NULL,
+	.lscfg = &mmc_ls_spicfg,
+	.hscfg = &mmc_hs_spicfg
+};
 
-#define LOCK_SD_SPI lockSpi(mmcSpiDevice)
-#define UNLOCK_SD_SPI unlockSpi(mmcSpiDevice)
+#if MMC_USE_MUTUAL_EXCLUSION == TRUE
+#define LOCK_SD_SPI()
+#define UNLOCK_SD_SPI()
+#else
+#define LOCK_SD_SPI() lockSpi(mmcSpiDevice)
+#define UNLOCK_SD_SPI() unlockSpi(mmcSpiDevice)
+#endif
 
 #endif /* HAL_USE_MMC_SPI */
 
@@ -172,7 +182,7 @@ static void prepareLogFileName() {
 
 #if HAL_USE_USB_MSD
 	bool result = dateToStringShort(&logName[PREFIX_LEN]);
-#else 
+#else
 	// TS SD protocol supports only short 8 symbol file names :(
 	bool result = false;
 #endif
@@ -274,7 +284,7 @@ static void listDirectory(const char *path) {
 		if ((fno.fattrib & AM_DIR) || mystrncasecmp(RUSEFI_LOG_PREFIX, fno.fname, sizeof(RUSEFI_LOG_PREFIX) - 1)) {
 			continue;
 		}
-		efiPrintf("logfile%lu:%s", fno.fsize, fno.fname);
+		efiPrintf("logfile %lu:%s", (uint32_t)fno.fsize, fno.fname);
 		count++;
 
 //			efiPrintf("%c%c%c%c%c %u/%02u/%02u %02u:%02u %9lu  %-12s", (fno.fattrib & AM_DIR) ? 'D' : '-',
@@ -297,12 +307,12 @@ static void mmcUnMount() {
 	f_sync(&FDLogFile);							// sync ALL
 
 #if HAL_USE_MMC_SPI
-	mmcDisconnect(&MMCD1);						// Brings the driver in a state safe for card removal.
+	blkDisconnect(&MMCD1);						// Brings the driver in a state safe for card removal.
 	mmcStop(&MMCD1);							// Disables the MMC peripheral.
-	UNLOCK_SD_SPI;
+	UNLOCK_SD_SPI();
 #endif
 #ifdef EFI_SDC_DEVICE
-	sdcDisconnect(&EFI_SDC_DEVICE);
+	blkDisconnect(&EFI_SDC_DEVICE);
 	sdcStop(&EFI_SDC_DEVICE);
 #endif
 	f_mount(NULL, 0, 0);						// FATFS: Unregister work area prior to discard it
@@ -331,8 +341,10 @@ static BaseBlockDevice* initializeMmcBlockDevice() {
 	if (hasFirmwareError()) {
 		return nullptr;
 	}
-	
-	if (!engineConfiguration->isSdCardEnabled || engineConfiguration->sdCardSpiDevice == SPI_NONE) {
+
+	if (!engineConfiguration->isSdCardEnabled ||
+		engineConfiguration->sdCardSpiDevice == SPI_NONE ||
+		!isBrainPinValid(engineConfiguration->sdCardCsPin)) {
 		return nullptr;
 	}
 
@@ -354,11 +366,11 @@ static BaseBlockDevice* initializeMmcBlockDevice() {
 	mmcStart(&MMCD1, &mmccfg);
 
 	// Performs the initialization procedure on the inserted card.
-	LOCK_SD_SPI;
+	LOCK_SD_SPI();
 	sdStatus = SD_STATE_CONNECTING;
-	if (mmcConnect(&MMCD1) != HAL_SUCCESS) {
+	if (blkConnect(&MMCD1) != HAL_SUCCESS) {
 		sdStatus = SD_STATE_MMC_FAILED;
-		UNLOCK_SD_SPI;
+		UNLOCK_SD_SPI();
 		return nullptr;
 	}
 	// We intentionally never unlock in case of success, we take exclusive access of that spi device for SD use
@@ -374,7 +386,7 @@ static BaseBlockDevice* initializeMmcBlockDevice() {
 // Some ECUs are wired for SDIO/SDMMC instead of SPI
 #ifdef EFI_SDC_DEVICE
 static const SDCConfig sdcConfig = {
-	RE_SDC_MODE
+	.bus_width = RE_SDC_MODE
 };
 
 static BaseBlockDevice* initializeMmcBlockDevice() {
@@ -384,7 +396,7 @@ static BaseBlockDevice* initializeMmcBlockDevice() {
 
 	sdcStart(&EFI_SDC_DEVICE, &sdcConfig);
 	sdStatus = SD_STATE_CONNECTING;
-	if (sdcConnect(&EFI_SDC_DEVICE) != HAL_SUCCESS) {
+	if (blkConnect(&EFI_SDC_DEVICE) != HAL_SUCCESS) {
 		sdStatus = SD_STATE_NOT_CONNECTED;
 		return nullptr;
 	}
@@ -405,7 +417,7 @@ static bool mountMmc() {
 
 #if HAL_USE_USB_MSD
 	// Wait for the USB stack to wake up, or a 15 second timeout, whichever occurs first
-	msg_t usbResult = usbConnectedSemaphore.wait(TIME_MS2I(15000));
+	msg_t usbResult = engineConfiguration->alwaysWriteSdCard ? MSG_RESET : usbConnectedSemaphore.wait(TIME_MS2I(15000));
 
 	bool hasUsb = usbResult == MSG_OK;
 
@@ -520,6 +532,21 @@ static THD_FUNCTION(MMCmonThread, arg) {
 	(void)arg;
 	chRegSetThreadName("MMC Card Logger");
 
+#if HW_HELLEN && EFI_PROD_CODE
+  // on mega-module we manage SD card power supply
+  while (!getHellenBoardEnabled()) {
+    // wait until board enables peripheral
+    chThdSleepMilliseconds(100);
+    if (getTimeNowS() > 4 && !isIgnVoltage()) {
+      // looks like vehicle is OFF and we are hooked to USB - turn on peripheral to get Mass Storage Device USB profile
+      efiPrintf("    *** turning board ON to power SD card ***");
+      hellenEnableEn();
+      break;
+    }
+  }
+  chThdSleepMilliseconds(300);
+#endif
+
 	if (!mountMmc()) {
 		// no card present (or mounted via USB), don't do internal logging
 		return;
@@ -585,6 +612,17 @@ static void sdTriggerLogger() {
 
 bool isSdCardAlive(void) {
 	return fs_ready;
+}
+
+void updateSdCardLiveFlags() {
+#if HAL_USE_MMC_SPI
+	engine->outputChannels.sd_active_wr = (MMCD1.state == BLK_WRITING);
+	engine->outputChannels.sd_active_rd = (MMCD1.state == BLK_READING);
+#endif
+#ifdef EFI_SDC_DEVICE
+	engine->outputChannels.sd_active_wr = (EFI_SDC_DEVICE.state == BLK_WRITING);
+	engine->outputChannels.sd_active_rd = (EFI_SDC_DEVICE.state == BLK_READING);
+#endif
 }
 
 // Pre-config load init

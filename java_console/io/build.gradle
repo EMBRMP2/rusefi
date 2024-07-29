@@ -18,6 +18,7 @@ dependencies {
     implementation global_libs.javaxJson
     api global_libs.jcip
     api project(':models')
+    api project(':peak-can-basic')
     api project(':core_io')
     api project(':logging')
 
@@ -27,20 +28,7 @@ dependencies {
     implementation global_libs.json
     implementation ts_plugin_libs.httpclient
 
-    // junit 4.13 does not mix well with httpclient :(
-    testImplementation group: 'junit', name: 'junit', version: '4.8.2'
     testFixturesImplementation global_libs.mockito
     testFixturesApi global_libs.annotations
-    testFixturesApi global_libs.junit
-}
-
-tasks.register('copyJniHeader', Copy) {
-    dependsOn("compileJava")
-    from 'build/generated/sources/headers/java/main'
-    into "../../unit_tests/native"
-    include 'com*.h'
-}
-
-test {
-    dependsOn("copyJniHeader")
+    testFixturesApi global_libs.junit5api
 }

@@ -39,6 +39,7 @@ ifeq ($(USE_OPT),)
   #USE_OPT = $(RFLAGS) -O2 -fgnu89-inline -ggdb -fomit-frame-pointer -falign-functions=16 -std=gnu99 -Werror-implicit-function-declaration -Werror -Wno-error=pointer-sign -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=sign-compare -Wno-error=unused-parameter -Wno-error=missing-field-initializers
   USE_OPT = -c -Wall -O0 -ggdb -g
   USE_OPT += -Werror=missing-field-initializers
+  USE_OPT += -D US_TO_NT_MULTIPLIER=$(US_TO_NT_MULTIPLIER)
 endif
 
 ifeq ($(COVERAGE),yes)
@@ -119,7 +120,7 @@ else
   TRGT = i686-w64-mingw32-
 endif
 else
-  TRGT = 
+  TRGT =
 endif
 
 CC   = $(TRGT)gcc
@@ -135,33 +136,20 @@ OD   = $(TRGT)objdump
 HEX  = $(CP) -O ihex
 BIN  = $(CP) -O binary
 
-ifndef JAVA_HOME
-$(error JAVA_HOME is undefined - due to JNI integration unit tests depend on JAVA_HOME)
-endif
-
-ifneq (1,$(words [$(JAVA_HOME)]))
-$(error JAVA_HOME $(JAVA_HOME) seems to contain spaces this would not work well. please use folder name without space often progra~1)
-endif
-
-AOPT = -fPIC -I$(JAVA_HOME)/include
-
-ifeq ($(OS),Windows_NT)
-# TODO: add validation to assert that we do not have Windows slash in JAVA_HOME variable
-# for instance "C:/Progra~1/Zulu/zulu-11" would be good "C:\Progra~1\Zulu\zulu-11" would be bad
- AOPT += -I$(JAVA_HOME)/include/win32
-else
- ifeq ($(IS_MAC),yes)
-  AOPT += -I$(JAVA_HOME)/include/darwin
- else
-  AOPT += -I$(JAVA_HOME)/include/linux
- endif
-endif
-
 # Define C warning options here
 CWARN = -Wall -Wextra -Wstrict-prototypes -pedantic -Wmissing-prototypes -Wold-style-definition
 
 # Define C++ warning options here
 CPPWARN = -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-unused-variable -Wno-format -Wno-unused-parameter -Wno-unused-private-field
+
+# TODO: improve on this code duplication drama!
+# current problem with older gcc in unit_tests is
+# cc1plus: error: unrecognized command line option \u2018-Wno-unused-private-field\u2019 [-Werror]
+#RULESFILE = ../firmware/rusefi_rules.mk
+#include $(RULESFILE)
+#USE_OPT += $(RUSEFI_OPT) -Wno-error=pedantic
+
+USE_OPT += -Werror=switch
 
 #
 # Compiler settings
@@ -235,5 +223,21 @@ $(info Invoked "git submodule update --init")
 $(error Please run 'make' again. Please make sure you have 'git' command in PATH)
 endif
 
+ifeq ($(PROJECT_BOARD),)
+ifneq ($(SHORT_BOARD_NAME),)
+  PROJECT_BOARD = $(SHORT_BOARD_NAME)
+else
+  PROJECT_BOARD = f407-discovery
+endif
+endif
+
+# allow passing a custom board dir, otherwise generate it based on the board name
+ifeq ($(BOARD_DIR),)
+	BOARD_DIR = $(BOARDS_DIR)/$(PROJECT_BOARD)
+	-include $(BOARD_DIR)/meta-info.env
+endif
+
 include $(UNIT_TESTS_DIR)/rules.mk
+include $(PROJECT_DIR)/rusefi_config.mk
+include $(PROJECT_DIR)/docs_enums.mk
 include $(PROJECT_DIR)/rusefi_pch.mk

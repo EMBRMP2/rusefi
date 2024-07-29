@@ -10,6 +10,7 @@
 
 #include "boost_control.h"
 #include "electronic_throttle.h"
+#include "gppwm_channel_reader.h"
 
 #define NO_PIN_PERIOD 500
 
@@ -17,8 +18,8 @@
 #error "Unexpected OS ACCESS HERE"
 #endif
 
-static boostOpenLoop_Map3D_t boostMapOpen;
-static boostOpenLoop_Map3D_t boostMapClosed;
+static Map3D<BOOST_RPM_COUNT, BOOST_LOAD_COUNT, uint8_t, uint8_t, uint8_t> boostMapOpen{"bo"};
+static Map3D<BOOST_RPM_COUNT, BOOST_LOAD_COUNT, uint8_t, uint8_t, uint8_t> boostMapClosed{"bc"};
 static SimplePwm boostPwmControl("boost");
 
 void BoostController::init(IPwm* pwm, const ValueProvider3D* openLoopMap, const ValueProvider3D* closedLoopTargetMap, pid_s* pidParams) {
@@ -39,7 +40,7 @@ void BoostController::resetLua() {
 }
 
 void BoostController::onConfigurationChange(engine_configuration_s const * previousConfig) {
-	if (!m_pid.isSame(&previousConfig->boostPid)) {
+	if (!previousConfig || !m_pid.isSame(&previousConfig->boostPid)) {
 		m_shouldResetPid = true;
 	}
 }
@@ -96,7 +97,7 @@ expected<percent_t> BoostController::getOpenLoop(float target) {
 	UNUSED(target);
 
 	float rpm = Sensor::getOrZero(SensorType::Rpm);
-	auto driverIntent = Sensor::get(SensorType::DriverThrottleIntent);
+	auto driverIntent = readGppwmChannel(engineConfiguration->boostOpenLoopYAxis);
 
 	isTpsInvalid = !driverIntent.Valid;
 
@@ -106,7 +107,7 @@ expected<percent_t> BoostController::getOpenLoop(float target) {
 
 	efiAssert(ObdCode::OBD_PCM_Processor_Fault, m_openLoopMap != nullptr, "boost open loop", unexpected);
 
-	float openLoop = luaOpenLoopAdd + m_openLoopMap->getValue(rpm, driverIntent.Value);
+	percent_t openLoop = luaOpenLoopAdd + m_openLoopMap->getValue(rpm, driverIntent.Value);
 
 #if EFI_ENGINE_CONTROL
 	// Add any blends if configured
@@ -171,7 +172,8 @@ expected<percent_t> BoostController::getClosedLoop(float target, float manifoldP
 }
 
 void BoostController::setOutput(expected<float> output) {
-	boostOutput = output.value_or(engineConfiguration->boostControlSafeDutyCycle);
+	// this clamping is just for happier gauge #6339
+	boostOutput = clampPercentValue(output.value_or(engineConfiguration->boostControlSafeDutyCycle));
 
 	if (!engineConfiguration->isBoostControlEnabled) {
 		// If not enabled, force 0% output
@@ -203,7 +205,9 @@ void BoostController::onFastCallback() {
 	tpsTooLow = Sensor::getOrZero(SensorType::Tps1) < engineConfiguration->boostControlMinTps;
 	mapTooLow = Sensor::getOrZero(SensorType::Map) < engineConfiguration->boostControlMinMap;
 
-	if (rpmTooLow || tpsTooLow || mapTooLow) {
+  isBoostControlled = !(rpmTooLow || tpsTooLow || mapTooLow);
+
+	if (!isBoostControlled) {
 		// Passing unexpected will use the safe duty cycle configured by the user
 		setOutput(unexpected);
 	} else {
@@ -225,7 +229,6 @@ void setDefaultBoostParameters() {
 
 	for (int loadIndex = 0; loadIndex < BOOST_LOAD_COUNT; loadIndex++) {
 		for (int rpmIndex = 0; rpmIndex < BOOST_RPM_COUNT; rpmIndex++) {
-			config->boostTableOpenLoop[loadIndex][rpmIndex] = (float)config->boostTpsBins[loadIndex];
 			config->boostTableClosedLoop[loadIndex][rpmIndex] = (float)config->boostTpsBins[loadIndex];
 		}
 	}
@@ -275,8 +278,8 @@ void initBoostCtrl() {
 #endif
 
 	// Set up open & closed loop tables
-	boostMapOpen.init(config->boostTableOpenLoop, config->boostTpsBins, config->boostRpmBins);
-	boostMapClosed.init(config->boostTableClosedLoop, config->boostTpsBins, config->boostRpmBins);
+	boostMapOpen.initTable(config->boostTableOpenLoop, config->boostRpmBins, config->boostTpsBins);
+	boostMapClosed.initTable(config->boostTableClosedLoop, config->boostRpmBins, config->boostTpsBins);
 
 	// Set up boost controller instance
 	engine->module<BoostController>().unmock().init(&boostPwmControl, &boostMapOpen, &boostMapClosed, &engineConfiguration->boostPid);

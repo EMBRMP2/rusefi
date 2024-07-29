@@ -24,7 +24,7 @@
 #include "event_registry.h"
 #include "fuel_math.h"
 #include "advance_map.h"
-#include "gppwm_channel.h"
+#include "gppwm_channel_reader.h"
 
 #if EFI_UNIT_TEST
 extern bool verboseMode;
@@ -80,13 +80,13 @@ floatms_t IgnitionState::getSparkDwell(int rpm) {
 	if (engine->rpmCalculator.isCranking()) {
 		dwellMs = engineConfiguration->ignitionDwellForCrankingMs;
 	} else {
-		efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !cisnan(rpm), "invalid rpm", NAN);
+		efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !std::isnan(rpm), "invalid rpm", NAN);
 
 		baseDwell = interpolate2d(rpm, config->sparkDwellRpmBins, config->sparkDwellValues);
 		dwellVoltageCorrection = interpolate2d(
 				Sensor::getOrZero(SensorType::BatteryVoltage),
-				engineConfiguration->dwellVoltageCorrVoltBins,
-				engineConfiguration->dwellVoltageCorrValues
+				config->dwellVoltageCorrVoltBins,
+				config->dwellVoltageCorrValues
 		);
 
 		// for compat (table full of zeroes)
@@ -97,7 +97,7 @@ floatms_t IgnitionState::getSparkDwell(int rpm) {
 		dwellMs = baseDwell * dwellVoltageCorrection;
 	}
 
-	if (cisnan(dwellMs) || dwellMs <= 0) {
+	if (std::isnan(dwellMs) || dwellMs <= 0) {
 		// this could happen during engine configuration reset
 		warning(ObdCode::CUSTOM_ERR_DWELL_DURATION, "invalid dwell: %.2f at rpm=%d", dwellMs, rpm);
 		return 0;
@@ -143,12 +143,15 @@ static const uint8_t order_1_3_7_2_6_5_4_8[] = { 1, 3, 7, 2, 6, 5, 4, 8 };
 static const uint8_t order_1_2_3_4_5_6_7_8[] = { 1, 2, 3, 4, 5, 6, 7, 8 };
 static const uint8_t order_1_5_4_8_6_3_7_2[] = { 1, 5, 4, 8, 6, 3, 7, 2 };
 static const uint8_t order_1_8_7_3_6_5_4_2[] = { 1, 8, 7, 3, 6, 5, 4, 2 };
+static const uint8_t order_1_5_4_8_3_7_2_6[] = { 1, 5, 4, 8, 3, 7, 2, 6 };
+static const uint8_t order_1_8_6_2_7_3_4_5[] = { 1, 8, 6, 2, 7, 3, 4, 5 };
 
 // 9 cylinder
 static const uint8_t order_1_2_3_4_5_6_7_8_9[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
 // 10 cylinder
 static const uint8_t order_1_10_9_4_3_6_5_8_7_2[] = {1, 10, 9, 4, 3, 6, 5, 8, 7, 2};
+static const uint8_t order_1_6_5_10_2_7_3_8_4_9[] = {1, 6, 5, 10, 2, 7, 3, 8, 4, 9};
 
 // 12 cyliner
 static const uint8_t order_1_7_5_11_3_9_6_12_2_8_4_10[] = {1, 7, 5, 11, 3, 9, 6, 12, 2, 8, 4, 10};
@@ -201,6 +204,8 @@ static size_t getFiringOrderLength() {
 	case FO_1_2_3_4_5_6_7_8:
 	case FO_1_5_4_8_6_3_7_2:
 	case FO_1_8_7_3_6_5_4_2:
+	case FO_1_5_4_8_3_7_2_6:
+	case FO_1_8_6_2_7_3_4_5:
 		return 8;
 
 // 9 cylinder radial
@@ -209,6 +214,7 @@ static size_t getFiringOrderLength() {
 
 // 10 cylinder
 	case FO_1_10_9_4_3_6_5_8_7_2:
+	case FO_1_6_5_10_2_7_3_8_4_9:
 		return 10;
 
 // 12 cylinder
@@ -287,7 +293,10 @@ static const uint8_t* getFiringOrderTable() {
 		return order_1_5_4_8_6_3_7_2;
 	case FO_1_8_7_3_6_5_4_2:
 		return order_1_8_7_3_6_5_4_2;
-
+	case FO_1_5_4_8_3_7_2_6:
+		return order_1_5_4_8_3_7_2_6;
+	case FO_1_8_6_2_7_3_4_5:
+		return order_1_5_4_8_3_7_2_6;
 
 // 9 cylinder
 	case FO_1_2_3_4_5_6_7_8_9:
@@ -297,6 +306,8 @@ static const uint8_t* getFiringOrderTable() {
 // 10 cylinder
 	case FO_1_10_9_4_3_6_5_8_7_2:
 		return order_1_10_9_4_3_6_5_8_7_2;
+	case FO_1_6_5_10_2_7_3_8_4_9:
+		return order_1_6_5_10_2_7_3_8_4_9;
 
 // 12 cylinder
 	case FO_1_7_5_11_3_9_6_12_2_8_4_10:
@@ -323,7 +334,7 @@ static const uint8_t* getFiringOrderTable() {
  * @param index from zero to cylindersCount - 1
  * @return cylinderId from one to cylindersCount
  */
-size_t getCylinderId(size_t index) {
+size_t getFiringOrderCylinderId(size_t index) {
 	const size_t firingOrderLength = getFiringOrderLength();
 
 	if (firingOrderLength < 1 || firingOrderLength > MAX_CYLINDER_COUNT) {
@@ -379,7 +390,7 @@ ignition_mode_e getCurrentIgnitionMode() {
 	// In spin-up cranking mode we don't have full phase sync info yet, so wasted spark mode is better
 	// However, only do this on even cylinder count engines: odd cyl count doesn't fire at all
 	if (ignitionMode == IM_INDIVIDUAL_COILS && (engineConfiguration->cylindersCount % 2 == 0)) {
-		bool missingPhaseInfoForSequential = 
+		bool missingPhaseInfoForSequential =
 			!engine->triggerCentral.triggerState.hasSynchronizedPhase();
 
 		if (!engineConfiguration->oddFireEngine && (engine->rpmCalculator.isSpinningUp() || missingPhaseInfoForSequential)) {
@@ -413,22 +424,22 @@ void prepareOutputSignals() {
 }
 
 angle_t getPerCylinderFiringOrderOffset(uint8_t cylinderIndex, uint8_t cylinderNumber) {
-	UNUSED(cylinderNumber); // TODO: technical debt
 	// base = position of this cylinder in the firing order.
 	// We get a cylinder every n-th of an engine cycle where N is the number of cylinders
 	auto firingOrderOffset = engine->engineState.engineCycle * cylinderIndex / engineConfiguration->cylindersCount;
 
-	assertAngleRange(firingOrderOffset, "getPerCylinderFiringOrderOffset", ObdCode::CUSTOM_ERR_6566);
+	// Plus or minus any adjustment if this is an odd-fire engine
+	auto adjustment = engineConfiguration->timing_offset_cylinder[cylinderNumber];
 
-	return firingOrderOffset;
+	auto result = firingOrderOffset + adjustment;
+
+	assertAngleRange(result, "getCylinderAngle", ObdCode::CUSTOM_ERR_CYL_ANGLE);
+
+	return result;
 }
 
 void setTimingRpmBin(float from, float to) {
 	setRpmBin(config->ignitionRpmBins, IGN_RPM_COUNT, from, to);
-}
-
-void setTimingLoadBin(float from, float to) {
-	setLinearCurve(config->ignitionLoadBins, from, to);
 }
 
 /**
@@ -452,6 +463,12 @@ BlendResult calculateBlend(blend_table_s& cfg, float rpm, float load) {
 
 	if (!value) {
 		return { 0, 0, 0 };
+	}
+
+	// Override Y axis value (if necessary)
+	if (cfg.yAxisOverride != GPPWM_Zero) {
+		// TODO: is this value_or(0) correct or even reasonable?
+		load = readGppwmChannel(cfg.yAxisOverride).value_or(0);
 	}
 
 	float tableValue = interpolate3d(

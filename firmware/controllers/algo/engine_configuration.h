@@ -21,10 +21,11 @@
 
 #define MOCK_UNDEFINED -1
 
+// why is Windows compiler not happy around simulator?! feature or defect?!
 #if !defined(EFI_SIM_IS_WINDOWS) || !EFI_SIM_IS_WINDOWS
-#define BOARD_WEAK __attribute__((weak))
+#define PUBLIC_API_WEAK_SOMETHING_WEIRD __attribute__((weak))
 #else
-#define BOARD_WEAK
+#define PUBLIC_API_WEAK_SOMETHING_WEIRD
 #endif
 
 void setCrankOperationMode();
@@ -33,11 +34,9 @@ void setTwoStrokeOperationMode();
 
 void prepareVoidConfiguration(engine_configuration_s *activeConfiguration);
 void setTargetRpmCurve(int rpm);
-void setWholeIgnitionIatCorr(float value);
 void setFuelTablesLoadBin(float minValue, float maxValue);
 void setWholeIatCorrTimingTable(float value);
-void setWholeTimingTable_d(angle_t value);
-#define setWholeTimingTable(x) setWholeTimingTable_d(x);
+void setWholeTimingTable(angle_t value);
 void setConstantDwell(floatms_t dwellMs);
 
 // needed by bootloader
@@ -74,11 +73,12 @@ Gpio getCommsLedPin();
 Gpio getWarningLedPin();
 Gpio getRunningLedPin();
 
+int hackHellenBoardId(int detectedId);
+
 #if !EFI_UNIT_TEST
 extern persistent_config_container_s persistentState;
-static engine_configuration_s * const engineConfiguration =
-	&persistentState.persistentConfiguration.engineConfiguration;
-static persistent_config_s * const config = &persistentState.persistentConfiguration;
+static constexpr engine_configuration_s * engineConfiguration = &persistentState.persistentConfiguration.engineConfiguration;
+static constexpr persistent_config_s * config = &persistentState.persistentConfiguration;
 #else // EFI_UNIT_TEST
 extern engine_configuration_s *engineConfiguration;
 extern persistent_config_s *config;

@@ -1,6 +1,6 @@
 #include "global.h"
 #include "rusefi_enums.h"
-// was generated automatically by rusEFI tool  from rusefi_enums.h // by enum_to_string.jar tool on Tue Dec 12 22:51:24 UTC 2023
+// was generated automatically by rusEFI tool  from rusefi_enums.h // by enum_to_string.jar tool on Thu Jul 04 18:11:10 UTC 2024
 // see also gen_config_and_enums.bat
 
 
@@ -18,6 +18,8 @@ case CanGpioType::NONE:
 }
 const char *getGearControllerMode(GearControllerMode value){
 switch(value) {
+case GearControllerMode::Automatic:
+  return "Automatic";
 case GearControllerMode::ButtonShift:
   return "ButtonShift";
 case GearControllerMode::Generic:
@@ -46,6 +48,32 @@ case INJ_None:
   return "INJ_None";
 case INJ_PolynomialAdder:
   return "INJ_PolynomialAdder";
+  }
+ return NULL;
+}
+const char *getMsIoBoxId(MsIoBoxId value){
+switch(value) {
+case MsIoBoxId::ID200:
+  return "ID200";
+case MsIoBoxId::ID220:
+  return "ID220";
+case MsIoBoxId::ID240:
+  return "ID240";
+case MsIoBoxId::OFF:
+  return "OFF";
+  }
+ return NULL;
+}
+const char *getMsIoBoxVss(MsIoBoxVss value){
+switch(value) {
+case MsIoBoxVss::ALL1234:
+  return "ALL1234";
+case MsIoBoxVss::HALL34:
+  return "HALL34";
+case MsIoBoxVss::OFF:
+  return "OFF";
+case MsIoBoxVss::VR12:
+  return "VR12";
   }
  return NULL;
 }
@@ -93,6 +121,8 @@ case SentEtbType::NONE:
 }
 const char *getTransmissionControllerMode(TransmissionControllerMode value){
 switch(value) {
+case TransmissionControllerMode::Generic4:
+  return "Generic4";
 case TransmissionControllerMode::Gm4l6x:
   return "Gm4l6x";
 case TransmissionControllerMode::None:
@@ -216,8 +246,6 @@ case PIN_DRIVER_OFF:
   return "PIN_DRIVER_OFF";
 case PIN_DRIVER_OVERTEMP:
   return "PIN_DRIVER_OVERTEMP";
-case PIN_INVALID:
-  return "PIN_INVALID";
 case PIN_OK:
   return "PIN_OK";
 case PIN_OPEN:
@@ -228,6 +256,8 @@ case PIN_SHORT_TO_BAT:
   return "PIN_SHORT_TO_BAT";
 case PIN_SHORT_TO_GND:
   return "PIN_SHORT_TO_GND";
+case PIN_UNKNOWN:
+  return "PIN_UNKNOWN";
   }
  return NULL;
 }
@@ -338,8 +368,6 @@ case ES_Custom:
   return "ES_Custom";
 case ES_Innovate_MTX_L:
   return "ES_Innovate_MTX_L";
-case ES_NarrowBand:
-  return "ES_NarrowBand";
 case ES_PLX:
   return "ES_PLX";
   }
@@ -400,10 +428,16 @@ case GPPWM_AuxTemp1:
   return "GPPWM_AuxTemp1";
 case GPPWM_AuxTemp2:
   return "GPPWM_AuxTemp2";
+case GPPWM_BaroPressure:
+  return "GPPWM_BaroPressure";
 case GPPWM_Clt:
   return "GPPWM_Clt";
 case GPPWM_DetectedGear:
   return "GPPWM_DetectedGear";
+case GPPWM_Egt1:
+  return "GPPWM_Egt1";
+case GPPWM_Egt2:
+  return "GPPWM_Egt2";
 case GPPWM_EthanolPercent:
   return "GPPWM_EthanolPercent";
 case GPPWM_FuelLoad:
@@ -564,6 +598,8 @@ case ALWAYS_ACTIVE_LAUNCH:
   return "ALWAYS_ACTIVE_LAUNCH";
 case CLUTCH_INPUT_LAUNCH:
   return "CLUTCH_INPUT_LAUNCH";
+case STOP_INPUT_LAUNCH:
+  return "STOP_INPUT_LAUNCH";
 case SWITCH_INPUT_LAUNCH:
   return "SWITCH_INPUT_LAUNCH";
   }
@@ -597,12 +633,31 @@ case DensoTODO:
   }
  return NULL;
 }
+const char *getMc33810maxDwellTimer_e(mc33810maxDwellTimer_e value){
+switch(value) {
+case DWELL_16MS:
+  return "DWELL_16MS";
+case DWELL_2MS:
+  return "DWELL_2MS";
+case DWELL_32MS:
+  return "DWELL_32MS";
+case DWELL_4MS:
+  return "DWELL_4MS";
+case DWELL_64MS:
+  return "DWELL_64MS";
+case DWELL_8MS:
+  return "DWELL_8MS";
+  }
+ return NULL;
+}
 const char *getOperation_mode_e(operation_mode_e value){
 switch(value) {
 case FOUR_STROKE_CAM_SENSOR:
   return "FOUR_STROKE_CAM_SENSOR";
 case FOUR_STROKE_CRANK_SENSOR:
   return "FOUR_STROKE_CRANK_SENSOR";
+case FOUR_STROKE_SIX_TIMES_CRANK_SENSOR:
+  return "FOUR_STROKE_SIX_TIMES_CRANK_SENSOR";
 case FOUR_STROKE_SYMMETRICAL_CRANK_SENSOR:
   return "FOUR_STROKE_SYMMETRICAL_CRANK_SENSOR";
 case FOUR_STROKE_THREE_TIMES_CRANK_SENSOR:
@@ -665,6 +720,10 @@ case SPI_DEVICE_3:
   return "SPI_DEVICE_3";
 case SPI_DEVICE_4:
   return "SPI_DEVICE_4";
+case SPI_DEVICE_5:
+  return "SPI_DEVICE_5";
+case SPI_DEVICE_6:
+  return "SPI_DEVICE_6";
 case SPI_NONE:
   return "SPI_NONE";
   }
@@ -761,10 +820,14 @@ case VVT_BARRA_3_PLUS_1:
   return "VVT_BARRA_3_PLUS_1";
 case VVT_BOSCH_QUICK_START:
   return "VVT_BOSCH_QUICK_START";
+case VVT_DEV:
+  return "VVT_DEV";
 case VVT_FORD_COYOTE:
   return "VVT_FORD_COYOTE";
 case VVT_FORD_ST170:
   return "VVT_FORD_ST170";
+case VVT_HONDA_CBR_600:
+  return "VVT_HONDA_CBR_600";
 case VVT_HONDA_K_EXHAUST:
   return "VVT_HONDA_K_EXHAUST";
 case VVT_HONDA_K_INTAKE:
@@ -773,6 +836,8 @@ case VVT_INACTIVE:
   return "VVT_INACTIVE";
 case VVT_MAP_V_TWIN:
   return "VVT_MAP_V_TWIN";
+case VVT_MAZDA_L:
+  return "VVT_MAZDA_L";
 case VVT_MAZDA_SKYACTIV:
   return "VVT_MAZDA_SKYACTIV";
 case VVT_MIATA_NB:

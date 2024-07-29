@@ -79,11 +79,11 @@ void setDefaultIgnition() {
 	engineConfiguration->minimumIgnitionTiming = -10;
 	engineConfiguration->maximumIgnitionTiming = 60;
 
-	// Dwell table
+	// Dwell table - a bit conservative but reasonable
 	setConstantDwell(4);
 
-	setLinearCurve(engineConfiguration->dwellVoltageCorrVoltBins, 8, 15, 0.1);
-	setLinearCurve(engineConfiguration->dwellVoltageCorrValues, 1, 1, 1);
+	setLinearCurve(config->dwellVoltageCorrVoltBins, 8, 15, 0.1);
+	setLinearCurve(config->dwellVoltageCorrValues, 1, 1, 1);
 
 	// Multispark
 	setDefaultMultisparkParameters();
@@ -103,8 +103,13 @@ void setDefaultIgnition() {
 	setDefaultIatTimingCorrection();
 
 	// Give default axes for cylinder trim tables
+#if IGN_TRIM_SIZE == 4
 	copyArray(config->ignTrimRpmBins, { 1000, 3000, 5000, 7000 });
 	copyArray(config->ignTrimLoadBins, { 20, 50, 80, 100 });
+#else
+  setRpmTableBin(config->ignTrimRpmBins);
+  setLinearCurve(config->ignTrimLoadBins, 20, 100);
+#endif
 
 	// Default axes for VE blends
 	for (size_t i = 0; i < efi::size(config->ignBlends); i++) {

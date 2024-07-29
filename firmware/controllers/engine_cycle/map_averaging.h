@@ -21,10 +21,6 @@ void refreshMapAveragingPreCalc();
 void mapAveragingTriggerCallback(
 		uint32_t index, efitick_t edgeTimestamp);
 
-#if EFI_TUNER_STUDIO
-void postMapState(TunerStudioOutputChannels *tsOutputChannels);
-#endif
-
 // allow smoothing up to number of cylinders
 #define MAX_MAP_BUFFER_LENGTH (MAX_CYLINDER_COUNT)
 
@@ -32,7 +28,7 @@ void postMapState(TunerStudioOutputChannels *tsOutputChannels);
 
 class MapAverager : public StoredValueSensor {
 public:
-	MapAverager(SensorType type, efitick_t timeout)
+	MapAverager(SensorType type, efidur_t timeout)
 		: StoredValueSensor(type, timeout)
 	{
 	}
@@ -58,3 +54,4 @@ private:
 };
 
 MapAverager& getMapAvg(size_t idx);
+float filterMapValue(float value);

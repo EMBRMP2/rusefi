@@ -51,7 +51,6 @@ static void setupDefaultSensorInputs() {
 	engineConfiguration->afr.hwChannel = EFI_ADC_1;
 
 	engineConfiguration->clt.adcChannel = H144_IN_CLT;
-
 	engineConfiguration->iat.adcChannel = H144_IN_IAT;
 }
 
@@ -67,12 +66,12 @@ void boardInitHardware() {
 }
 
 void boardOnConfigurationChange(engine_configuration_s * /*previousConfiguration*/) {
-	alphaTachPullUp.setValue(engineConfiguration->boardUseTachPullUp);
-	alphaTempPullUp.setValue(engineConfiguration->boardUseTempPullUp);
-	alphaCrankPPullUp.setValue(engineConfiguration->boardUseCrankPullUp);
-	alphaCrankNPullUp.setValue(engineConfiguration->boardUseCrankPullUp);
-	alpha2stepPullDown.setValue(engineConfiguration->boardUse2stepPullDown);
-	alphaCamPullDown.setValue(engineConfiguration->boardUseCamPullDown);
+	alphaTachPullUp.setValue(config->boardUseTachPullUp);
+	alphaTempPullUp.setValue(config->boardUseTempPullUp);
+	alphaCrankPPullUp.setValue(config->boardUseCrankPullUp);
+	alphaCrankNPullUp.setValue(config->boardUseCrankPullUp);
+	alpha2stepPullDown.setValue(config->boardUse2stepPullDown);
+	alphaCamPullDown.setValue(config->boardUseCamPullDown);
 }
 
 
@@ -88,8 +87,7 @@ void setBoardConfigOverrides() {
 
 	// rev.D uses SPI1 pins for CAN2, but rev.E and later uses mega-module meaning SPI1 for SD-card
 	if (isMegaModuleRevision()) {
-		setHellenSdCardSpi1();
-		configureHellenMegaAccCS2Pin();
+	  hellenMegaSdWithAccelerometer();
 	    setHellenMegaEnPin();
 	} else {
 	    setHellenEnPin(Gpio::H144_OUT_IO3);
@@ -119,7 +117,6 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
@@ -135,7 +132,7 @@ void setBoardDefaultConfiguration() {
     	engineConfiguration->baroSensor.hwChannel = H144_IN_MAP3; // On-board MAP
 	}
 
-    engineConfiguration->boardUseTempPullUp = true;
+  config->boardUseTempPullUp = true;
 
 	engineConfiguration->fuelPumpPin = Gpio::H144_OUT_PWM2;
 	engineConfiguration->fanPin = Gpio::H144_OUT_PWM4;

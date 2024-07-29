@@ -24,9 +24,10 @@
 #include "pch.h"
 #include "accel_enrichment.h"
 
-static tps_tps_Map3D_t tpsTpsMap;
+static tps_tps_Map3D_t tpsTpsMap{"tps"};
 
-floatms_t TpsAccelEnrichment::getTpsEnrichment() {
+// on this level we do not distinguish between multiplier and 'ms adder' modes
+float TpsAccelEnrichment::getTpsEnrichment() {
 	ScopePerf perf(PE::GetTpsEnrichment);
 
 	if (engineConfiguration->tpsAccelLookback == 0) {
@@ -83,8 +84,8 @@ floatms_t TpsAccelEnrichment::getTpsEnrichment() {
 	}
 #endif /* EFI_TUNER_STUDIO */
 
-	float mult = interpolate2d(rpm, engineConfiguration->tpsTspCorrValuesBins,
-						engineConfiguration->tpsTspCorrValues);
+	float mult = interpolate2d(rpm, config->tpsTspCorrValuesBins,
+						config->tpsTspCorrValues);
 	if (mult != 0 && (mult < 0.01 || mult > 100)) {
 		mult = 1;
 	}
@@ -195,35 +196,12 @@ TpsAccelEnrichment::TpsAccelEnrichment() {
 
 #if ! EFI_UNIT_TEST
 
-static void accelInfo() {
-//	efiPrintf("TPS accel length=%d", tpsInstance.cb.getSize());
-	efiPrintf("TPS accel th=%.2f/mult=%.2f", engineConfiguration->tpsAccelEnrichmentThreshold, -1);
-
-	efiPrintf("beta=%.2f/tau=%.2f", engineConfiguration->wwaeBeta, engineConfiguration->wwaeTau);
-}
-
-void setTpsAccelThr(float value) {
-	engineConfiguration->tpsAccelEnrichmentThreshold = value;
-	accelInfo();
-}
-
-void setTpsDecelThr(float value) {
-	engineConfiguration->tpsDecelEnleanmentThreshold = value;
-	accelInfo();
-}
-
-void setTpsDecelMult(float value) {
-	engineConfiguration->tpsDecelEnleanmentMultiplier = value;
-	accelInfo();
-}
-
-void setTpsAccelLen(int length) {
+static void setTpsAccelLen(int length) {
 	if (length < 1) {
 		efiPrintf("setTpsAccelLen: Length should be positive [%d]", length);
 		return;
 	}
 	engine->tpsAccelEnrichment.setLength(length);
-	accelInfo();
 }
 
 void updateAccelParameters() {
@@ -235,12 +213,9 @@ void updateAccelParameters() {
 
 
 void initAccelEnrichment() {
-	tpsTpsMap.init(config->tpsTpsAccelTable, config->tpsTpsAccelFromRpmBins, config->tpsTpsAccelToRpmBins);
+	tpsTpsMap.initTable(config->tpsTpsAccelTable, config->tpsTpsAccelToRpmBins, config->tpsTpsAccelFromRpmBins);
 
 #if ! EFI_UNIT_TEST
-
-	addConsoleAction("accelinfo", accelInfo);
-
 	updateAccelParameters();
 #endif /* ! EFI_UNIT_TEST */
 }

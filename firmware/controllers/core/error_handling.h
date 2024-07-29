@@ -8,7 +8,7 @@
 #pragma once
 
 #include "obd_error_codes.h"
-#include "rusefi_generated.h"
+#include "generated_lookup_meta.h"
 #include <cstdint>
 
 /**
@@ -50,10 +50,11 @@ int getRusEfiVersion(void);
   #define efiAssert(code, condition, message, result) { if (!(condition)) { firmwareError(code, message); return result; } }
   #define efiAssertVoid(code, condition, message) { if (!(condition)) { firmwareError(code, message); return; } }
 #else /* EFI_ENABLE_ASSERTS */
-  #define efiAssert(code, condition, message, result) { }
-  #define efiAssertVoid(code, condition, message) { UNUSED(condition);}
+  #define efiAssert(code, condition, message, result) { UNUSED(code);UNUSED(condition);UNUSED(message);UNUSED(result); }
+  #define efiAssertVoid(code, condition, message) { UNUSED(condition);UNUSED(message);}
 #endif /* EFI_ENABLE_ASSERTS */
 
+#define criticalAssert(condition, message, result) efiAssert(ObdCode::OBD_PCM_Processor_Fault, condition, message, result)
 #define criticalAssertVoid(condition, message) efiAssertVoid(ObdCode::OBD_PCM_Processor_Fault, condition, message)
 
 #ifdef __cplusplus

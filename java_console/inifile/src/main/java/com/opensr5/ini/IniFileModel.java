@@ -2,7 +2,7 @@ package com.opensr5.ini;
 
 import com.devexperts.logging.Logging;
 import com.opensr5.ini.field.*;
-import org.jetbrains.annotations.Nullable;
+import com.rusefi.core.FindFileHelper;
 
 import java.io.*;
 import java.util.*;
@@ -33,7 +33,7 @@ public class IniFileModel {
     public Map<String, IniField> allIniFields = new LinkedHashMap<>();
     public final Map<String, DialogModel.Field> fieldsInUiOrder = new LinkedHashMap<>();
 
-    public Map<String, String> tooltips = new TreeMap<>();
+    public Map</*field name*/String, String> tooltips = new TreeMap<>();
     public Map<String, String> protocolMeta = new TreeMap<>();
     private boolean isConstantsSection;
     private String currentYBins;
@@ -80,22 +80,7 @@ public class IniFileModel {
     }
 
     private static String findMetaInfoFile(String iniFilePath) {
-        return findFile(iniFilePath, RUSEFI_INI_PREFIX, RUSEFI_INI_SUFFIX);
-    }
-
-    @Nullable
-    public static String findFile(String fileDirectory, String prefix, String suffix) {
-        File dir = new File(fileDirectory);
-        if (!dir.isDirectory())
-            return null;
-        log.info("Searching for " + prefix + "*" + suffix + " in " + fileDirectory);
-        for (String file : Objects.requireNonNull(dir.list())) {
-            if (file.contains(" "))
-                continue; // spaces not acceptable
-            if (file.startsWith(prefix) && file.endsWith(suffix))
-                return fileDirectory + File.separator + file;
-        }
-        return null;
+        return FindFileHelper.findFile(iniFilePath, RUSEFI_INI_PREFIX, RUSEFI_INI_SUFFIX);
     }
 
     private void finishDialog() {
@@ -174,6 +159,9 @@ public class IniFileModel {
                 case "field":
                     handleField(list);
                     break;
+                case "slider":
+                    handleSlider(list);
+                    break;
                 case "dialog":
                     handleDialog(list);
                     break;
@@ -198,6 +186,7 @@ public class IniFileModel {
     private void handleZBins(LinkedList<String> list) {
         list.removeFirst();
         String zBins = list.removeFirst();
+        addField(zBins);
         if (currentXBins == null || currentYBins == null)
             throw new IllegalStateException("X or Y missing for " + zBins);
         xBinsByZBins.put(zBins, currentXBins);
@@ -236,7 +225,6 @@ public class IniFileModel {
     private void handleTable(LinkedList<String> list) {
         list.removeFirst();
         String tableName = list.removeFirst();
-        addField(tableName);
     }
 
     private void handleFieldDefinition(LinkedList<String> list, RawIniFile.Line line) {
@@ -262,6 +250,17 @@ public class IniFileModel {
         if (allIniFields.containsKey(field.getName()))
             return;
         allIniFields.put(field.getName(), field);
+    }
+
+    private void handleSlider(LinkedList<String> list) {
+        list.removeFirst(); // "slider"
+
+        String uiFieldName = list.isEmpty() ? "" : list.removeFirst();
+
+        String key = list.isEmpty() ? null : list.removeFirst();
+
+        registerUiField(key, uiFieldName);
+        log.debug("IniFileModel: Slider label=[" + uiFieldName + "] : key=[" + key + "]");
     }
 
     private void handleField(LinkedList<String> list) {

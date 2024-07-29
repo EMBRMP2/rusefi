@@ -22,9 +22,17 @@
 
 #include "hardware.h"
 #include "mpu_util.h"
+#include "ignition_controller.h"
 
-static SPIConfig spiCfg = { .circular = false,
-		.end_cb = NULL,
+static SPIConfig spiCfg = {
+    .circular = false,
+#ifdef _CHIBIOS_RT_CONF_VER_6_1_
+	.end_cb = NULL,
+#else
+        .slave = false,
+        .data_cb = NULL,
+        .error_cb = NULL,
+#endif
 		.ssport = NULL,
 		.sspad = 0,
 		.cr1 =
@@ -176,8 +184,8 @@ void Pt2001::init() {
 	// High Voltage via DRIVEN
 	driven.initPin("mc33 DRIVEN", engineConfiguration->mc33816_driven);
 
-	spiCfg.ssport = getHwPort("hip", engineConfiguration->mc33816_cs);
-	spiCfg.sspad = getHwPin("hip", engineConfiguration->mc33816_cs);
+	spiCfg.ssport = getHwPort("mc33816", engineConfiguration->mc33816_cs);
+	spiCfg.sspad = getHwPin("mc33816", engineConfiguration->mc33816_cs);
 
 	// hard-coded for now, just resolve the conflict with SD card!
 	engineConfiguration->mc33816spiDevice = SPI_DEVICE_3;
@@ -199,6 +207,7 @@ void Pt2001::init() {
 static bool isInitialized = false;
 
 void Pt2001::initIfNeeded() {
+// see also: isIgnVoltage()
 	if (Sensor::get(SensorType::BatteryVoltage).value_or(VBAT_FALLBACK_VALUE) < LOW_VBATT) {
 		isInitialized = false;
 	  efiPrintf("unhappy mc33 due to battery voltage");

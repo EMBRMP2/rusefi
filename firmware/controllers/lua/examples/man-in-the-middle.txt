@@ -1,3 +1,5 @@
+-- scriptname man-in-the-middle.txt
+
 -- sometimes we want to cut a CAN bus and install rusEFI into that cut
 -- https://en.wikipedia.org/wiki/Man-in-the-middle_attack
 
@@ -47,7 +49,9 @@ end
 function onAnythingFromECU(bus, id, dlc, data)
     totalEcuMessages = totalEcuMessages + 1
     print('from ECU ' .. id .. " " .. arrayToString(data) .. " dropped=" .. totalDropped .. " replaced " .. totalReplaced)
+	if id < 2048 then
     txCan(TCU_BUS, id, 0, data) -- relay non-TCU message to TCU
+  end
 end
 
 function onAnythingFromTCU(bus, id, dlc, data)

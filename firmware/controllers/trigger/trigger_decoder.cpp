@@ -22,24 +22,11 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <rusefi/isnan.h>
-#include <rusefi/math.h>
+#include "pch.h"
 
 #include "global_shared.h"
-#include "loggingcentral.h"
-#include "error_handling.h"
-#include "perf_trace.h"
-
 #include "engine_configuration.h"
 
-#include "trigger_central.h"
-#include "trigger_decoder.h"
-/**
- * decoder depends on current RPM for error condition logic
- */
-#include "sensor.h"
-#include "engine_state.h"
-#include "engine_math.h"
 /**
  * decoder uses TriggerStimulatorHelper in findTriggerZeroEventIndex
  */
@@ -84,7 +71,7 @@ void TriggerDecoderBase::resetState() {
 	m_timeSinceDecodeError.init();
 
 	prevSignal = SHAFT_PRIMARY_FALLING;
-	startOfCycleNt = 0;
+	startOfCycleNt = {};
 
 	resetCurrentCycleState();
 
@@ -156,7 +143,7 @@ void TriggerFormDetails::prepareEventAngles(TriggerWaveform *shape) {
 			// Compute the relative angle of this tooth to the sync point's tooth
 			float angle = shape->getAngle(wrappedIndex) - firstAngle;
 
-			efiAssertVoid(ObdCode::CUSTOM_TRIGGER_CYCLE, !cisnan(angle), "trgSyncNaN");
+			efiAssertVoid(ObdCode::CUSTOM_TRIGGER_CYCLE, !std::isnan(angle), "trgSyncNaN");
 			// Wrap the angle back in to [0, 720)
 			wrapAngle(angle, "trgSync", ObdCode::CUSTOM_TRIGGER_SYNC_ANGLE_RANGE);
 
@@ -249,6 +236,16 @@ void TriggerDecoderBase::incrementShaftSynchronizationCounter() {
 void PrimaryTriggerDecoder::onTriggerError() {
 	// On trigger error, we've lost full sync
 	resetHasFullSync();
+
+	// Ignore the warning that engine is never null - it might be in unit tests
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Waddress"
+		if (engine) {
+			// Instant RPM data is now also probably trash, discard it
+			engine->triggerCentral.instantRpm.resetInstantRpm();
+			engine->rpmCalculator.lastTdcTimer.init();
+		}
+	#pragma GCC diagnostic pop
 }
 
 void PrimaryTriggerDecoder::onNotEnoughTeeth(int /*actual*/, int /*expected*/) {
@@ -305,11 +302,11 @@ bool TriggerDecoderBase::validateEventCounters(const TriggerWaveform& triggerSha
 		isDecodingError |= (currentCycle.eventCount[i] != triggerShape.getExpectedEventCount((TriggerWheel)i));
 	}
 
-#if EFI_UNIT_TEST
+#if EFI_DEFAILED_LOGGING
 	printf("validateEventCounters: isDecodingError=%d\n", isDecodingError);
 	if (isDecodingError) {
 		for (int i = 0;i < PWM_PHASE_MAX_WAVE_PER_PWM;i++) {
-			printf("count: cur=%d exp=%d\n", currentCycle.eventCount[i],  triggerShape.getExpectedEventCount((TriggerWheel)i));
+			printf("  count: cur=%d exp=%d\n", currentCycle.eventCount[i],  triggerShape.getExpectedEventCount((TriggerWheel)i));
 		}
 	}
 #endif /* EFI_UNIT_TEST */
@@ -344,7 +341,7 @@ void TriggerDecoderBase::onShaftSynchronization(
 
 static bool shouldConsiderEdge(const TriggerWaveform& triggerShape, TriggerWheel triggerWheel, TriggerValue edge) {
 	if (triggerWheel != TriggerWheel::T_PRIMARY && triggerShape.useOnlyPrimaryForSync) {
-		// Non-primary events ignored 
+		// Non-primary events ignored
 		return false;
 	}
 
@@ -377,7 +374,11 @@ expected<TriggerDecodeResult> TriggerDecoderBase::decodeTriggerEvent(
 		const trigger_event_e signal,
 		const efitick_t nowNt) {
 	ScopePerf perf(PE::DecodeTriggerEvent);
-	
+
+#if EFI_PROD_CODE
+  getTriggerCentral()->triggerElapsedUs = previousEventTimer.getElapsedUs();
+#endif
+
 	if (previousEventTimer.getElapsedSecondsAndReset(nowNt) > 1) {
 		/**
 		 * We are here if there is a time gap between now and previous shaft event - that means the engine is not running.
@@ -406,10 +407,10 @@ expected<TriggerDecodeResult> TriggerDecoderBase::decodeTriggerEvent(
 	currentCycle.eventCount[(int)triggerWheel]++;
 
 	if (toothed_previous_time > nowNt) {
-		firmwareError(ObdCode::CUSTOM_OBD_93, "[%s] toothed_previous_time after nowNt prev=%d now=%d", msg, toothed_previous_time, nowNt);
+		firmwareError(ObdCode::CUSTOM_OBD_93, "[%s] toothed_previous_time after nowNt prev=%lu now=%lu", msg, (uint32_t)toothed_previous_time, (uint32_t)nowNt);
 	}
 
-	efitick_t currentDurationLong = isFirstEvent ? 0 : nowNt - toothed_previous_time;
+	efidur_t currentDurationLong = isFirstEvent ? 0 : (nowNt - toothed_previous_time);
 
 	/**
 	 * For performance reasons, we want to work with 32 bit values. If there has been more then
@@ -474,23 +475,20 @@ expected<TriggerDecodeResult> TriggerDecoderBase::decodeTriggerEvent(
 
 				for (int i = 0;i<triggerShape.gapTrackingLength;i++) {
 					float ratioFrom = triggerShape.synchronizationRatioFrom[i];
-					if (cisnan(ratioFrom)) {
+					if (std::isnan(ratioFrom)) {
 						// we do not track gap at this depth
 						continue;
 					}
 
 					float gap = 1.0 * toothDurations[i] / toothDurations[i + 1];
-					if (cisnan(gap)) {
-						efiPrintf("%s index=%d NaN gap, you have noise issues?",
-								i,
-							    prefix
-                        );
+					if (std::isnan(gap)) {
+						efiPrintf("%s index=%d NaN gap, you have noise issues?", prefix, i);
 					} else {
 						float ratioTo = triggerShape.synchronizationRatioTo[i];
 
 						bool gapOk = isInRange(ratioFrom, gap, ratioTo);
 
-						efiPrintf("%s %srpm=%d time=%d eventIndex=%d gapIndex=%d: %s gap=%.3f expected from %.3f to %.3f error=%s",
+						efiPrintf("%s %srpm=%d time=%d eventIndex=%lu gapIndex=%d: %s gap=%.3f expected from %.3f to %.3f error=%s",
 								prefix,
 								triggerConfiguration.PrintPrefix,
 								(int)Sensor::getOrZero(SensorType::Rpm),
@@ -634,7 +632,7 @@ bool TriggerDecoderBase::isSyncPoint(const TriggerWaveform& triggerShape, trigge
 	// Miata NB needs a special decoder.
 	// The problem is that the crank wheel only has 4 teeth, also symmetrical, so the pattern
 	// is long-short-long-short for one crank rotation.
-	// A quick acceleration can result in two successive "short gaps", so we see 
+	// A quick acceleration can result in two successive "short gaps", so we see
 	// long-short-short-short-long instead of the correct long-short-long-short-long
 	// This logic expands the lower bound on a "long" tooth, then compares the last
 	// tooth to the current one.
@@ -661,7 +659,7 @@ bool TriggerDecoderBase::isSyncPoint(const TriggerWaveform& triggerShape, trigge
 		auto from = triggerShape.synchronizationRatioFrom[i];
 		auto to = triggerShape.synchronizationRatioTo[i];
 
-		if (cisnan(from)) {
+		if (std::isnan(from)) {
 			// don't check this gap, skip it
 			continue;
 		}
@@ -670,7 +668,7 @@ bool TriggerDecoderBase::isSyncPoint(const TriggerWaveform& triggerShape, trigge
 		// toothDurations[i] / toothDurations[i+1] > from
 		// is an equivalent comparison to
 		// toothDurations[i] > toothDurations[i+1] * from
-		bool isGapCondition = 
+		bool isGapCondition =
 			  (toothDurations[i] > toothDurations[i + 1] * from
 			&& toothDurations[i] < toothDurations[i + 1] * to);
 

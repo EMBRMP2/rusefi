@@ -49,12 +49,19 @@ public:
 class TriggerCentral final : public trigger_central_s {
 public:
 	TriggerCentral();
-	angle_t syncAndReport(int divider, int remainder);
+	/**
+	 * we have two kinds of sync:
+	 * this method is about detecting of exact engine phase with 720 degree precision usually based on cam wheel decoding
+	 * not to be confused with a totally different trigger _wheel_ sync which could be either crank wheel sync or cam wheel sync
+	 */
+	angle_t syncEnginePhaseAndReport(int divider, int remainder);
 	void handleShaftSignal(trigger_event_e signal, efitick_t timestamp);
 	int getHwEventCounter(int index) const;
 	void resetCounters();
 	void validateCamVvtCounters();
 	void updateWaveform();
+
+  angle_t findNextTriggerToothAngle(int nextToothIndex);
 
 	InstantRpmCalculator instantRpm;
 
@@ -129,6 +136,11 @@ public:
 	}
 
 	bool engineMovedRecently(efitick_t nowNt) const {
+    // todo: this user-defined property is a quick solution, proper fix https://github.com/rusefi/rusefi/issues/6593 is needed
+	  if (engineConfiguration->triggerEventsTimeoutMs != 0 && m_lastEventTimer.hasElapsedMs(engineConfiguration->triggerEventsTimeoutMs)) {
+	    return false;
+  	}
+
 		constexpr float oneRevolutionLimitInSeconds = 60.0 / RPM_LOW_THRESHOLD;
 		auto maxAverageToothTime = oneRevolutionLimitInSeconds / triggerShape.getSize();
 
@@ -225,8 +237,10 @@ int isSignalDecoderError(void);
 
 void onConfigurationChangeTriggerCallback();
 
-#define SYMMETRICAL_CRANK_SENSOR_DIVIDER 4
-#define SYMMETRICAL_THREE_TIMES_CRANK_SENSOR_DIVIDER 6
-#define SYMMETRICAL_TWELVE_TIMES_CRANK_SENSOR_DIVIDER 24
+#define SYMMETRICAL_CRANK_SENSOR_DIVIDER (2 * 2)
+#define SYMMETRICAL_THREE_TIMES_CRANK_SENSOR_DIVIDER (3 * 2)
+#define SYMMETRICAL_SIX_TIMES_CRANK_SENSOR_DIVIDER (6 * 2)
+#define SYMMETRICAL_TWELVE_TIMES_CRANK_SENSOR_DIVIDER (12 * 2)
 
 TriggerCentral * getTriggerCentral();
+int getCrankDivider(operation_mode_e operationMode);

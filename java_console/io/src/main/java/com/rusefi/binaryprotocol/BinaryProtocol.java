@@ -7,6 +7,7 @@ import com.opensr5.io.ConfigurationImageFile;
 import com.opensr5.io.DataListener;
 import com.rusefi.ConfigurationImageDiff;
 import com.rusefi.NamedThreadFactory;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.core.SignatureHelper;
 import com.rusefi.Timeouts;
 import com.rusefi.binaryprotocol.test.Bug3923;
@@ -14,6 +15,7 @@ import com.rusefi.config.generated.Fields;
 import com.rusefi.core.Pair;
 import com.rusefi.core.SensorCentral;
 import com.rusefi.io.*;
+import com.rusefi.io.commands.BurnCommand;
 import com.rusefi.io.commands.ByteRange;
 import com.rusefi.io.commands.GetOutputsCommand;
 import com.rusefi.io.commands.HelloCommand;
@@ -72,27 +74,27 @@ public class BinaryProtocol {
 
     public static String findCommand(byte command) {
         switch (command) {
-            case Fields.TS_PAGE_COMMAND:
+            case Integration.TS_PAGE_COMMAND:
                 return "PAGE";
-            case Fields.TS_COMMAND_F:
+            case Integration.TS_COMMAND_F:
                 return "PROTOCOL";
-            case Fields.TS_CRC_CHECK_COMMAND:
+            case Integration.TS_CRC_CHECK_COMMAND:
                 return "CRC_CHECK";
-            case Fields.TS_BURN_COMMAND:
+            case Integration.TS_BURN_COMMAND:
                 return "BURN";
-            case Fields.TS_HELLO_COMMAND:
+            case Integration.TS_HELLO_COMMAND:
                 return "HELLO";
-            case Fields.TS_READ_COMMAND:
+            case Integration.TS_READ_COMMAND:
                 return "READ";
-            case Fields.TS_GET_TEXT:
+            case Integration.TS_GET_TEXT:
                 return "TS_GET_TEXT";
-            case Fields.TS_GET_FIRMWARE_VERSION:
+            case Integration.TS_GET_FIRMWARE_VERSION:
                 return "GET_FW_VERSION";
-            case Fields.TS_CHUNK_WRITE_COMMAND:
+            case Integration.TS_CHUNK_WRITE_COMMAND:
                 return "WRITE_CHUNK";
-            case Fields.TS_OUTPUT_COMMAND:
+            case Integration.TS_OUTPUT_COMMAND:
                 return "TS_OUTPUT_COMMAND";
-            case Fields.TS_RESPONSE_OK:
+            case Integration.TS_RESPONSE_OK:
                 return "TS_RESPONSE_OK";
             default:
                 return "command " + (char) command + "/" + command;
@@ -197,14 +199,14 @@ public class BinaryProtocol {
         byte[] packet = GetOutputsCommand.createRequest(TS_FILE_VERSION_OFFSET, requestSize);
 
         String msg = "load TS_CONFIG_VERSION";
-        byte[] response = executeCommand(Fields.TS_OUTPUT_COMMAND, packet, msg);
+        byte[] response = executeCommand(Integration.TS_OUTPUT_COMMAND, packet, msg);
         if (!checkResponseCode(response) || response.length != requestSize + 1) {
             close();
             return "Failed to " + msg;
         }
         int actualVersion = FileUtil.littleEndianWrap(response, 1, requestSize).getInt();
         if (actualVersion != TS_FILE_VERSION) {
-			String errorMessage = 
+			String errorMessage =
 				"Incompatible firmware format=" + actualVersion + " while format " + TS_FILE_VERSION + " expected" + "\n"
 				+ "recommended fix: use a compatible console version  OR  flash new firmware";
             log.error(errorMessage);
@@ -296,7 +298,7 @@ public class BinaryProtocol {
     private byte[] receivePacket(String msg) throws IOException {
         long start = System.currentTimeMillis();
         synchronized (ioLock) {
-            return incomingData.getPacket(msg, start);
+            return incomingData.getPacket(Timeouts.BINARY_IO_TIMEOUT, msg, start);
         }
     }
 
@@ -344,7 +346,7 @@ public class BinaryProtocol {
             byte[] packet = new byte[4];
             ByteRange.packOffsetAndSize(offset, requestSize, packet);
 
-            byte[] response = executeCommand(Fields.TS_READ_COMMAND, packet, "load image offset=" + offset);
+            byte[] response = executeCommand(Integration.TS_READ_COMMAND, packet, "load image offset=" + offset);
 
             if (!checkResponseCode(response) || response.length != requestSize + 1) {
                 if (extractCode(response) == TS_RESPONSE_OUT_OF_RANGE) {
@@ -425,7 +427,7 @@ public class BinaryProtocol {
 
     public int getCrcFromController(int configSize) {
         byte[] packet = createRequestCrcPayload(configSize);
-        byte[] response = executeCommand(Fields.TS_CRC_CHECK_COMMAND, packet, "get CRC32");
+        byte[] response = executeCommand(Integration.TS_CRC_CHECK_COMMAND, packet, "get CRC32");
 
         if (checkResponseCode(response) && response.length == 5) {
             ByteBuffer bb = ByteBuffer.wrap(response, 1, 4);
@@ -510,7 +512,7 @@ public class BinaryProtocol {
 
         long start = System.currentTimeMillis();
         while (!isClosed && (System.currentTimeMillis() - start < Timeouts.BINARY_IO_TIMEOUT)) {
-            byte[] response = executeCommand(Fields.TS_CHUNK_WRITE_COMMAND, packet, "writeImage");
+            byte[] response = executeCommand(Integration.TS_CHUNK_WRITE_COMMAND, packet, "writeImage");
             if (!checkResponseCode(response) || response.length != 1) {
                 log.error("writeData: Something is wrong, retrying...");
                 continue;
@@ -527,10 +529,12 @@ public class BinaryProtocol {
         while (true) {
             if (isClosed)
                 return;
-            byte[] response = executeCommand(Fields.TS_BURN_COMMAND, "burn");
-            if (!checkResponseCode(response, (byte) Fields.TS_RESPONSE_BURN_OK) || response.length != 1) {
+            boolean isGoodBurn = BurnCommand.execute(this);
+            if (!isGoodBurn) {
+                log.warn("BURN HAS FAILED?! Will retry");
                 continue;
             }
+            log.info("BURN OK");
             break;
         }
         log.info("DONE");
@@ -562,8 +566,8 @@ public class BinaryProtocol {
 
         long start = System.currentTimeMillis();
         while (!isClosed && (System.currentTimeMillis() - start < Timeouts.BINARY_IO_TIMEOUT)) {
-            byte[] response = executeCommand(Fields.TS_EXECUTE, command, "execute");
-            if (!checkResponseCode(response, (byte) Fields.TS_RESPONSE_COMMAND_OK) || response.length != 1) {
+            byte[] response = executeCommand(Integration.TS_EXECUTE, command, "execute");
+            if (!checkResponseCode(response, (byte) Integration.TS_RESPONSE_OK) || response.length != 1) {
                 continue;
             }
             return false;
@@ -574,7 +578,7 @@ public class BinaryProtocol {
     public static byte[] getTextCommandBytes(String text) {
         byte[] asBytes = text.getBytes();
         byte[] command = new byte[asBytes.length + 1];
-        command[0] = Fields.TS_EXECUTE;
+        command[0] = Integration.TS_EXECUTE;
         System.arraycopy(asBytes, 0, command, 1, asBytes.length);
         return command;
     }
@@ -587,7 +591,7 @@ public class BinaryProtocol {
         if (isClosed)
             return null;
         try {
-            byte[] response = executeCommand(Fields.TS_GET_TEXT, "text");
+            byte[] response = executeCommand(Integration.TS_GET_TEXT, "text");
             if (response == null) {
                 log.error("ERROR: TS_GET_TEXT failed");
                 return null;
@@ -610,7 +614,7 @@ public class BinaryProtocol {
         // TODO: Get rid of the +1.  This adds a byte at the front to tack a fake TS response code on the front
         //  of the reassembled packet.
         byte[] reassemblyBuffer = new byte[TS_TOTAL_OUTPUT_SIZE + 1];
-        reassemblyBuffer[0] = Fields.TS_RESPONSE_OK;
+        reassemblyBuffer[0] = Integration.TS_RESPONSE_OK;
 
         int reassemblyIdx = 0;
         int remaining = TS_TOTAL_OUTPUT_SIZE;
@@ -620,12 +624,12 @@ public class BinaryProtocol {
             int chunkSize = Math.min(remaining, Fields.BLOCKING_FACTOR);
 
             byte[] response = executeCommand(
-                Fields.TS_OUTPUT_COMMAND,
+                Integration.TS_OUTPUT_COMMAND,
                 GetOutputsCommand.createRequest(reassemblyIdx, chunkSize),
                 "output channels"
             );
 
-            if (response == null || response.length != (chunkSize + 1) || response[0] != Fields.TS_RESPONSE_OK) {
+            if (response == null || response.length != (chunkSize + 1) || response[0] != Integration.TS_RESPONSE_OK) {
                 return false;
             }
 

@@ -1,11 +1,13 @@
 package com.rusefi.autoupdate;
 
+import com.rusefi.core.FindFileHelper;
 import com.rusefi.core.io.BundleUtil;
 import com.rusefi.core.net.ConnectionAndMeta;
 import com.rusefi.core.FileUtil;
 import com.rusefi.core.preferences.storage.PersistentConfiguration;
 import com.rusefi.core.ui.AutoupdateUtil;
 import com.rusefi.core.ui.FrameHelper;
+import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import java.awt.*;
@@ -20,40 +22,73 @@ import java.util.Date;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.rusefi.core.FindFileHelper.findSrecFile;
+
 public class Autoupdate {
+    private static final int VERSION = 20240612;
+
     private static final String LOGO_PATH = "/com/rusefi/";
     private static final String LOGO = LOGO_PATH + "logo.png";
-    private static final String TITLE = "rusEFI Bundle Updater 20230130";
+    private static final String TITLE = "rusEFI Bundle Updater " + VERSION;
     private static final String AUTOUPDATE_MODE = "autoupdate";
     private static final String RUSEFI_CONSOLE_JAR = "rusefi_console.jar";
     private static final String COM_RUSEFI_LAUNCHER = "com.rusefi.Launcher";
 
     public static void main(String[] args) {
-        String bundleFullName = BundleUtil.readBundleFullName();
+        try {
+            autoupdate(args);
+        } catch (Throwable e) {
+            String stackTrace = extracted(e);
+            JOptionPane.showMessageDialog(null, stackTrace, "Autoupdate Error " + TITLE, JOptionPane.ERROR_MESSAGE);
+        }
+    }
 
-        if (args.length > 0 && args[0].equalsIgnoreCase("release")) {
+    private static String extracted(Throwable e) {
+        StringBuilder sb = new StringBuilder(e.toString());
+        for (StackTraceElement ste : e.getStackTrace()) {
+            sb.append("\n\tat ");
+            sb.append(ste);
+        }
+        return sb.toString();
+    }
+
+    private static void autoupdate(String[] args) {
+        String bundleFullName = BundleUtil.readBundleFullName();
+        if (bundleFullName == null) {
+            System.err.println("ERROR: Autoupdate: unable to perform without bundleFullName (parent folder name)");
+            System.exit(-1);
+        }
+        System.out.println("Handling parent folder name [" + bundleFullName + "]");
+
+        BundleUtil.BundleInfo bundleInfo = BundleUtil.parse(bundleFullName);
+        String branchName = bundleInfo.getBranchName();
+
+        @NotNull String firstArgument = args.length > 0 ? args[0] : "";
+
+        if (firstArgument.equalsIgnoreCase("basic-ui")) {
+            doDownload(bundleInfo, UpdateMode.ALWAYS);
+        } else if (args.length > 0 && args[0].equalsIgnoreCase("release")) {
+            // this branch needs progress for custom boards!
             System.out.println("Release update requested");
-            handleBundle(bundleFullName, UpdateMode.ALWAYS, ConnectionAndMeta.BASE_URL_RELEASE);
+            downloadAndUnzipAutoupdate(bundleInfo, UpdateMode.ALWAYS, ConnectionAndMeta.BASE_URL_RELEASE);
         } else {
             UpdateMode mode = getMode();
             if (mode != UpdateMode.NEVER) {
-                System.out.println("Snapshot requested");
-                if (bundleFullName != null) {
-                    System.out.println("Handling " + bundleFullName);
-                    String branchName = bundleFullName.split("\\.")[1];
-                    if ( branchName.equals("snapshot") ) {
-                        handleBundle(bundleFullName, mode, ConnectionAndMeta.BASE_URL_LATEST);
-                    } else {
-                        handleBundle(bundleFullName, mode, String.format(ConnectionAndMeta.BASE_URL_LTS, branchName));
-                    }
-                } else {
-                    System.err.println("ERROR: Autoupdate: unable to perform without bundleFullName");
-                }
+                doDownload(bundleInfo, mode);
             } else {
                 System.out.println("Update mode: NEVER");
             }
         }
         startConsole(args);
+    }
+
+    private static void doDownload(BundleUtil.BundleInfo bundleInfo, UpdateMode mode) {
+        if (bundleInfo.getBranchName().equals("snapshot")) {
+            System.out.println("Snapshot requested");
+            downloadAndUnzipAutoupdate(bundleInfo, mode, ConnectionAndMeta.getBaseUrl() + ConnectionAndMeta.AUTOUPDATE);
+        } else {
+            downloadAndUnzipAutoupdate(bundleInfo, mode, ConnectionAndMeta.getBaseUrl() + "/lts/" + bundleInfo.getBranchName() + ConnectionAndMeta.AUTOUPDATE);
+        }
     }
 
     private static void startConsole(String[] args) {
@@ -66,7 +101,8 @@ public class Autoupdate {
             Class mainClass = Class.forName(COM_RUSEFI_LAUNCHER, true, jarClassLoader);
             Method mainMethod = mainClass.getMethod("main", args.getClass());
             mainMethod.invoke(null, new Object[]{args});
-        } catch (ClassNotFoundException | IllegalAccessException | InvocationTargetException | NoSuchMethodException | MalformedURLException e) {
+        } catch (ClassNotFoundException | IllegalAccessException | InvocationTargetException | NoSuchMethodException |
+                 MalformedURLException e) {
             System.out.println(e);
         }
     }
@@ -80,10 +116,10 @@ public class Autoupdate {
         }
     }
 
-    private static void handleBundle(String bundleFullName, UpdateMode mode, String baseUrl) {
+    private static void downloadAndUnzipAutoupdate(BundleUtil.BundleInfo info, UpdateMode mode, String baseUrl) {
         try {
-            String boardName = bundleFullName.split("\\.")[2];
-            String zipFileName = "rusefi_bundle_" + boardName + "_autoupdate" + ".zip";
+            String suffix = FindFileHelper.isObfuscated() ? "_obfuscated_public" : "";
+            String zipFileName = ConnectionAndMeta.getWhiteLabel() + "_bundle_" + info.getTarget() + suffix + "_autoupdate" + ".zip";
             ConnectionAndMeta connectionAndMeta = new ConnectionAndMeta(zipFileName).invoke(baseUrl);
             System.out.println("Remote file " + zipFileName);
             System.out.println("Server has " + connectionAndMeta.getCompleteFileSize() + " from " + new Date(connectionAndMeta.getLastModified()));
@@ -103,15 +139,17 @@ public class Autoupdate {
             long completeFileSize = connectionAndMeta.getCompleteFileSize();
             long lastModified = connectionAndMeta.getLastModified();
 
-            System.out.println(bundleFullName + " " + completeFileSize + " bytes, last modified " + new Date(lastModified));
+            System.out.println(info + " " + completeFileSize + " bytes, last modified " + new Date(lastModified));
 
             AutoupdateUtil.downloadAutoupdateFile(zipFileName, connectionAndMeta, TITLE);
 
             File file = new File(zipFileName);
             file.setLastModified(lastModified);
-            System.out.println("Downloaded " + file.length() + " bytes");
+            System.out.println("Downloaded " + file.length() + " bytes, lastModified=" + lastModified);
 
             FileUtil.unzip(zipFileName, new File(".."));
+            String srecFile = findSrecFile();
+            new File(srecFile == null ? FindFileHelper.FIRMWARE_BIN_FILE : srecFile).setLastModified(lastModified);
         } catch (ReportedIOException e) {
             // we had already reported error with a UI dialog when we had parent frame
             System.err.println("Error downloading bundle: " + e);
@@ -121,7 +159,7 @@ public class Autoupdate {
             System.err.println("Error downloading bundle: " + e);
             if (!AutoupdateUtil.runHeadless) {
                 JOptionPane.showMessageDialog(null, "Error downloading " + e, "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.ERROR_MESSAGE);
             }
         }
     }

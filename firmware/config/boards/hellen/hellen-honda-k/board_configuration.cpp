@@ -45,18 +45,14 @@ void onBoardStandBy() {
     hellenBoardStandBy();
 }
 
-
-
 void setBoardConfigOverrides() {
 	setHellenMegaEnPin();
 	setHellenVbatt();
 
-	setHellenSdCardSpi1();
-	configureHellenMegaAccCS2Pin();
+	hellenMegaSdWithAccelerometer();
 	configureHellenCanTerminator();
 
-	engineConfiguration->clt.config.bias_resistor = 4700;
-	engineConfiguration->iat.config.bias_resistor = 4700;
+	setDefaultHellenAtPullUps();
 
 	engineConfiguration->triggerInputPins[0] = Gpio::H144_IN_RES1;
 	engineConfiguration->camInputs[0] = Gpio::H144_IN_RES3;
@@ -81,7 +77,7 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
@@ -101,8 +97,8 @@ void setBoardDefaultConfiguration() {
 
     engineConfiguration->vvtPins[0] = Gpio::H144_OUT_PWM4;
 
-    // gppwm_channel *vtsControl = &engineConfiguration->gppwm[0];
-    // vtsControl->pin = Gpio::H144_OUT_IO6;
+  gppwm_channel *vtsControl = &engineConfiguration->gppwm[0];
+  vtsControl->pin = Gpio::H144_OUT_IO6;
 
 	engineConfiguration->fuelPumpPin = Gpio::H144_OUT_IO13;
 	engineConfiguration->idle.solenoidPin = Gpio::H144_LS_6;
@@ -118,6 +114,7 @@ void setBoardDefaultConfiguration() {
 	engineConfiguration->mapHighValueVoltage = 4.8;
 
     engineConfiguration->enableKline = true;
+    config->hondaKcltGaugeAdder = 50;
     engineConfiguration->kLineBaudRate = 9600;
 	engineConfiguration->hondaK = true;
 	engineConfiguration->verboseKLine = true;
@@ -145,6 +142,8 @@ void setBoardDefaultConfiguration() {
 
     setTPS1Calibration(100, 650);
 	hellenWbo();
+
+  setAccelerometerSpi();
 }
 
 static Gpio OUTPUTS[] = {

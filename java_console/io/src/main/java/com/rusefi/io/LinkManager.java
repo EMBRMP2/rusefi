@@ -64,7 +64,7 @@ public class LinkManager implements Closeable {
     public LinkManager() {
         Future<?> future = submit(() -> {
             communicationThread = Thread.currentThread();
-            System.out.println("communicationThread lookup DONE");
+            log.info("communicationThread lookup DONE");
         });
         try {
             // let's wait for the above trivial task to finish
@@ -210,7 +210,7 @@ public class LinkManager implements Closeable {
 
     public void assertCommunicationThread() {
         if (Thread.currentThread() != communicationThread) {
-            IllegalStateException e = new IllegalStateException("Communication on wrong thread");
+            IllegalStateException e = new IllegalStateException("Communication on wrong thread. Use linkManager.execute or linkManager.submit");
             e.printStackTrace();
             log.error(e.getMessage(), e);
             throw e;

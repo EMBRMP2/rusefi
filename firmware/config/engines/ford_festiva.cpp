@@ -68,7 +68,6 @@ void setFordEscortGt() {
 
 	engineConfiguration->trigger.type = trigger_type_e::TT_MAZDA_DOHC_1_4;
 
-	engineConfiguration->globalFuelCorrection = 0.75;
 	engineConfiguration->displacement = 1.839;
 	setAlgorithm(LM_SPEED_DENSITY);
 
@@ -135,7 +134,7 @@ void setFordEscortGt() {
 	engineConfiguration->crankingTimingAngle = 3;
 
 	setLinearCurve(config->ignitionLoadBins, 20, 105, 5);
-	setWholeTimingTable_d(10);
+	setWholeTimingTable(10);
 	setTable(config->lambdaTable, 0.92f);
 
 	setSingleCoilDwell();

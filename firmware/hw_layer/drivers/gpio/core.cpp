@@ -28,7 +28,7 @@
 /* Local variables and types.												*/
 /*==========================================================================*/
 
-/* TODO: chnage array to list? */
+/* TODO: change array to list? */
 struct gpiochip {
 	brain_pin_e			base;
 	size_t				size;
@@ -39,6 +39,51 @@ struct gpiochip {
 };
 
 static gpiochip chips[BOARD_EXT_GPIOCHIPS];
+
+#if EFI_PROD_CODE
+
+/* TODO: move inside gpio chip driver? */
+class external_hardware_pwm : public hardware_pwm {
+public:
+	bool hasInit() const {
+		return m_chip != nullptr;
+	}
+
+	int start(const char* msg, gpiochip* chip, size_t pin, float frequency, float duty) {
+		int ret;
+
+		ret = chip->chip->setPadPWM(pin, frequency, duty);
+		if (ret >= 0) {
+			m_chip = chip;
+			m_pin = pin;
+			m_frequency = frequency;
+		} else {
+			/* This is not an error, will fallback to SW PWM */
+			//firmwareError(ObdCode::CUSTOM_GPIO_CHIP_FAILED_PWM, "Faield to enable PWM mode for chip %s on pin \"%s\"", msg, chip->name, pin);
+			return -1;
+		}
+		return 0;
+	}
+
+	void setDuty(float duty) override {
+		if (!m_chip) {
+			criticalError("Attempted to set duty on null external PWM device");
+			return;
+		}
+
+		m_chip->chip->setPadPWM(m_pin, m_frequency, duty);
+	}
+
+private:
+	gpiochip* m_chip = nullptr;
+	size_t m_pin = 0;
+	float m_frequency = 0;
+};
+
+/* TODO: is 5 enought? */
+static external_hardware_pwm extPwms[5];
+
+#endif
 
 /*==========================================================================*/
 /* Local functions.															*/
@@ -58,6 +103,21 @@ static gpiochip *gpiochip_find(brain_pin_e pin)
 
 	return nullptr;
 }
+
+#if EFI_PROD_CODE
+
+static external_hardware_pwm* gpiochip_getNextPwmDevice() {
+	for (size_t i = 0; i < efi::size(extPwms); i++) {
+		if (!extPwms[i].hasInit()) {
+			return &extPwms[i];
+		}
+	}
+
+	criticalError("Run out of gpiochip PWM devices!");
+	return nullptr;
+}
+
+#endif
 
 /*==========================================================================*/
 /* Exported functions.														*/
@@ -116,8 +176,9 @@ const char *gpiochips_getPinName(brain_pin_e pin)
  * @brief Register gpiochip
  * @details should be called from board file. Can be called before os ready.
  * All chips should be registered before gpiochips_init() called.
- * returns -1 in case of no free chips left
- * returns -1 in case of no ops provided, incorrect chip size
+ * returns -101 in case of no free chips left
+ * returns -100 in case of no ops provided, incorrect chip size
+ * returns -102 or -103 in case chip overlaps already registered chip(s)
  * else returns chip base
  */
 
@@ -228,13 +289,14 @@ int gpiochips_init(void) {
 		if (chip->base == Gpio::Unassigned)
 			continue;
 
-		if (chip->chip->init() < 0) {
+    int ret = chip->chip->init();
+		if (ret < 0) {
 			#if EFI_PROD_CODE
 			    // todo: adjust unit tests to validate this fatal
-			    criticalError("Failed to init chip %d", i);
+			    criticalError("Failed to init chip %d: %d", i, ret);
 			#else
     			chip->base = Gpio::Unassigned;
-            #endif
+      #endif
 		} else {
 			pins_added += chip->size;
 		}
@@ -246,7 +308,7 @@ int gpiochips_init(void) {
 /**
  * @brief Set pin mode of gpiochip
  * @details set pad mode for given pin.
- * return -1 if driver does not implemet setPadMode ops
+ * return -107 if driver does not implemet setPadMode ops
  * else return value from gpiochip driver.
  */
 /* this fuction uses iomode_t that is related to STM32 (or other MCU)
@@ -270,12 +332,14 @@ int gpiochips_setPadMode(brain_pin_e pin, iomode_t mode)
  * else return value from gpiochip driver;
  */
 
-int gpiochips_writePad(brain_pin_e pin, int value)
-{
+int gpiochips_writePad(brain_pin_e pin, int value) {
 	gpiochip *chip = gpiochip_find(pin);
 
-	if (!chip)
+	if (!chip) {
+		// todo: make readPad fail in a similar way?
+		criticalError("gpiochip not found for pin %d", pin);
 		return -108;
+	}
 
 	return chip->chip->writePad(pin - chip->base, value);
 }
@@ -301,7 +365,7 @@ int gpiochips_readPad(brain_pin_e pin)
 /**
  * @brief Get diagnostic for given gpio
  * @details actual output value depend on gpiochip capabilities
- * returns -1 in case of pin not belong to any gpio chip
+ * returns PIN_UNKNOWN in case of pin not belong to any gpio chip
  * returns PIN_OK in case of chip does not support getting diagnostic
  * else return brain_pin_diag_e from gpiochip driver;
  */
@@ -310,7 +374,7 @@ brain_pin_diag_e gpiochips_getDiag(brain_pin_e pin) {
 	gpiochip *chip = gpiochip_find(pin);
 
 	if (!chip)
-		return PIN_INVALID;
+		return PIN_UNKNOWN;
 
 	return chip->chip->getDiag(pin - chip->base);
 }
@@ -337,6 +401,52 @@ int gpiochips_get_total_pins(void)
 
 	return cnt;
 }
+
+void gpiochips_debug(void)
+{
+	int i;
+
+	for (i = 0; i < BOARD_EXT_GPIOCHIPS; i++) {
+		gpiochip *chip = &chips[i];
+
+		if (chip->base == Gpio::Unassigned)
+			continue;
+
+		efiPrintf("%s (base %d, size %d):\n", chip->name, (int)chip->base, chip->size);
+		chip->chip->debug();
+	}
+}
+
+#if EFI_PROD_CODE
+
+/**
+ * @brief Try to init PWM on given pin
+ * @details success of call depends on chip capabilities
+ * returns nullptr in case there is no chip for given pin
+ * returns nullptr in case of pin is not PWM capable
+ * returns nullptr in case all extPwms are already used
+ * returns hardware_pwm if succes, later user can call ->setDuty to change duty
+ */
+
+hardware_pwm* gpiochip_tryInitPwm(const char* msg, brain_pin_e pin, float frequency, float duty)
+{
+	gpiochip *chip = gpiochip_find(pin);
+
+	if (!chip) {
+		return nullptr;
+	}
+
+	/* TODO: implement reintialization of same pin with different settings reusing same external_hardware_pwm */
+	if (external_hardware_pwm *device = gpiochip_getNextPwmDevice()) {
+		if (device->start(msg, chip, pin - chip->base, frequency, duty) >= 0) {
+			return device;
+		}
+	}
+
+	return nullptr;
+}
+
+#endif
 
 #else /* BOARD_EXT_GPIOCHIPS > 0 */
 
@@ -379,6 +489,10 @@ int gpiochips_init(void) {
 int gpiochips_get_total_pins(void)
 {
 	return 0;
+}
+
+void gpiochips_debug(void)
+{
 }
 
 #endif /* BOARD_EXT_GPIOCHIPS > 0 */

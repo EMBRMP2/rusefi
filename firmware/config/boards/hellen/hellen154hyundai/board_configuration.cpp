@@ -51,6 +51,14 @@ static void setupDefaultSensorInputs() {
 
 static bool isFirstInvocation = true;
 
+/*PUBLIC_API_WEAK*/ int hackHellenBoardId(int detectedId) {
+  if (detectedId == BOARD_ID_VAG121_D) {
+    // wow something bad has happened to that batch of boards?!
+    return BOARD_ID_154HYUNDAI_C;
+  }
+  return detectedId;
+}
+
 void setBoardConfigOverrides() {
 	setHellenVbatt();
 
@@ -65,6 +73,7 @@ void setBoardConfigOverrides() {
 	engineConfiguration->camInputs[1] = Gpio::H144_IN_D_AUX4;
 
     int16_t hellenBoardId = engine->engineState.hellenBoardId;
+
     if (hellenBoardId == -1) {
 	    engineConfiguration->triggerInputPins[0] = Gpio::H144_IN_CRANK;
 	    engineConfiguration->camInputs[0] = Gpio::H144_IN_CAM;
@@ -122,7 +131,7 @@ void setBoardConfigOverrides() {
  *
  * See also setDefaultEngineConfiguration
  *
- * @todo    Add your board-specific code, if any.
+
  */
 void setBoardDefaultConfiguration() {
 	setInjectorPins();
@@ -133,6 +142,7 @@ void setBoardDefaultConfiguration() {
 	engineConfiguration->fuelPumpPin = Gpio::H144_OUT_IO9;
 	engineConfiguration->fanPin = Gpio::H144_OUT_IO7;
 	engineConfiguration->mainRelayPin = Gpio::H144_OUT_IO3;	// pin: 111a
+	// BK1 uses wire, BK2 uses CANbus
 	engineConfiguration->malfunctionIndicatorPin = Gpio::H144_OUT_PWM8;
 
 	engineConfiguration->brakePedalPin = Gpio::H144_IN_RES3;
@@ -163,7 +173,7 @@ static Gpio OUTPUTS[] = {
 	Gpio::H144_IGN_3, // Coil 3
 	Gpio::H144_IGN_4, // Coil 4
 	Gpio::H144_OUT_PWM8, // MIL
-	Gpio::H144_OUT_PWM7, // low side? Tacho unused CAN tachometer right?
+//	QC procedure seems to not work for that one Gpio::H144_OUT_PWM7, // low side? Tacho unused CAN tachometer right?
 //	Gpio::H_SPI1_SCK, // X8 AuxLS1
 };
 

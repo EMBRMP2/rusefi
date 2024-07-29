@@ -2,14 +2,14 @@ package com.rusefi.pinout;
 
 import com.rusefi.EnumsReader;
 import com.rusefi.enum_reader.Value;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static org.junit.Assert.assertEquals;
+import static com.rusefi.AssertCompatibility.assertEquals;
 
 public class PinoutLogicTest {
     @Test

@@ -102,8 +102,7 @@ void m73engine() {
 
 	engineConfiguration->globalTriggerAngleOffset = 90;
 	setCrankOperationMode();
-	// todo: that's not right, should be 60/2 without VW
-	engineConfiguration->trigger.type = trigger_type_e::TT_60_2_VW;
+	engineConfiguration->trigger.type = trigger_type_e::TT_TOOTHED_WHEEL_60_2;
 
 	// this large engine seems to crank at around only 150 RPM? And happily idle at 400RPM?
 	engineConfiguration->cranking.rpm = 350;
@@ -124,88 +123,6 @@ void m73engine() {
 void setBMW_M73_TwoCoilUnitTest() {
 	// twoCoil configuration without unit tests ETB setup drama
 	m73engine();
-}
-
-// BMW_M73_M
-// set engine_type 24
-void setEngineBMW_M73_Manhattan() {
-	m73engine();
-
-	/**
-Nucleo boards - first step is to confirm that I can blink via each pin
-going clockwise from top-right corner
-
-Gpio::A10 USD ID
-Gpio::A11 USD DM
-Gpio::A12 USD DP
-
-E_4: running
-
-Good GPIO:
-Gpio::C9 ETB#1
-Gpio::C8 ETB#1
-Gpio::B8 ETB#2
-Gpio::B9 ETB#2
-Gpio::C5
-Gpio::A7
-Gpio::A6
-	 */
-
-
-	engineConfiguration->fuelPumpPin = Gpio::Unassigned;
-	engineConfiguration->idle.solenoidPin = Gpio::Unassigned;
-	engineConfiguration->fanPin = Gpio::Unassigned;
-
-	/**
-	 * Yellow op-amp board
-	 *
-	 * AN5 tested pull-down 1M               PA3 TPS1 orange wire
-	 * AN6 tested pull-down 1M               PA4 TPS2
-	 * AN7 tested pull-down 1M               PA6 PPS
-	 * AN8 tested no pull-down / no pull-up
-	 */
-
-
-	// For example TLE7209 - two control wires:
-	// PWM on both wires - one to open, another to close
-	// ETB motor NEG pin # - white wire - OUT 1
-	// green input wire
-	engineConfiguration->throttlePedalPositionAdcChannel = EFI_ADC_6;
-	// set_analog_input_pin tps PA3
-	engineConfiguration->tps1_1AdcChannel = EFI_ADC_3; // PA3
-	// set_analog_input_pin tps2 PA4
-	engineConfiguration->tps2_1AdcChannel = EFI_ADC_4; // PA4
-
-	// PWM pin
-	engineConfiguration->etbIo[0].controlPin = Gpio::Unassigned;
-	// DIR pin
-	engineConfiguration->etbIo[0].directionPin1 = Gpio::C8;
-	engineConfiguration->etbIo[0].directionPin2 = Gpio::C9;
-	engineConfiguration->etb_use_two_wires = true;
-
-	// PWM pin
-	engineConfiguration->etbIo[1].controlPin = Gpio::Unassigned;
-	// DIR pin
-	engineConfiguration->etbIo[1].directionPin1 = Gpio::B9;
-	engineConfiguration->etbIo[1].directionPin2 = Gpio::B8;
-
-	engineConfiguration->tps2Min = engineConfiguration->tpsMin;
-	engineConfiguration->tps2Max = engineConfiguration->tpsMax;
-
-
-	engineConfiguration->injectionPins[0] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[1] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[2] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[3] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[4] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[5] = Gpio::Unassigned;
-
-	engineConfiguration->injectionPins[6] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[7] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[8] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[9] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[10] = Gpio::Unassigned;
-	engineConfiguration->injectionPins[11] = Gpio::Unassigned;
 }
 
 /**
@@ -268,7 +185,8 @@ void setEngineBMW_M73_Proteus() {
 
 
 	// no idea why https://github.com/rusefi/rusefi/wiki/HOWTO-M73-v12-on-Proteus uses non default CLT pin
-	engineConfiguration->clt.adcChannel = PROTEUS_IN_ANALOG_TEMP_4;
+//	engineConfiguration->clt.adcChannel = PROTEUS_IN_ANALOG_TEMP_4;
+  // newer https://github.com/rusefi/rusefi/wiki/HOWTO-custom-harness-lazyharnezz-M73 uses default pin
 
 
 	engineConfiguration->starterControlPin = Gpio::PROTEUS_LS_14;
@@ -282,6 +200,9 @@ void setEngineBMW_M73_Proteus() {
     engineConfiguration->map.sensor.type = MT_MPX4250A;
 
 	// tps and pps
+#if EFI_ELECTRONIC_THROTTLE_BODY
 	setProteusHitachiEtbDefaults();
+#endif // EFI_ELECTRONIC_THROTTLE_BODY
+ 	setPPSCalibration(0.73, 4.0, 0.34, 1.86);
 }
 #endif // HW_PROTEUS

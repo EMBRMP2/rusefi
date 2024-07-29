@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.devexperts.logging.Logging.getLogging;
+import static com.rusefi.TokenUtils.tokenizeWithBraces;
 
 import com.rusefi.parse.TypesHelper;
 import org.jetbrains.annotations.Nullable;
@@ -50,7 +51,7 @@ public class ConfigFieldImpl implements ConfigField {
     private final boolean hasAutoscale;
     private final String trueName;
     private final String falseName;
-    private final ConfigStructure parent;
+    private final ConfigStructure parentType;
     private boolean isFromIterate;
     private String iterateOriginalName;
     private int iterateIndex;
@@ -79,7 +80,7 @@ public class ConfigFieldImpl implements ConfigField {
         if (!isVoid())
             Objects.requireNonNull(state);
         this.state = state;
-        this.parent = state == null ? null : (state.isStackEmpty() ? null : state.peek());
+        this.parentType = state == null ? null : (state.isStackEmpty() ? null : state.peek());
         this.comment = comment;
 
         if (!isVoid())
@@ -107,8 +108,8 @@ public class ConfigFieldImpl implements ConfigField {
     }
 
     @Override
-    public ConfigStructure getParent() {
-        return parent;
+    public ConfigStructure getParentStructureType() {
+        return parentType;
     }
 
     private static int getSize(VariableRegistry variableRegistry, String s) {
@@ -120,7 +121,7 @@ public class ConfigFieldImpl implements ConfigField {
 
     @Override
     public ConfigStructure getStructureType() {
-        return getState().getStructures().get(getType());
+        return getState().getStructures().get(getTypeName());
     }
 
     @Override
@@ -166,7 +167,7 @@ public class ConfigFieldImpl implements ConfigField {
      * @see ConfigFieldParserTest#testParseLine()
      */
     public static ConfigFieldImpl parse(ReaderState state, String line) {
-        Matcher matcher = FIELD.matcher(line);
+        Matcher matcher = FIELD.matcher(line.trim());
         if (!matcher.matches())
             return null;
 
@@ -282,7 +283,7 @@ public class ConfigFieldImpl implements ConfigField {
      * @see TypesHelper
      */
     @Override
-    public String getType() {
+    public String getTypeName() {
         return type;
     }
 
@@ -373,9 +374,7 @@ public class ConfigFieldImpl implements ConfigField {
     }
 
     private String[] getTokens() {
-        if (tsInfo == null)
-            return new String[0];
-        return tsInfo.split(",");
+        return tokenizeWithBraces(tsInfo);
     }
 
     @Override

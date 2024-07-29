@@ -2,18 +2,18 @@ package com.rusefi.pinout;
 
 import com.rusefi.ReaderStateImpl;
 import com.rusefi.newparse.DefinitionsState;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.io.*;
 
 import static com.rusefi.test.ConfigDefinitionTest.FIRMWARE;
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertFalse;
+import static com.rusefi.AssertCompatibility.assertEquals;
+import static com.rusefi.AssertCompatibility.assertFalse;
 
 public class PinoutLogicHellen112_17_Test {
     @Test
-    @Ignore // this was only useful while figuring out the problem
+    @Disabled // this was only useful while figuring out the problem
     public void testRealFiled() throws IOException {
         // a bit nasty, do we have similar anywhere else already?
         FileSystemBoardInputsReaderImpl.PREFIX = FIRMWARE + File.separator;

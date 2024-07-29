@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-// Keep this list in sync with fuelIgnCutCodeList in rusefi.input!
+// Keep this list in sync with fuelIgnCutCodeList in tunerstudio.template.ini!
 enum class ClearReason : uint8_t {
 	None, // 0
 	Fatal, // 1
@@ -27,8 +27,8 @@ enum class ClearReason : uint8_t {
 	GdiComms,
 	PleaseBrake,
 
-	// Keep this list in sync with fuelIgnCutCodeList in rusefi.input!
-	// todo: add a code generator between ClearReason and fuelIgnCutCodeList in rusefi.input
+	// Keep this list in sync with fuelIgnCutCodeList in tunerstudio.template.ini!
+	// todo: add a code generator between ClearReason and fuelIgnCutCodeList in tunerstudio.template.ini
 };
 
 enum class TpsState : uint8_t {
@@ -43,7 +43,7 @@ enum class TpsState : uint8_t {
 	NotConfigured, // 8
 	Redundancy, // 9
 	IntermittentPps, // 10
-	// keep this list in sync with etbCutCodeList in rusefi.input!
+	// keep this list in sync with etbCutCodeList in tunerstudio.template.ini!
 };
 
 // Only allows clearing the value, but never resetting it.
@@ -86,9 +86,13 @@ class Hysteresis {
 public:
 	// returns true if value > rising, false if value < falling, previous if falling < value < rising.
 	bool test(float value, float rising, float falling) {
-		if (value > rising) {
+		return test(value > rising, value < falling);
+	}
+
+	bool test (bool risingCondition, bool fallingCondition) {
+		if (risingCondition) {
 			m_state = true;
-		} else if (value < falling) {
+		} else if (fallingCondition) {
 			m_state = false;
 		}
 
@@ -124,7 +128,7 @@ public:
 	float getLimitingFuelCorrection() const;
 
 	// Other subsystems call these APIs to indicate a problem has occurred
-	void reportEtbProblem();
+//	void reportEtbProblem();
 	void fatalError();
 	Timer gdiComms;
 
@@ -160,6 +164,9 @@ private:
 
 	// Tracks how long since a cut (ignition or fuel) was active for any reason
 	Timer m_lastCutTime;
+
+	// Tracks how long injector duty has been over the sustained limit
+	Timer m_injectorDutySustainedTimer;
 };
 
 #if EFI_ENGINE_CONTROL

@@ -31,7 +31,7 @@
 
 #include "gpio/l9779.h"
 
-#if (BOARD_L9779_COUNT > 0)
+#if EFI_PROD_CODE && (BOARD_L9779_COUNT > 0)
 
 #include "persistent_configuration.h"
 #include "hardware.h"
@@ -158,14 +158,11 @@ struct L9779 : public GpioChip {
 	/* last requested subaddr in case of read */
 	uint8_t						last_subaddr;
 
-	/* chip needs reintialization due to some critical issue */
-	bool						need_init;
 
 	/* statistic */
 	//int						por_cnt;
 	//int						wdr_cnt;
 	//int						comfe_cnt;
-	int							init_cnt;
 	//int						init_req_cnt;
 	int							spi_cnt;
 	int							spi_err_parity;		/* parity errors in rx data */
@@ -548,7 +545,7 @@ static THD_FUNCTION(l9779_driver_thread, p) {
 
 			chip->diag_ts = chTimeAddX(chVTGetSystemTimeX(), TIME_MS2I(DIAG_PERIOD_MS));
 		}
-		poll_interval = chip->calc_sleep_interval();	
+		poll_interval = chip->calc_sleep_interval();
 #endif
 		/* default poll_interval */
 	}
@@ -619,7 +616,7 @@ int L9779::readPad(size_t pin) {
 brain_pin_diag_e L9779::getDiag(size_t pin)
 {
 	if (pin >= L9779_SIGNALS)
-		return PIN_INVALID;
+		return PIN_UNKNOWN;
 
 	if (pin < L9779_OUTPUTS)
 		return getOutputDiag(pin);

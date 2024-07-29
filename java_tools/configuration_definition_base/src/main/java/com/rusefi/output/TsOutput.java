@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
+import static com.rusefi.TokenUtils.tokenizeWithBraces;
 import static com.rusefi.ToolUtil.EOL;
 import static com.rusefi.output.JavaSensorsConsumer.quote;
 
@@ -97,9 +98,9 @@ public class TsOutput {
                     return tsPosition;
                 }
 
-                if (configField.getState().getTsCustomLine().containsKey(configField.getType())) {
+                if (configField.getState().getTsCustomLine().containsKey(configField.getTypeName())) {
                     // todo: rename 'bits' to 'customLine' or something since _not_ bits for array?
-                    String bits = configField.getState().getTsCustomLine().get(configField.getType());
+                    String bits = configField.getState().getTsCustomLine().get(configField.getTypeName());
                     if (!bits.startsWith("bits")) {
                         // 'array' would be handled here
                         bits = handleTsInfo(configField, bits, 5);
@@ -109,10 +110,10 @@ public class TsOutput {
                     tsHeader.append(nameWithPrefix + " = " + bits);
 
                     if (!configField.getName().equals(next.getName()))
-                        tsPosition += configField.getState().getTsCustomSize().get(configField.getType());
+                        tsPosition += configField.getState().getTsCustomSize().get(configField.getTypeName());
                 } else if (configField.getArraySizes().length == 0) {
                     tsHeader.append(temporaryLineComment + nameWithPrefix + " = scalar, ");
-                    tsHeader.append(TypesHelper.convertToTs(configField.getType()) + ",");
+                    tsHeader.append(TypesHelper.convertToTs(configField.getTypeName()) + ",");
                     tsHeader.append(" " + tsPosition + ",");
                     tsHeader.append(" " + handleTsInfo(configField, configField.getTsInfo(), 1));
                     if (!configField.getName().equals(next.getName()))
@@ -122,7 +123,7 @@ public class TsOutput {
                     // TS does not like those
                 } else {
                     tsHeader.append(nameWithPrefix + " = array, ");
-                    tsHeader.append(TypesHelper.convertToTs(configField.getType()) + ",");
+                    tsHeader.append(TypesHelper.convertToTs(configField.getTypeName()) + ",");
                     tsHeader.append(" " + tsPosition + ",");
                     tsHeader.append(" [");
                     boolean first = true;
@@ -157,14 +158,14 @@ public class TsOutput {
         if (tsInfo == null || tsInfo.trim().isEmpty()) {
             // default units and scale
             if (isConstantsSection) {
-                if (configField.getType().equalsIgnoreCase(Type.U16.cType) || configField.getType().equalsIgnoreCase(Type.S16.cType))
+                if (configField.getTypeName().equalsIgnoreCase(Type.U16.cType) || configField.getTypeName().equalsIgnoreCase(Type.S16.cType))
                     return quote("") + ", 1, 0, 0, 32000, 0";
                 return quote("") + ", 1, 0, 0, 100, 0";
             }
             return quote("") + ", 1, 0";
         }
         try {
-            String[] fields = tsInfo.split(",");
+            String[] fields = tokenizeWithBraces(tsInfo);
             if (fields.length > multiplierIndex) {
                 /**
                  * Evaluate static math on .ini layer to simplify rusEFI java and rusEFI PHP project consumers

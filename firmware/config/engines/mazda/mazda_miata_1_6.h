@@ -14,17 +14,14 @@
  */
 void setMiataNA6_MAP_Frankenso();
 
-void setMiataNA6_MAP_MRE();
-
 /**
  * set engine_type 20
  */
-void setMiata94_MAP_MRE();
 void miataNAcommonEngineSettings();
 
 /**
  * set engine_type 34
  */
-void setHellenNA6();
+void setMazdaMiataNA6();
 
-void setHellenNA94();
+void setMazdaMiataNA94();

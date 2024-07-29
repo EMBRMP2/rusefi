@@ -31,6 +31,7 @@
 #include "injector_model.h"
 #include "launch_control.h"
 #include "antilag_system.h"
+#include "start_stop.h"
 #include "trigger_scheduler.h"
 #include "fuel_pump.h"
 #include "main_relay.h"
@@ -55,6 +56,8 @@
 #include "vvt.h"
 #include "trip_odometer.h"
 
+#include <functional>
+
 #ifndef EFI_UNIT_TEST
 #error EFI_UNIT_TEST must be defined!
 #endif
@@ -66,17 +69,6 @@
 #ifndef EFI_PROD_CODE
 #error EFI_PROD_CODE must be defined!
 #endif
-
-#if EFI_SIGNAL_EXECUTOR_ONE_TIMER
-// PROD real firmware uses this implementation
-#include "single_timer_executor.h"
-#endif /* EFI_SIGNAL_EXECUTOR_ONE_TIMER */
-#if EFI_SIGNAL_EXECUTOR_SLEEP
-#include "signal_executor_sleep.h"
-#endif /* EFI_SIGNAL_EXECUTOR_SLEEP */
-#if EFI_UNIT_TEST
-#include "global_execution_queue.h"
-#endif /* EFI_UNIT_TEST */
 
 struct AirmassModelBase;
 
@@ -98,6 +90,8 @@ class IEtbController;
 class Engine final : public TriggerStateListener {
 public:
 	Engine();
+
+	StartStopState startStopState;
 
 	// todo: technical debt: enableOverdwellProtection #3553
 	bool enableOverdwellProtection = true;
@@ -128,7 +122,8 @@ public:
 #endif // EFI_ENGINE_CONTROL
 
 	type_list<
-		Mockable<InjectorModel>,
+		Mockable<InjectorModelPrimary>,
+		Mockable<InjectorModelSecondary>,
 #if EFI_IDLE_CONTROL
 		Mockable<IdleController>,
 #endif // EFI_IDLE_CONTROL
@@ -187,9 +182,11 @@ public:
 	GearControllerBase *gearController;
 #endif
 
+	// todo: boolean sensors should leverage sensor framework #6342
 	SwitchedState clutchUpSwitchedState;
    	SwitchedState brakePedalSwitchedState;
    	SwitchedState acButtonSwitchedState;
+  SimpleSwitchedState luaDigitalInputState[LUA_DIGITAL_INPUT_COUNT];
 
 #if EFI_LAUNCH_CONTROL
 	LaunchControlBase launchController;
@@ -203,7 +200,7 @@ public:
 #endif // EFI_ANTILAG_SYSTEM
 
 #if EFI_ANTILAG_SYSTEM
-	SoftSparkLimiter ALSsoftSparkLimiter;
+//	SoftSparkLimiter ALSsoftSparkLimiter;
 #endif /* EFI_ANTILAG_SYSTEM */
 
 #if EFI_SHAFT_POSITION_INPUT
@@ -212,8 +209,6 @@ public:
 
 	IgnitionState ignitionState;
 	void resetLua();
-
-	Timer startStopStateLastPush;
 
 #if EFI_SHAFT_POSITION_INPUT
 	void OnTriggerStateProperState(efitick_t nowNt) override;
@@ -229,8 +224,12 @@ public:
 
 #if EFI_UNIT_TEST
 	bool needTdcCallback = true;
+private:
+	int bailedOnDwellCount = 0;
+public:
+	int getBailedOnDwellCount() const { return bailedOnDwellCount; }
+	void incrementBailedOnDwellCount() { bailedOnDwellCount++; }
 #endif /* EFI_UNIT_TEST */
-
 
 	int getGlobalConfigurationVersion(void) const;
 
@@ -238,13 +237,21 @@ public:
 	// a pointer with interface type would make this code nicer but would carry extra runtime
 	// cost to resolve pointer, we use instances as a micro optimization
 #if EFI_SIGNAL_EXECUTOR_ONE_TIMER
+  // while theoretically PROD could be using EFI_SIGNAL_EXECUTOR_SLEEP, as of 2024 all PROD uses SingleTimerExecutor
 	SingleTimerExecutor executor;
 #endif
 #if EFI_SIGNAL_EXECUTOR_SLEEP
+  // at the moment this one is used exclusively by x86 simulator it should theoretically be possible to make it available in embedded if needed
 	SleepExecutor executor;
 #endif
 #if EFI_UNIT_TEST
 	TestExecutor executor;
+
+	std::function<void(IgnitionEvent*, bool)> onIgnitionEvent;
+	std::function<void(const IgnitionEvent&, efitick_t, angle_t, efitick_t)> onScheduleTurnSparkPinHighStartCharging
+			= [](const IgnitionEvent&, efitick_t, angle_t, efitick_t) -> void {};
+	std::function<void(const IgnitionEvent&, efitick_t)> onScheduleOverFireSparkAndPrepareNextSchedule
+			= [](const IgnitionEvent&, efitick_t) -> void {};
 #endif // EFI_UNIT_TEST
 
 #if EFI_ENGINE_CONTROL
@@ -278,9 +285,6 @@ public:
 #if EFI_SHAFT_POSITION_INPUT
 	TriggerCentral triggerCentral;
 #endif // EFI_SHAFT_POSITION_INPUT
-
-
-	float stftCorrection[STFT_BANK_COUNT] = {0};
 
 
     /**
@@ -360,8 +364,6 @@ trigger_type_e getVvtTriggerType(vvt_mode_e vvtMode);
 void applyNonPersistentConfiguration();
 void prepareOutputSignals();
 
-// todo: huh we also have validateConfig()?!
-void validateConfiguration();
 void scheduleReboot();
 bool isLockedFromUser();
 void unlockEcu(int password);

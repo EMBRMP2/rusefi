@@ -45,34 +45,16 @@ SingleTimerExecutor::SingleTimerExecutor()
 {
 }
 
-void SingleTimerExecutor::scheduleForLater(const char *msg, scheduling_s *scheduling, int delayUs, action_s action) {
-	scheduleByTimestamp(msg, scheduling, getTimeNowUs() + delayUs, action);
-}
-
-/**
- * @brief Schedule an event at specific delay after now
- *
- * Invokes event callback after the specified amount of time.
- * callback would be executed either on ISR thread or current thread if we would need to execute right away
- *
- * @param [in, out] scheduling Data structure to keep this event in the collection.
- * @param [in] delayUs the number of microseconds before the output signal immediate output if delay is zero.
- * @param [in] dwell the number of ticks of output duration.
- */
-void SingleTimerExecutor::scheduleByTimestamp(const char *msg, scheduling_s *scheduling, efitimeus_t timeUs, action_s action) {
-	scheduleByTimestampNt(msg, scheduling, US2NT(timeUs), action);
-}
-
 void SingleTimerExecutor::scheduleByTimestampNt(const char *msg, scheduling_s* scheduling, efitick_t nt, action_s action) {
 	ScopePerf perf(PE::SingleTimerExecutorScheduleByTimestamp);
 
 #if EFI_ENABLE_ASSERTS
-	efitick_t deltaTimeNt = nt - getTimeNowNt();
+	efidur_t deltaTimeNt = nt - getTimeNowNt();
 
 	if (deltaTimeNt >= TOO_FAR_INTO_FUTURE_NT) {
 		// we are trying to set callback for too far into the future. This does not look right at all
 		int32_t intDeltaTimeNt = (int32_t)deltaTimeNt;
-		firmwareError(ObdCode::CUSTOM_ERR_TASK_TIMER_OVERFLOW, "scheduleByTimestampNt() too far: %d %s", intDeltaTimeNt, msg);
+		firmwareError(ObdCode::CUSTOM_ERR_TASK_TIMER_OVERFLOW, "scheduleByTimestampNt() too far: %ld %s", intDeltaTimeNt, msg);
 		return;
 	}
 #endif

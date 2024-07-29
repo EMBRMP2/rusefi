@@ -7,19 +7,19 @@ import com.rusefi.ldmp.StateDictionary;
 import com.rusefi.ui.livedata.SourceCodePainter;
 import com.rusefi.ui.livedata.VariableValueSource;
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 
 import static com.rusefi.livedata.LiveDataParserPanel.getParseTree;
 import static com.rusefi.ui.LiveDataPane.CPP_SUFFIX;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LiveDataConventionTest {
     @Test
-    @Ignore
+    @Disabled
     public void assertLiveDataConvention() throws IOException, URISyntaxException {
         for (live_data_e view : live_data_e.values()) {
             String fileName = StateDictionary.INSTANCE.getFileName(view) + CPP_SUFFIX;
@@ -40,12 +40,12 @@ public class LiveDataConventionTest {
 
 
         String sourceCode = LiveDataParserPanel.getContent(LiveDataParserPanel.class, fileName);
-        assertTrue("No content " + fileName + " size=" + sourceCode.length(), sourceCode.length() > 100);
+        assertTrue(sourceCode.length() > 100, "No content " + fileName + " size=" + sourceCode.length());
 
         ParseTree tree = getParseTree(sourceCode);
         ParseResult parseResult = CodeWalkthrough.applyVariables(valueSource, sourceCode, SourceCodePainter.VOID, tree);
 
-        assertTrue("Broken live data constraint in " + fileName + ": " + parseResult.geBrokenConditions(), parseResult.geBrokenConditions().isEmpty());
+        assertTrue(parseResult.geBrokenConditions().isEmpty(), "Broken live data constraint in " + fileName + ": " + parseResult.geBrokenConditions());
 
     }
 }

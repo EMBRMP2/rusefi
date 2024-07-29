@@ -16,6 +16,7 @@
 #include "advance_map.h"
 #include "speed_density.h"
 #include "advance_map.h"
+#include "init.h"
 
 #include "aux_valves.h"
 #include "map_averaging.h"
@@ -31,6 +32,7 @@
 #include "fan_control.h"
 #include "ac_control.h"
 #include "vr_pwm.h"
+#include "max3185x.h"
 #if EFI_MC33816
  #include "mc33816.h"
 #endif // EFI_MC33816
@@ -86,8 +88,12 @@ trigger_type_e getVvtTriggerType(vvt_mode_e vvtMode) {
 		return trigger_type_e::TT_VVT_BARRA_3_PLUS_1;
 	case VVT_FORD_COYOTE:
 	    return trigger_type_e::TT_VVT_FORD_COYOTE;
+	case VVT_DEV:
+	    return trigger_type_e::TT_DEV;
 	case VVT_MAZDA_SKYACTIV:
 	    return trigger_type_e::TT_VVT_MAZDA_SKYACTIV;
+	case VVT_MAZDA_L:
+		return trigger_type_e::TT_VVT_MAZDA_L;
 	case VVT_NISSAN_VQ:
 		return trigger_type_e::TT_VVT_NISSAN_VQ35;
 	case VVT_TOYOTA_4_1:
@@ -98,6 +104,8 @@ trigger_type_e getVvtTriggerType(vvt_mode_e vvtMode) {
 		return trigger_type_e::TT_VVT_MITSUBISHI_3A92;
 	case VVT_MITSUBISHI_6G72:
 	    return trigger_type_e::TT_VVT_MITSU_6G72;
+	case VVT_HONDA_CBR_600:
+	    return trigger_type_e::TT_HONDA_CBR_600;
 	case VVT_MITSUBISHI_6G75:
 	case VVT_NISSAN_MR:
 		return trigger_type_e::TT_NISSAN_MR18_CAM_VVT;
@@ -106,7 +114,7 @@ trigger_type_e getVvtTriggerType(vvt_mode_e vvtMode) {
 	case VVT_MITSUBISHI_4G63:
 		return trigger_type_e::TT_MITSU_4G63_CAM;
 	default:
-		criticalError("getVvtTriggerType for %s", getVvt_mode_e(vvtMode));
+		criticalError("Broken VVT mode maybe corrupted calibration %d: %s", vvtMode, getVvt_mode_e(vvtMode));
 		return trigger_type_e::TT_HALF_MOON; // we have to return something for the sake of -Werror=return-type
 	}
 }
@@ -144,6 +152,10 @@ void Engine::periodicSlowCallback() {
 	for (int camIndex = 0;camIndex < CAMS_PER_BANK;camIndex++) {
 		triggerCentral.vvtTriggerConfiguration[camIndex].update();
 	}
+
+  getEngineState()->heaterControlEnabled = engineConfiguration->forceO2Heating || engine->rpmCalculator.isRunning();
+	enginePins.o2heater.setValue(getEngineState()->heaterControlEnabled);
+	enginePins.starterRelayDisable.setValue(Sensor::getOrZero(SensorType::Rpm) < engineConfiguration->cranking.rpm);
 #endif // EFI_SHAFT_POSITION_INPUT
 
 	efiWatchdog();
@@ -153,10 +165,6 @@ void Engine::periodicSlowCallback() {
 	tpsAccelEnrichment.onNewValue(Sensor::getOrZero(SensorType::Tps1));
 
 	updateVrThresholdPwm();
-
-    getEngineState()->heaterControlEnabled = engineConfiguration->forceO2Heating || engine->rpmCalculator.isRunning();
-	enginePins.o2heater.setValue(getEngineState()->heaterControlEnabled);
-	enginePins.starterRelayDisable.setValue(Sensor::getOrZero(SensorType::Rpm) < engineConfiguration->cranking.rpm);
 
 	updateGppwm();
 
@@ -220,28 +228,43 @@ void Engine::updateSlowSensors() {
 #endif // EFI_SHAFT_POSITION_INPUT
 }
 
+bool getClutchDownState() {
 #if EFI_GPIO_HARDWARE
+	if (isBrainPinValid(engineConfiguration->clutchDownPin)) {
+		return engineConfiguration->clutchDownPinInverted ^ efiReadPin(engineConfiguration->clutchDownPin);
+	}
+#endif // EFI_GPIO_HARDWARE
+	// todo: boolean sensors should leverage sensor framework #6342
+	return engine->engineState.lua.clutchDownState;
+}
+
 static bool getClutchUpState() {
+#if EFI_GPIO_HARDWARE
 	if (isBrainPinValid(engineConfiguration->clutchUpPin)) {
 		return engineConfiguration->clutchUpPinInverted ^ efiReadPin(engineConfiguration->clutchUpPin);
 	}
+#endif // EFI_GPIO_HARDWARE
+	// todo: boolean sensors should leverage sensor framework #6342
 	return engine->engineState.lua.clutchUpState;
 }
 
-static bool getBrakePedalState() {
+bool getBrakePedalState() {
+#if EFI_GPIO_HARDWARE
 	if (isBrainPinValid(engineConfiguration->brakePedalPin)) {
-		return efiReadPin(engineConfiguration->brakePedalPin);
+		return engineConfiguration->brakePedalPinInverted ^ efiReadPin(engineConfiguration->brakePedalPin);
 	}
+#endif // EFI_GPIO_HARDWARE
+	// todo: boolean sensors should leverage sensor framework #6342
 	return engine->engineState.lua.brakePedalState;
 }
-#endif // EFI_GPIO_HARDWARE
+
 
 void Engine::updateSwitchInputs() {
-#if EFI_GPIO_HARDWARE
 	// this value is not used yet
-	if (isBrainPinValid(engineConfiguration->clutchDownPin)) {
-		engine->engineState.clutchDownState = engineConfiguration->clutchDownPinInverted ^ efiReadPin(engineConfiguration->clutchDownPin);
-	}
+  engine->engineState.clutchDownState = getClutchDownState();
+	engine->clutchUpSwitchedState.update(getClutchUpState());
+	engine->brakePedalSwitchedState.update(getBrakePedalState());
+#if EFI_GPIO_HARDWARE
 	{
 		bool currentState;
 		if (hasAcToggle()) {
@@ -259,7 +282,6 @@ extern bool kAcRequestState;
 			acController.acSwitchLastChangeTimeMs = US2MS(getTimeNowUs());
 		}
 	}
-	engine->clutchUpSwitchedState.update(getClutchUpState());
 
 #if EFI_IDLE_CONTROL
 	if (isBrainPinValid(engineConfiguration->throttlePedalUpPin)) {
@@ -267,7 +289,7 @@ extern bool kAcRequestState;
 	}
 #endif // EFI_IDLE_CONTROL
 
-	engine->brakePedalSwitchedState.update(getBrakePedalState());
+	pokeAuxDigital();
 
 #endif // EFI_GPIO_HARDWARE
 }
@@ -282,7 +304,7 @@ Engine::Engine()
 	, softSparkLimiter(false), hardSparkLimiter(true)
 
 #if EFI_ANTILAG_SYSTEM
-	, ALSsoftSparkLimiter(false)
+//	, ALSsoftSparkLimiter(false)
 #endif /* EFI_ANTILAG_SYSTEM */
 
 #endif // EFI_LAUNCH_CONTROL
@@ -309,6 +331,8 @@ void Engine::resetLua() {
 	engineState.lua.fuelMult = 1;
 	engineState.lua.luaDisableEtb = false;
 	engineState.lua.luaIgnCut = false;
+	engineState.lua.luaFuelCut = false;
+	engineState.lua.disableDecelerationFuelCutOff = false;
 #if EFI_BOOST_CONTROL
 	module<BoostController>().unmock().resetLua();
 #endif // EFI_BOOST_CONTROL
@@ -367,7 +391,7 @@ void Engine::OnTriggerSynchronization(bool wasSynchronized, bool isDecodingError
 		if (isDecodingError) {
 #if EFI_PROD_CODE
 			if (engineConfiguration->verboseTriggerSynchDetails || (triggerCentral.triggerState.someSortOfTriggerError() && !engineConfiguration->silentTriggerError)) {
-				efiPrintf("error: synchronizationPoint @ index %d expected %d/%d got %d/%d",
+				efiPrintf("error: synchronizationPoint @ index %lu expected %d/%d got %d/%d",
 						triggerCentral.triggerState.currentCycle.current_index,
 						triggerCentral.triggerShape.getExpectedEventCount(TriggerWheel::T_PRIMARY),
 						triggerCentral.triggerShape.getExpectedEventCount(TriggerWheel::T_SECONDARY),
@@ -393,6 +417,9 @@ void Engine::injectEngineReferences() {
 }
 
 void Engine::setConfig() {
+#if !EFI_UNIT_TEST
+// huh should this be happy?  static_assert(config != nullptr);
+#endif
 	efi::clear(config);
 
 	injectEngineReferences();
@@ -410,7 +437,7 @@ static void assertTimeIsLinear() {
 			efitimems_t gapInMs = msNow - mostRecentMs;
 			// todo: lower gapInMs threshold?
 			if (gapInMs > 200) {
-				firmwareError(ObdCode::WATCH_DOG_SECONDS, "gap in time: mostRecentMs %dmS, now=%dmS, gap=%dmS",
+				firmwareError(ObdCode::WATCH_DOG_SECONDS, "gap in time: mostRecentMs %lumS, now=%lumS, gap=%lumS",
 					mostRecentMs, msNow, gapInMs);
 			}
 		}

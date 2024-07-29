@@ -11,6 +11,7 @@ import com.rusefi.binaryprotocol.BinaryProtocolState;
 import com.rusefi.binaryprotocol.IncomingDataBuffer;
 import com.rusefi.binaryprotocol.IoHelper;
 import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.util.HexBinary;
 import com.rusefi.io.LinkManager;
 import com.rusefi.io.commands.ByteRange;
@@ -96,7 +97,7 @@ public class BinaryProtocolServer {
     public static ServerSocketReference tcpServerSocket(int port, String threadName, CompatibleFunction<Socket, Runnable> socketRunnableFactory, Listener serverSocketCreationCallback, StatusConsumer statusConsumer) throws IOException {
         return tcpServerSocket(socketRunnableFactory, port, threadName, serverSocketCreationCallback, p -> {
             ServerSocket serverSocket = new ServerSocket(p);
-            statusConsumer.append("ServerSocket " + p + " created. Feel free to point TS at IP Address 'localhost' port " + p);
+            statusConsumer.append("ServerSocket " + p + " created. Feel free to point TS at IP Address 'localhost' port " + p, true, true);
             return serverSocket;
         });
     }
@@ -159,35 +160,35 @@ public class BinaryProtocolServer {
 
             log.info("Got command " + BinaryProtocol.findCommand(command));
 
-            if (command == Fields.TS_HELLO_COMMAND) {
+            if (command == Integration.TS_HELLO_COMMAND) {
                 new HelloCommand(Fields.TS_SIGNATURE).handle(stream);
-            } else if (command == Fields.TS_GET_PROTOCOL_VERSION_COMMAND_F) {
+            } else if (command == Integration.TS_GET_PROTOCOL_VERSION_COMMAND_F) {
                 stream.sendPacket((TS_OK + TS_PROTOCOL).getBytes());
-            } else if (command == Fields.TS_GET_FIRMWARE_VERSION) {
+            } else if (command == Integration.TS_GET_FIRMWARE_VERSION) {
                 stream.sendPacket((TS_OK + "rusEFI proxy").getBytes());
-            } else if (command == Fields.TS_CRC_CHECK_COMMAND) {
+            } else if (command == Integration.TS_CRC_CHECK_COMMAND) {
                 handleCrc(linkManager, stream);
-            } else if (command == Fields.TS_PAGE_COMMAND) {
+            } else if (command == Integration.TS_PAGE_COMMAND) {
                 stream.sendPacket(TS_OK.getBytes());
-            } else if (command == Fields.TS_READ_COMMAND) {
+            } else if (command == Integration.TS_READ_COMMAND) {
                 ByteRange byteRange = ByteRange.valueOf(payload);
                 handleRead(linkManager, byteRange, stream);
-            } else if (command == Fields.TS_CHUNK_WRITE_COMMAND) {
+            } else if (command == Integration.TS_CHUNK_WRITE_COMMAND) {
                 ByteRange byteRange = ByteRange.valueOf(payload);
                 handleWrite(linkManager, payload, byteRange, stream);
-            } else if (command == Fields.TS_BURN_COMMAND) {
+            } else if (command == Integration.TS_BURN_COMMAND) {
                 stream.sendPacket(new byte[]{TS_RESPONSE_BURN_OK});
-            } else if (command == Fields.TS_GET_COMPOSITE_BUFFER_DONE_DIFFERENTLY) {
+            } else if (command == Integration.TS_GET_COMPOSITE_BUFFER_DONE_DIFFERENTLY) {
                 System.err.println("NOT IMPLEMENTED TS_GET_COMPOSITE_BUFFER_DONE_DIFFERENTLY relay");
                 // todo: relay command
                 stream.sendPacket(TS_OK.getBytes());
-            } else if (command == Fields.TS_OUTPUT_COMMAND) {
+            } else if (command == Integration.TS_OUTPUT_COMMAND) {
                 BinaryProtocolState binaryProtocolState = linkManager.getBinaryProtocolState();
                 byte[] currentOutputs = binaryProtocolState.getCurrentOutputs();
 
                 byte[] response = getOutputCommandResponse(payload, currentOutputs);
                 stream.sendPacket(response);
-            } else if (command == Fields.TS_GET_TEXT) {
+            } else if (command == Integration.TS_GET_TEXT) {
                 // todo: relay command
                 System.err.println("NOT IMPLEMENTED TS_GET_TEXT relay");
                 stream.sendPacket(TS_OK.getBytes());
@@ -251,7 +252,7 @@ public class BinaryProtocolServer {
 
     public static int getPacketLength(IncomingDataBuffer in, Handler protocolCommandHandler, int ioTimeout) throws IOException {
         byte first = in.readByte(ioTimeout);
-        if (first == Fields.TS_GET_PROTOCOL_VERSION_COMMAND_F) {
+        if (first == Integration.TS_GET_PROTOCOL_VERSION_COMMAND_F) {
             protocolCommandHandler.handle();
             return 0;
         }

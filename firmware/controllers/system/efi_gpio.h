@@ -29,8 +29,10 @@ public:
 	void setHigh() override;
 	void setLow() override;
 	void reset();
+	// 6000 RPM is 100Hz we can fit a few years worth of sparks into 32 bits, right?
+	// 2_000_000_000 / 100 = 20_000_000 seconds = 231 days?
+	// [tag:duration_limit]
 	int signalFallSparkId;
-	bool outOfOrder; // https://sourceforge.net/p/rusefi/tickets/319/
 	int8_t coilIndex;
 };
 
@@ -44,8 +46,11 @@ public:
 	void init();
 	void unregister();
 	RegisteredOutputPin* const next;
-	const char *registrationName;
+	const char* getRegistrationName() const {
+		return registrationName;
+	}
 private:
+	const char* const registrationName;
 	const uint16_t m_pinOffset;
 	const bool m_hasPinMode;
 	const uint16_t m_pinModeOffset;
@@ -118,6 +123,7 @@ public:
 	OutputPin accelerometerCs;
 
 	InjectorOutputPin injectors[MAX_CYLINDER_COUNT];
+	InjectorOutputPin injectorsStage2[MAX_CYLINDER_COUNT];
 	IgnitionOutputPin coils[MAX_CYLINDER_COUNT];
 	IgnitionOutputPin trailingCoils[MAX_CYLINDER_COUNT];
 	NamedOutputPin auxValve[AUX_DIGITAL_VALVE_COUNT];
@@ -157,12 +163,11 @@ private:
 
 ioportmask_t getHwPin(const char *msg, brain_pin_e brainPin);
 ioportid_t getHwPort(const char *msg, brain_pin_e brainPin);
-ioportid_t * getGpioPorts();
+/* Should return valid pointer in any case, not null, return "unknown" if argument is invalid */
 const char *portname(ioportid_t GPIOx);
 
 #endif /* EFI_GPIO_HARDWARE */
 
-void printSpiConfig(const char *msg, spi_device_e device);
 brain_pin_e parseBrainPin(const char *str);
 
 extern EnginePins enginePins;

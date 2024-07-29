@@ -11,6 +11,7 @@ import com.rusefi.binaryprotocol.BinaryProtocol;
 import com.rusefi.binaryprotocol.IncomingDataBuffer;
 import com.rusefi.binaryprotocol.MsqFactory;
 import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.core.EngineState;
 import com.rusefi.core.Pair;
 import com.rusefi.core.ResponseBuffer;
@@ -56,8 +57,10 @@ public class ConsoleTools {
     private static final StatusConsumer statusListener = new StatusConsumer() {
         final Logging log = getLogging(CANConnectorStartup.class);
         @Override
-        public void append(String message) {
-            log.info(message);
+        public void append(final String message, final boolean breakLineOnTextArea, final boolean sendToLogger) {
+            if (sendToLogger) {
+                log.info(message);
+            }
         }
     };
 
@@ -66,7 +69,6 @@ public class ConsoleTools {
         registerTool("headless", ConsoleTools::runHeadless, "Connect to rusEFI controller and start saving logs.");
         registerTool("basic-ui", BasicStartupFrame::runTool, "Basic UI");
 
-        registerTool("ptrace_enums", ConsoleTools::runPerfTraceTool, "NOT A USER TOOL. Development tool to process performance trace enums");
         registerTool("functional_test", ConsoleTools::runFunctionalTest, "NOT A USER TOOL. Development tool related to functional testing");
         registerTool("convert_binary_configuration_to_xml", ConsoleTools::convertBinaryToXml, "NOT A USER TOOL. Development tool to convert binary configuration into XML form.");
 
@@ -96,8 +98,10 @@ public class ConsoleTools {
         registerTool("version", ConsoleTools::version, "Only print version");
 
         registerTool("lightui", strings -> lightUI(), "Start lightweight GUI for tiny screens");
+/*
+    on the one hand we can do low level DFU programming but c'mon we are not planning to maintain it any day soon!
         registerTool("dfu", DfuTool::run, "Program specified file into ECU via DFU");
-
+*/
         registerTool("local_proxy", ConsoleTools::localProxy, "Detect rusEFI ECU and proxy serial <> TCP");
 
         registerTool("detect", ConsoleTools::detect, "Find attached rusEFI");
@@ -109,9 +113,9 @@ public class ConsoleTools {
                 sendCommand(command);
             }
         }, "Sends command specified as second argument");
-        registerTool("reboot_ecu", args -> sendCommand(Fields.CMD_REBOOT), "Sends a command to reboot rusEFI controller.");
-        registerTool(Fields.CMD_REBOOT_DFU, args -> {
-            sendCommand(Fields.CMD_REBOOT_DFU);
+        registerTool("reboot_ecu", args -> sendCommand(Integration.CMD_REBOOT), "Sends a command to reboot rusEFI controller.");
+        registerTool(Integration.CMD_REBOOT_DFU, args -> {
+            sendCommand(Integration.CMD_REBOOT_DFU);
             /**
              * AndreiKA reports that auto-detect fails to interrupt communication threads while in native code
              * See https://github.com/rusefi/rusefi/issues/3300
@@ -206,11 +210,6 @@ public class ConsoleTools {
         IoStream stream = LinkManager.open(autoDetectedPort);
         byte[] commandBytes = BinaryProtocol.getTextCommandBytes(command);
         stream.sendPacket(commandBytes);
-    }
-
-
-    private static void runPerfTraceTool(String[] args) throws IOException {
-        PerfTraceTool.readPerfTrace(args[1], args[2], args[3], args[4]);
     }
 
     private static void setAuthToken(String[] args) {
@@ -378,7 +377,7 @@ public class ConsoleTools {
         incomingData.getPacket("");
 
         sleep(300);
-        stream.sendPacket(new byte[]{Fields.TS_GET_TEXT});
+        stream.sendPacket(new byte[]{Integration.TS_GET_TEXT});
         sleep(300);
 
         byte[] response = incomingData.getPacket("");

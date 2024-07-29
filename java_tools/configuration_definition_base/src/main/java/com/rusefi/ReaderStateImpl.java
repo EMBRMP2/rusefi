@@ -3,8 +3,10 @@ package com.rusefi;
 import com.devexperts.logging.Logging;
 import com.opensr5.ini.RawIniFile;
 import com.opensr5.ini.field.EnumIniField;
+import com.rusefi.core.Pair;
 import com.rusefi.enum_reader.Value;
 import com.rusefi.output.*;
+import com.rusefi.parse.TokenUtil;
 import com.rusefi.parse.TypesHelper;
 import com.rusefi.util.LazyFile;
 import com.rusefi.util.SystemOut;
@@ -31,6 +33,7 @@ public class ReaderStateImpl implements ReaderState {
     private static final String END_STRUCT = "end_struct";
     private static final String STRUCT_NO_PREFIX = "struct_no_prefix ";
     private static final String STRUCT = "struct ";
+    private static final String VARIABLE_PREFIX = "@@";
     // used to update other files
     private final List<String> inputFiles = new ArrayList<>();
     private final Stack<ConfigStructureImpl> stack = new Stack<>();
@@ -41,7 +44,7 @@ public class ReaderStateImpl implements ReaderState {
     private final LazyFile.LazyFileFactory fileFactory;
     private String headerMessage;
     // well, technically those should be a builder for state, not this state class itself
-    private String tsFileOutputName = "rusefi.ini";
+    private String tsFileOutputName = null;
     private String definitionInputFile = null;
     String destCDefinesFileName = null;
     private boolean withC_Defines = true;
@@ -65,6 +68,7 @@ public class ReaderStateImpl implements ReaderState {
         this.withC_Defines = withC_Defines;
     }
 
+    @Override
     public EnumsReader getEnumsReader() {
         return enumsReader;
     }
@@ -96,7 +100,7 @@ public class ReaderStateImpl implements ReaderState {
         String falseName = bitNameParts.length > 2 ? bitNameParts[2].replaceAll("\"", "") : null;
 
         ConfigFieldImpl bitField = new ConfigFieldImpl(state, bitNameParts[0], comment, null, BOOLEAN_T, new int[0], null, false, false, trueName, falseName);
-        if (state.stack.isEmpty())
+        if (state.isStackEmpty())
             throw new IllegalStateException("Parent structure expected");
         ConfigStructureImpl structure = state.stack.peek();
         structure.addBitField(bitField);
@@ -107,18 +111,22 @@ public class ReaderStateImpl implements ReaderState {
     public void doJob() throws IOException {
 
         for (String prependFile : prependFiles)
-            variableRegistry.readPrependValues(prependFile);
+            variableRegistry.readPrependValues(prependFile, false);
 
         /*
          * this is the most important invocation - here we read the primary input file and generated code into all
          * the destinations/writers
          */
         SystemOut.println("Reading definition from " + Objects.requireNonNull(definitionInputFile));
-        BufferedReader definitionReader = new BufferedReader(readerProvider.read(RootHolder.ROOT + definitionInputFile));
-        readBufferedReader(definitionReader, destinations);
+        String fileNameWithRoot = RootHolder.ROOT + definitionInputFile;
+        try (BufferedReader definitionReader = new BufferedReader(readerProvider.read(fileNameWithRoot))) {
+            readBufferedReader(definitionReader, destinations);
+        } catch (Throwable e) {
+            throw new IllegalStateException("While processing " + fileNameWithRoot, e);
+        }
 
         if (destCDefinesFileName != null) {
-            CHeaderConsumer.writeDefinesToFile(getVariableRegistry(), destCDefinesFileName, definitionInputFile);
+            CHeaderConsumer.writeDefinesToFile(getVariableRegistry(), ConfigDefinitionRootOutputFolder.getValue() + destCDefinesFileName, definitionInputFile);
         }
     }
 
@@ -145,34 +153,42 @@ public class ReaderStateImpl implements ReaderState {
         enumsReader.enums.putAll(newEnums);
     }
 
-    private void handleCustomLine(String line) {
-        line = line.substring(CUSTOM.length() + 1).trim();
-        int index = line.indexOf(' ');
-        String name = line.substring(0, index);
+    private void handleCustomLine(String customLineWithPrefix) {
+        String withoutPrefix = customLineWithPrefix.substring(CUSTOM.length() + 1).trim();
+        Pair<String, String> nameAndRest = TokenUtil.grabFirstTokenAndTheRest(withoutPrefix);
+        String name = nameAndRest.first;
 
         String autoEnumOptions = variableRegistry.getEnumOptionsForTunerStudio(enumsReader, name);
         if (autoEnumOptions != null) {
             variableRegistry.register(name + VariableRegistry.AUTO_ENUM_SUFFIX, autoEnumOptions);
         }
 
-        line = line.substring(index).trim();
-        index = line.indexOf(' ');
-        String customSize = line.substring(0, index);
+        String line = nameAndRest.second;
+        Pair<String, String> sizeAndRest = TokenUtil.grabFirstTokenAndTheRest(line);
+        String customSize = sizeAndRest.first;
 
-        String tunerStudioLine = line.substring(index).trim();
+        String tunerStudioLine = sizeAndRest.second;
         tunerStudioLine = variableRegistry.applyVariables(tunerStudioLine);
         int size = parseSize(customSize, line);
         tsCustomSize.put(name, size);
 
         RawIniFile.Line rawLine = new RawIniFile.Line(tunerStudioLine);
-        //boolean isKeyValueForm = tunerStudioLine.contains("=\"");
         if (rawLine.getTokens()[0].equals("bits")) {
             EnumIniField.ParseBitRange bitRange = new EnumIniField.ParseBitRange().invoke(rawLine.getTokens()[3]);
             int totalCount = 1 << (bitRange.getBitSize0() + 1);
             List<String> enums = Arrays.asList(rawLine.getTokens()).subList(4, rawLine.getTokens().length);
-            // at the moment we read 0=NONE as two tokens, thus enums.size() is divided by two
-            if (enums.size() / 2 > totalCount)
+            boolean isKeyValueSyntax = EnumIniField.EnumKeyValueMap.isKeyValueSyntax(EnumIniField.getEnumValuesSection(tunerStudioLine));
+            int enumCount = isKeyValueSyntax ? enums.size() / 2 : enums.size();
+            if (enumCount > totalCount)
                 throw new IllegalStateException(name + ": Too many options in " + tunerStudioLine + " capacity=" + totalCount + "/size=" + enums.size());
+            boolean looksLikeListVariableSyntax = enumCount == 1;
+            if (!isKeyValueSyntax && !looksLikeListVariableSyntax) {
+                StringBuilder sb = new StringBuilder(tunerStudioLine);
+                for (int i = enumCount; i < totalCount; i++) {
+                    sb.append(", ").append(InvalidConstant.QUOTED_INVALID);
+                }
+                tunerStudioLine = sb.toString();
+            }
 /*
     this does not work right now since smt32 and kinetis enum sizes could be different but same .txt file
     todo: identify relevant bitsizes and use variables for bitsizes?
@@ -209,14 +225,16 @@ public class ReaderStateImpl implements ReaderState {
     }
 
     private void handleEndStruct(List<ConfigurationConsumer> consumers) throws IOException {
-        if (stack.isEmpty())
+        if (isStackEmpty())
             throw new IllegalStateException("Unexpected end_struct");
         ConfigStructureImpl structure = stack.pop();
         if (log.debugEnabled())
             log.debug("Ending structure " + structure.getName());
         structure.addAlignmentFill(this, 4);
 
-        structures.put(structure.getName(), structure);
+        ConfigStructureImpl existing = structures.put(structure.getName(), structure);
+        if (existing != null)
+            throw new IllegalStateException("Same struct again: " + structure.getName());
 
         for (ConfigurationConsumer consumer : consumers)
             consumer.handleEndStruct(this, structure);
@@ -234,11 +252,22 @@ public class ReaderStateImpl implements ReaderState {
         for (ConfigurationConsumer consumer : consumers)
             consumer.startFile();
 
+        List<String> lines = new ArrayList<>();
+        String lineReaded;
+        while ((lineReaded = definitionReader.readLine()) != null) {
+            lineReaded = ToolUtil.trimLine(lineReaded);
+            if (lineReaded.startsWith(VARIABLE_PREFIX)) {
+                String lineExpanded = variableRegistry.applyVariables(lineReaded);
+                String sublines[] = lineExpanded.split("\\r?\\n");
+                lines.addAll(Arrays.asList(sublines));
+            } else {
+                lines.add(lineReaded);
+	        }
+        }
+
         int lineIndex = 0;
-        String line;
-        while ((line = definitionReader.readLine()) != null) {
+        for (final String line : lines) {
             lineIndex++;
-            line = ToolUtil.trimLine(line);
             /**
              * we should ignore empty lines and comments
              */
@@ -258,14 +287,14 @@ public class ReaderStateImpl implements ReaderState {
             } else if (ToolUtil.startsWithToken(line, CUSTOM)) {
                 handleCustomLine(line);
 
-            } else if (ToolUtil.startsWithToken(line, VariableRegistry.DEFINE)) {
+            } else if (VariableRegistry.looksLikeDefineLine(line)) {
                 /**
                  * for example
                  * #define CLT_CURVE_SIZE 16
                  */
-                variableRegistry.processDefine(line.substring(VariableRegistry.DEFINE.length()).trim());
+                variableRegistry.processLine(line);
             } else {
-                if (stack.isEmpty())
+                if (isStackEmpty())
                     throw new IllegalStateException("Expected to be within structure at line " + lineIndex + ": " + line);
                 addBitPadding();
                 processField(this, line);
@@ -277,13 +306,13 @@ public class ReaderStateImpl implements ReaderState {
     }
 
     private void addBitPadding() {
-        ConfigStructureImpl structure = stack.peek();
+        ConfigStructure structure = peek();
         structure.addBitPadding(this);
     }
 
     public void ensureEmptyAfterProcessing() {
-        if (!stack.isEmpty())
-            throw new IllegalStateException("Unclosed structure: " + stack.peek().getName());
+        if (!isStackEmpty())
+            throw new IllegalStateException("Unclosed structure: " + peek().getName());
     }
 
     private static void handleStartStructure(ReaderStateImpl state, String line, boolean withPrefix) {
@@ -297,7 +326,7 @@ public class ReaderStateImpl implements ReaderState {
             name = line;
             comment = null;
         }
-        ConfigStructure parent = state.stack.isEmpty() ? null : state.stack.peek();
+        ConfigStructure parent = state.isStackEmpty() ? null : state.peek();
         ConfigStructureImpl structure = new ConfigStructureImpl(name, comment, withPrefix, parent);
         state.stack.push(structure);
         if (log.debugEnabled())
@@ -318,17 +347,17 @@ public class ReaderStateImpl implements ReaderState {
             }
         }
 
-        if (state.stack.isEmpty())
+        if (state.isStackEmpty())
             throw new IllegalStateException(cf.getName() + ": Not enclosed in a struct");
         ConfigStructureImpl structure = state.stack.peek();
 
-        Integer getPrimitiveSize = TypesHelper.getPrimitiveSize(cf.getType());
-        Integer customTypeSize = state.tsCustomSize.get(cf.getType());
+        Integer getPrimitiveSize = TypesHelper.getPrimitiveSize(cf.getTypeName());
+        Integer customTypeSize = state.tsCustomSize.get(cf.getTypeName());
         if (getPrimitiveSize != null && getPrimitiveSize > 1) {
             if (log.debugEnabled())
                 log.debug("Need to align before " + cf.getName());
             structure.addAlignmentFill(state, getPrimitiveSize);
-        } else if (state.structures.containsKey(cf.getType())) {
+        } else if (state.structures.containsKey(cf.getTypeName())) {
             // we are here for struct members
             structure.addAlignmentFill(state, 4);
         } else if (customTypeSize != null) {
@@ -340,7 +369,7 @@ public class ReaderStateImpl implements ReaderState {
             for (int i = 1; i <= cf.getArraySizes()[0]; i++) {
                 String commentWithIndex = getCommentWithIndex(cf, i);
                 ConfigFieldImpl element = new ConfigFieldImpl(state, cf.getName() + i, commentWithIndex, null,
-                        cf.getType(), new int[0], cf.getTsInfo(), false, cf.isHasAutoscale(), null, null);
+                        cf.getTypeName(), new int[0], cf.getTsInfo(), false, cf.isHasAutoscale(), null, null);
                 element.setFromIterate(cf.getName(), i);
                 structure.addTs(element);
             }
@@ -373,8 +402,8 @@ public class ReaderStateImpl implements ReaderState {
     }
 
     @Override
-    public void addCHeaderDestination(String cHeader) {
-        destinations.add(new CHeaderConsumer(this, cHeader, withC_Defines, fileFactory));
+    public void addCHeaderDestination(String cHeaderFileName) {
+        destinations.add(new CHeaderConsumer(this, ConfigDefinitionRootOutputFolder.getValue() + cHeaderFileName, withC_Defines, fileFactory));
     }
 
     public void addJavaDestination(String fileName) {
@@ -387,8 +416,13 @@ public class ReaderStateImpl implements ReaderState {
             // see LiveDataProcessor use-case with dynamic prepend usage
             return;
         }
-        prependFiles.add(fileName);
         inputFiles.add(fileName);
+        addPrependNotInput(fileName);
+    }
+
+    @Override
+    public void addPrependNotInput(String fileName) {
+        prependFiles.add(fileName);
     }
 
     @Override
@@ -433,11 +467,6 @@ public class ReaderStateImpl implements ReaderState {
     @Override
     public void setTsFileOutputName(String tsFileOutputName) {
         this.tsFileOutputName = tsFileOutputName;
-    }
-
-    @Override
-    public List<String> getPrependFiles() {
-        return prependFiles;
     }
 
     @Override

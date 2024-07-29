@@ -24,9 +24,15 @@ public class PcanConnectorUI {
         JTextArea logTextArea = new JTextArea();
         panel.add(logTextArea, BorderLayout.CENTER);
 
-        StatusConsumer statusConsumer = string -> SwingUtilities.invokeLater(() -> {
-            log.info(string);
-            logTextArea.append(string + "\r\n");
+        StatusConsumer statusConsumer = (string, breakLineOnTextArea, sendToLogger) -> SwingUtilities.invokeLater(() -> {
+            if (sendToLogger) {
+                log.info(string);
+            }
+            String stringForTextArea = string;
+            if (breakLineOnTextArea) {
+                stringForTextArea += "\r\n";
+            }
+            logTextArea.append(stringForTextArea);
             UiUtils.trueLayout(logTextArea);
         });
 
@@ -36,7 +42,7 @@ public class PcanConnectorUI {
                 if (stream != null)
                     CANConnectorStartup.start(stream, statusConsumer);
             } catch (IOException e) {
-                statusConsumer.append("Error " + e);
+                statusConsumer.append("Error " + e, true, true);
             }
         }).start();
 

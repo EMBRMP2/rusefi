@@ -1,6 +1,7 @@
 package com.rusefi;
 
 import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.io.IoStream;
 import com.rusefi.io.commands.GetOutputsCommand;
 import com.rusefi.io.commands.HelloCommand;
@@ -14,8 +15,8 @@ import com.rusefi.server.*;
 import com.rusefi.tools.online.HttpUtil;
 import com.rusefi.tools.online.ProxyClient;
 import com.rusefi.tools.online.PublicSession;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 import static com.rusefi.TestHelper.assertLatch;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * integration test of the rusEFI online backend process
@@ -33,7 +34,7 @@ import static org.junit.Assert.assertEquals;
  * https://github.com/rusefi/web_backend/blob/master/documentation/rusEFI%20remote.png
  */
 public class ServerTest {
-    @Before
+    @BeforeEach
     public void setup() throws MalformedURLException {
         BackendTestHelper.commonServerTest();
     }
@@ -203,7 +204,7 @@ covered by FullServerTest
                 protected void handleCommand(BinaryProtocolServer.Packet packet, TcpIoStream stream) throws IOException {
                     super.handleCommand(packet, stream);
 
-                    if (packet.getPacket()[0] == Fields.TS_OUTPUT_COMMAND) {
+                    if (packet.getPacket()[0] == Integration.TS_OUTPUT_COMMAND) {
                         GetOutputsCommand.sendOutput(stream);
                     }
                 }
