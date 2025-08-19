@@ -6,11 +6,14 @@
 set -e
 
 SHORT_BOARD_NAME=${1:-$SHORT_BOARD_NAME}
+SCRIPT_NAME=$(basename "$0")
 
 cd $(dirname "$0")
 
-SIGNATURE_FILE_NAME=tunerstudio/generated/signature_${SHORT_BOARD_NAME}.txt
-echo "Generating signature for ${SHORT_BOARD_NAME}"
+SIGNATURE_FILE_FOLDER=${META_OUTPUT_ROOT_FOLDER}tunerstudio/generated
+mkdir -p ${SIGNATURE_FILE_FOLDER}
+SIGNATURE_FILE_NAME=${SIGNATURE_FILE_FOLDER}/signature_${SHORT_BOARD_NAME}.txt
+echo "Generating signature for ${SHORT_BOARD_NAME} file $SIGNATURE_FILE_NAME"
 
 TEMP_FILE="${SIGNATURE_FILE_NAME}.temp"
 
@@ -25,9 +28,9 @@ branchname=`git branch --show-current`
 if [ "${branchname}" = "" ]; then
  # custom board, empty value while executed within submodule
  branchname=${AUTOMATION_REF}
- echo "! Using env variable branch $branchname" >> ${TEMP_FILE}
+ echo "! ${SCRIPT_NAME} Using env variable branch [$branchname]" | tee >> ${TEMP_FILE}
 else
- echo "! Current branch is: $branchname" >> ${TEMP_FILE}
+ echo "! ${SCRIPT_NAME} Current branch is: $branchname" | tee >> ${TEMP_FILE}
 fi
 
 if [ -z "${signature_white_label}"  ]; then
@@ -39,7 +42,7 @@ echo "#define TS_SIGNATURE \"${signature_white_label} $branchname.$date.${SHORT_
 # We will generate the signature in a temp file, then only use it if it has changed.
 # This is to avoid updating the timestamp of the signature file, which would cause the configs to regenerate when they don't need to.
 # cmp compares files to see if they are different. If they are different or if SIGNATURE_FILE_NAME doesn't exist, the mv command will run.
-# We redirect errors to /dev/null to supress the error if SIGNATURE_FILE_NAME doesn't exist
+# We redirect errors to /dev/null to suppress the error if SIGNATURE_FILE_NAME doesn't exist
 cmp ${TEMP_FILE} ${SIGNATURE_FILE_NAME} 2>/dev/null || mv -f ${TEMP_FILE} ${SIGNATURE_FILE_NAME}
 rm -f ${TEMP_FILE}
 

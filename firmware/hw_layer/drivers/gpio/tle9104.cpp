@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "gpio/gpio_ext.h"
 #include "gpio/tle9104.h"
+#include "ign_voltage_gatekeeper.h"
 
 #if defined(BOARD_TLE9104_COUNT) && BOARD_TLE9104_COUNT > 0
 
@@ -18,7 +19,7 @@
 
 #define DRIVER_NAME					"tle9104"
 
-/* TODO: aling with WD settings */
+/* TODO: align with WD settings */
 #define TLE9104_POLL_INTERVAL_MS	100
 
 static bool drv_task_ready = false;
@@ -125,13 +126,12 @@ static bool parityBit(uint16_t val) {
 #endif
 }
 
-int Tle9104::spi_validate(uint16_t rx)
-{
+int Tle9104::spi_validate(uint16_t rx) {
 	/* with parity bit included */
 	bool parityOk = !parityBit(rx);
 	if (!parityOk) {
 		spi_parity_err_cnt++;
-		return -1;
+		return -53;
 	}
 
 	if (rx & TLE9104_FAULT_GLOBAL) {
@@ -296,8 +296,9 @@ int Tle9104::chip_init() {
 SEMAPHORE_DECL(tle9104_wake, 10 /* or BOARD_TLE9104_COUNT ? */);
 static THD_WORKING_AREA(tle9104_thread_1_wa, 256);
 
-static THD_FUNCTION(tle9104_driver_thread, p)
-{
+static IgnVoltageGatekeeper gatekeeper;
+
+static THD_FUNCTION(tle9104_driver_thread, p) {
 	int i;
 	msg_t msg;
 
@@ -306,6 +307,11 @@ static THD_FUNCTION(tle9104_driver_thread, p)
 	chRegSetThreadName(DRIVER_NAME);
 
 	while(1) {
+  	if (!gatekeeper.haveVoltage()) {
+  	  chThdSleepMilliseconds(300);
+      return;
+    }
+
 		msg = chSemWaitTimeout(&tle9104_wake, TIME_MS2I(TLE9104_POLL_INTERVAL_MS));
 
 		/* should we care about msg == MSG_TIMEOUT? */
@@ -337,11 +343,14 @@ static THD_FUNCTION(tle9104_driver_thread, p)
 /*==========================================================================*/
 
 int Tle9104::writePad(size_t pin, int value) {
+  auto port = cfg->direct_io[pin].port;
+  efiAssert(ObdCode::CUSTOM_ERR_ASSERT, port != nullptr, "unused 9104 port", -1);
+
 	// Inverted since TLE9104 is active low (low level to turn on output)
 	if (value) {
-		palClearPad(cfg->direct_io[pin].port, cfg->direct_io[pin].pad);
+		palClearPad(port, cfg->direct_io[pin].pad);
 	} else {
-		palSetPad(cfg->direct_io[pin].port, cfg->direct_io[pin].pad);
+		palSetPad(port, cfg->direct_io[pin].pad);
 	}
 
 	return 0;
@@ -494,8 +503,13 @@ int Tle9104::init() {
 	m_resn.setValue(false);
 
 	/* TODO: ensure all direct_io pins valid, otherwise support manipulationg output states over SPI */
-	for (int i = 0; i < 4; i++) {
-		gpio_pin_markUsed(cfg->direct_io[i].port, cfg->direct_io[i].pad, DRIVER_NAME " Direct IO");
+	for (int i = 0; i < TLE9204_OUT_COUNT; i++) {
+	  auto port = cfg->direct_io[i].port;
+	  if (port == nullptr) {
+	    // skipping unused io
+	    continue;
+	  }
+		gpio_pin_markUsed(port, cfg->direct_io[i].pad, DRIVER_NAME " Direct IO");
 		palSetPadMode(cfg->direct_io[i].port, cfg->direct_io[i].pad, PAL_MODE_OUTPUT_PUSHPULL);
 
 		// Ensure all outputs are off
@@ -517,7 +531,7 @@ int Tle9104::init() {
 	}
 	// No chip detected if ID is wrong
 	if (id != 0xB1) {
-		return -1;
+		return -54;
 	}
 
 	ret = chip_init();
@@ -541,8 +555,8 @@ int tle9104_add(Gpio base, int index, const tle9104_config* cfg) {
 	Tle9104& chip = chips[index];
 
 	/* already added? */
-	if (chip.cfg != NULL) {
-		return -1;
+	if (chip.cfg != nullptr) {
+		return -52;
 	}
 
 	chip.cfg = cfg;
@@ -551,10 +565,19 @@ int tle9104_add(Gpio base, int index, const tle9104_config* cfg) {
 	return gpiochip_register(base, DRIVER_NAME, chip, 4);
 }
 
+void initAll9104(const tle9104_config *configs) {
+  for (int chipIndex = 0;chipIndex < BOARD_TLE9104_COUNT;chipIndex++) {
+	  int ret = tle9104_add((Gpio)(Gpio::TLE9104_0_OUT_0 + TLE9204_OUT_COUNT * chipIndex), chipIndex, &configs[chipIndex]);
+	  if (ret < 0) {
+	    criticalError("tle9104_add");
+	  }
+	}
+}
+
 #else // BOARD_TLE9104_COUNT > 0
 
 int tle9104_add(Gpio, int, const tle9104_config*) {
-	return -1;
+	return -222;
 }
 
 #endif // BOARD_TLE9104_COUNT

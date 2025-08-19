@@ -2,15 +2,15 @@ package com.rusefi.ldmp;
 
 import com.rusefi.ToolUtil;
 import com.rusefi.output.FileJavaFieldsConsumer;
-import com.rusefi.util.LazyFile;
 
-import java.io.IOException;
 import java.util.Date;
 
 import static com.rusefi.VariableRegistry.quote;
-import static com.rusefi.ldmp.LiveDataProcessor.tempLimit;
 
-public class StateDictionaryGenerator implements LiveDataProcessor.EntryHandler {
+/**
+ * generator for {@link StateDictionaryFactory}
+ */
+ public class StateDictionaryGenerator {
     public final StringBuilder content = new StringBuilder();
     private final String yamlFileName;
 
@@ -18,13 +18,12 @@ public class StateDictionaryGenerator implements LiveDataProcessor.EntryHandler 
         this.yamlFileName = yamlFileName;
     }
 
-    @Override
-    public void onEntry(String name, String javaName, String folder, String prepend, boolean withCDefines, String[] outputNames, String constexpr, String conditional, String engineModule, Boolean isPtr, String cppFileName) throws IOException {
+    public void onEntry(String name, String javaName, String[] outputNames, String cppFileName) {
 
         if (outputNames.length < 2) {
             append(name, javaName, cppFileName, "");
         } else {
-            for (int i = 0; i < tempLimit(outputNames); i++) {
+            for (int i = 0; i < outputNames.length; i++) {
                 append(name, javaName, cppFileName, Integer.toString(i));
             }
         }
@@ -34,7 +33,7 @@ public class StateDictionaryGenerator implements LiveDataProcessor.EntryHandler 
         content.append("        stateDictionary.register(live_data_e.LDS_");
         content.append(name).append(suffix).append(", ");
 
-        content.append(FileJavaFieldsConsumer.remoteExtension(javaName)).append(".VALUES, ");
+ //       content.append(FileJavaFieldsConsumer.remoteExtension(javaName)).append(".VALUES, ");
         content.append(quote(cppFileName));
         content.append(");\n");
     }

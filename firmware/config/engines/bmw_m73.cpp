@@ -76,7 +76,6 @@
 
 #include "bmw_m73.h"
 #include "custom_engine.h"
-#include "hip9011_logic.h"
 
 #if EFI_ELECTRONIC_THROTTLE_BODY
 #include "electronic_throttle.h"
@@ -110,7 +109,7 @@ void m73engine() {
 	engineConfiguration->ignitionMode = IM_TWO_COILS;
 
 	// set cranking_fuel x
-	engineConfiguration->cranking.baseFuel = 27;
+	setTable(config->crankingCycleBaseFuel, 27);
 
 	engineConfiguration->crankingTimingAngle = 15;
 	setTable(config->veTable, 45);
@@ -121,6 +120,7 @@ void m73engine() {
 
 // BMW_M73_F
 void setBMW_M73_TwoCoilUnitTest() {
+	engineConfiguration->camInputs[0] = Gpio::A0; // a random unused pin needed for happy HW CI
 	// twoCoil configuration without unit tests ETB setup drama
 	m73engine();
 }
@@ -172,17 +172,9 @@ void setEngineBMW_M73_Proteus() {
 
 	strcpy(engineConfiguration->vehicleName, "Using Proteus");
 
-	// set_trigger_input_pin 0 PE7
 	engineConfiguration->triggerInputPins[0] = PROTEUS_VR_1;
 
-	// Gpio::E11: "Digital 2"
 	engineConfiguration->camInputs[0] = PROTEUS_DIGITAL_2;
-
-	// set vbatt_divider 8.16
-	// engineConfiguration->vbattDividerCoeff = (49.0f / 10.0f) * 16.8f / 10.0f;
-	// todo: figure out exact values from TLE8888 breakout board used by Manhattan
-	// engineConfiguration->vbattDividerCoeff = 7.6; // is that Proteus 0.2 value?
-
 
 	// no idea why https://github.com/rusefi/rusefi/wiki/HOWTO-M73-v12-on-Proteus uses non default CLT pin
 //	engineConfiguration->clt.adcChannel = PROTEUS_IN_ANALOG_TEMP_4;

@@ -13,7 +13,7 @@ namespace {
     using AlternatorVoltageTargetValues = float[ALTERNATOR_VOLTAGE_TARGET_SIZE][ALTERNATOR_VOLTAGE_TARGET_SIZE];
     using AlternatorVoltageTargetBins = uint16_t[ALTERNATOR_VOLTAGE_TARGET_SIZE];
 
-    class AlternatorVoltageTargetSetPointTest : public TestBase {
+    class AlternatorVoltageTargetSetPointTest : public TestBase<> {
     protected:
         virtual void SetUp() override;
 
@@ -24,7 +24,7 @@ namespace {
         void enableAlternatorControl();
         void disableAlternatorControl();
 
-        void setRpmAndLoad(const int rpm, const float load);
+        void setRpmAndLoad(const float rpm, const float load);
 
         expected<float> getSetpoint();
     private:
@@ -70,7 +70,7 @@ namespace {
         engineConfiguration->isAlternatorControlEnabled = false;
     }
 
-    void AlternatorVoltageTargetSetPointTest::setRpmAndLoad(const int rpm, const float load = TEST_LOAD) {
+    void AlternatorVoltageTargetSetPointTest::setRpmAndLoad(const float rpm, const float load = TEST_LOAD) {
         Sensor::setMockValue(SensorType::Rpm, rpm);
         engine->engineState.fuelingLoad = load;
     }

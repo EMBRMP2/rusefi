@@ -3,7 +3,6 @@ package com.rusefi.simulator;
 import com.devexperts.logging.Logging;
 import com.rusefi.IoUtil;
 import com.rusefi.Timeouts;
-import com.rusefi.config.generated.Fields;
 import com.rusefi.config.generated.Integration;
 import com.rusefi.core.Sensor;
 import com.rusefi.core.SensorCentral;
@@ -57,7 +56,7 @@ public class SimulatorFunctionalTest {
         ecu.sendCommand(getDisableCommand(Integration.CMD_SELF_STIMULATION));
         IoUtil.awaitRpm(0);
 
-        testOutputPin(bench_mode_e.BENCH_VVT0_VALVE, Fields.BENCH_VVT_DURATION);
+        testOutputPin(bench_mode_e.BENCH_VVT0_VALVE, Integration.BENCH_VVT_DURATION);
     }
 
     private void assertHappyTriggerSimulator() throws InterruptedException {
@@ -176,7 +175,7 @@ public class SimulatorFunctionalTest {
                                          byte subCommand) throws InterruptedException {
         CountDownLatch gotCan = new CountDownLatch(1);
         byte [][] packets = new byte [1][];
-        packets[0] = getCanFrameData(bench_test_packet_ids_e.IO_CONTROL.get(),
+        packets[0] = getCanFrameData(bench_test_packet_ids_e.HW_QC_IO_CONTROL.get(),
                 new byte [] {
                         (byte)bench_test_magic_numbers_e.BENCH_HEADER.get(),
                         (byte)command.get(),

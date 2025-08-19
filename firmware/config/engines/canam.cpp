@@ -1,5 +1,8 @@
 
 #include "pch.h"
+
+#if HW_PROTEUS || HW_HELLEN
+
 #include "defaults.h"
 #include "proteus_meta.h"
 #include "canam.h"
@@ -51,8 +54,6 @@ void setMaverickX3() {
     engineConfiguration->idlePidDeactivationTpsThreshold = 2;
     engineConfiguration->useSeparateAdvanceForIdle = true;
     engineConfiguration->vvtControlMinRpm = 2000;
-    engineConfiguration->overrideCrankingIacSetting = true;
-    engineConfiguration->requireFootOnBrakeToCrank = true;
 
     engineConfiguration->startButtonSuppressOnStartUpMs = 1000;
     engineConfiguration->vssToothCount = 10;
@@ -112,3 +113,5 @@ void setMaverickX3() {
 #endif // HW_PROTEUS
 
 }
+
+#endif // HW_PROTEUS || HW_HELLEN

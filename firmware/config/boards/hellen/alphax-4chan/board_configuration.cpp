@@ -11,6 +11,7 @@
 #include "pch.h"
 #include "hellen_meta.h"
 #include "defaults.h"
+#include "board_overrides.h"
 
 static OutputPin alphaTachPullUp;
 static OutputPin alphaTempPullUp;
@@ -49,9 +50,9 @@ static void setupDefaultSensorInputs() {
 //	engineConfiguration->triggerInputPins[1] = Gpio::H144_IN_CAM;
 	engineConfiguration->camInputs[0] = Gpio::Unassigned;
 
-	setTPS1Inputs(H144_IN_TPS, H144_IN_AUX1);
+	setTPS1Inputs(H144_IN_TPS, H144_IN_AUX1_ANALOG);
 
-	setPPSInputs(H144_IN_PPS, H144_IN_AUX2);
+	setPPSInputs(H144_IN_PPS, H144_IN_AUX2_ANALOG);
 
 	// random values to have valid config
 	engineConfiguration->tps1SecondaryMin = 1000;
@@ -76,7 +77,7 @@ static bool is_F_OrOlder() {
 #endif
 }
 
-void boardInitHardware() {
+static void alphax_4chan_boardInitHardware() {
 	alphaTachPullUp.initPin("a-tach", Gpio::H144_OUT_IO1);
 	alphaTempPullUp.initPin("a-temp", Gpio::H144_OUT_IO4);
 	alphaCrankPPullUp.initPin("a-crank-p", Gpio::H144_OUT_IO2);
@@ -95,7 +96,6 @@ void boardInitHardware() {
 
 	alphaD4PullDown.initPin("a-d4", Gpio::H144_LS_7);
 	alphaD5PullDown.initPin("a-d5", Gpio::H144_LS_8);
-	boardOnConfigurationChange(nullptr);
 }
 
 void boardOnConfigurationChange(engine_configuration_s * /*previousConfiguration*/) {
@@ -115,7 +115,7 @@ void boardOnConfigurationChange(engine_configuration_s * /*previousConfiguration
 
 
 
-void setBoardConfigOverrides() {
+static void alphax_4chan_ConfigOverrides() {
 	setHellenVbatt();
 
     if (is_F_OrOlder()) {
@@ -139,7 +139,7 @@ void setBoardConfigOverrides() {
  *
 
  */
-void setBoardDefaultConfiguration() {
+static void alphax_4chan_defaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
 	setupTLE9201(/*controlPin*/Gpio::H144_OUT_PWM2, /*directionPin1*/Gpio::H144_GP_IO1, /*disablePin*/Gpio::H144_GP_IO2);
@@ -212,4 +212,10 @@ Gpio* getBoardMetaOutputs() {
 
 int getBoardMetaDcOutputsCount() {
     return 1;
+}
+
+void setup_custom_board_overrides() {
+	custom_board_InitHardware = alphax_4chan_boardInitHardware;
+	custom_board_DefaultConfiguration = alphax_4chan_defaultConfiguration;
+	custom_board_ConfigOverrides = alphax_4chan_ConfigOverrides;
 }

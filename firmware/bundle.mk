@@ -8,6 +8,8 @@ endif
 ifeq ($(UNAME_S),)
 	UNAME_S = $(shell uname -s)
 endif
+
+# *** KLUDGE ***: we do not include DFU files into bundle but we require DFU for checksum manipulations
 ifneq (,$(findstring NT,$(UNAME_S)))
 	H2D = ../misc/encedo_hex2dfu/hex2dfu.exe
 else
@@ -29,13 +31,23 @@ endif
 # This weird if statement structure is because Make doesn't have &&
 ifeq ($(AUTOMATION_LTS),true)
 ifneq (,$(AUTOMATION_REF))
-  FOLDER = rusefi.$(AUTOMATION_REF).$(BUNDLE_NAME)
+  BRANCH_PART_OF_FOLDER=$(AUTOMATION_REF)
+  BRANCH_REF_FOR_BUNDLE=$(AUTOMATION_REF)
 else
-  FOLDER = rusefi.lts_unknown.$(BUNDLE_NAME)
+  BRANCH_PART_OF_FOLDER=lts_unknown
+  BRANCH_REF_FOR_BUNDLE=lts_unknown
 endif
 else
-  FOLDER = rusefi.snapshot.$(BUNDLE_NAME)
+  # todo: (as long as not Windows linux?) invoke bin/find_branch_name_or_snapshot.sh instead?
+  BRANCH_PART_OF_FOLDER=snapshot
+  BRANCH_REF_FOR_BUNDLE=development
 endif
+
+# todo: replace all usages of $(FOLDER) with $(STAGING_FOLDER) just to make code search simpler
+FOLDER         = rusefi.$(BRANCH_PART_OF_FOLDER).$(BUNDLE_NAME)
+STAGING_FOLDER = rusefi.$(BRANCH_PART_OF_FOLDER).$(BUNDLE_NAME)
+
+BRANCH_REF_FILE = $(STAGING_FOLDER)/release.txt
 
 DELIVER = deliver
 ARTIFACTS = ../artifacts
@@ -61,16 +73,16 @@ ifneq ($(BUNDLE_SIMULATOR),false)
 endif
 
 UPDATE_CONSOLE_FOLDER_SOURCES = \
-  $(CONSOLE_OUT) \
-  $(AUTOUPDATE_OUT)
+  $(CONSOLE_JAR) \
+  $(BRANCH_REF_FILE) \
+  $(TS_PLUGIN_LAUNCHER_JAR) \
+  $(AUTOUPDATE_JAR)
 
 # todo: remove BootCommander.exe once https://github.com/rusefi/rusefi/issues/6358 is done
 
 CONSOLE_FOLDER_SOURCES = \
   ../misc/console_launcher/rusefi_autoupdate.exe \
   ../misc/console_launcher/rusefi_console.exe \
-  ../misc/install/openocd \
-  ../misc/install/STM32_Programmer_CLI \
   $(wildcard ../java_console/*.dll) \
   ../firmware/ext/openblt/Host/libopenblt.dll \
   ../firmware/ext/openblt/Host/BootCommander.exe \
@@ -80,6 +92,15 @@ CONSOLE_FOLDER_SOURCES = \
   ../firmware/ext/openblt/Host/libopenblt_jni.so \
   ../firmware/ext/openblt/Host/libopenblt_jni.dylib \
   $(SIMULATOR_EXE)
+
+# yes, this one is inverted
+ifneq ($(DO_NOT_BUNDLE_STM32_PROG),yes)
+  CONSOLE_FOLDER_SOURCES += ../misc/install/STM32_Programmer_CLI
+endif
+
+ifeq ($(BUNDLE_OPENOCD),yes)
+  CONSOLE_FOLDER_SOURCES += ../misc/install/openocd
+endif
 
 BOOTLOADER_BIN = bootloader/blbuild/openblt_$(PROJECT_BOARD).bin
 BOOTLOADER_HEX = bootloader/blbuild/openblt_$(PROJECT_BOARD).hex
@@ -164,8 +185,11 @@ $(FIRMWARE_BIN_OUT) $(FOLDER)/$(PROJECT).dfu: $(FOLDER)/%: $(DELIVER)/% | $(FOLD
 
 HEX_BASE_ADDRESS = "0x$(shell $(OD) -h -j .vectors $(BUILDDIR)/$(PROJECT).elf | awk '/.vectors/ {print $$5 }')"
 ifeq ($(USE_OPENBLT),yes)
+  # note how bootloader_size from .ld file is hard-coded here!
 	CHECKSUM_ADDRESS = 0x0800801C
 else
+  # by the way '1C' is the magic address of first reserved DWORD in vector table
+  # by the way hex2dfu lower-case '-c' would also write binary length in second DWORD
 	CHECKSUM_ADDRESS = 0x0800001C
 endif
 
@@ -174,13 +198,15 @@ $(BUILDDIR)/rusefi.srec: $(BUILDDIR)/$(PROJECT).hex
 	$(H2D) -i $< -c $(CHECKSUM_ADDRESS) -b $(DBIN_CRC)
 	$(CP) -I binary -O srec --change-addresses=$(HEX_BASE_ADDRESS) $(DBIN_CRC) $@
 
-# The DFU is currenly not included in the bundle, so these prerequisites are listed as order-only to avoid building it.
+# The DFU is currently not included in the bundle, so these prerequisites are listed as order-only to avoid building it.
 # If you want it, you can build it with `make rusefi.snapshot.$BUNDLE_NAME/rusefi.dfu`
 $(DFU) $(DBIN): .h2d-sentinel ;
 
 .h2d-sentinel: $(BUILDDIR)/$(PROJECT).hex $(BOOTLOADER_HEX_OUT) $(BINSRC) | $(DELIVER)
 ifeq ($(USE_OPENBLT),yes)
 	$(H2D) -i $(BOOTLOADER_HEX) -i $(BUILDDIR)/$(PROJECT).hex -c $(CHECKSUM_ADDRESS) -o $(DFU) -b $(DBIN)
+	# TODO: handle .dfu file which is only used by Linux consumers!
+	bin/set_bl_bin_version.sh $(DBIN)
 else
 	$(H2D) -i $(BUILDDIR)/$(PROJECT).hex -c $(CHECKSUM_ADDRESS) -o $(DFU)
 	cp $(BUILDDIR)/$(PROJECT).bin $(DBIN)
@@ -196,20 +222,28 @@ OBFUSCATED_OUT = \
 $(OBFUSCATED_OUT): .obfuscated-sentinel
 
 .obfuscated-sentinel: $(BUILDDIR)/$(PROJECT).bin
+	[ -z "$(POST_BUILD_SCRIPT)" ] || echo "Invoking POST_BUILD_SCRIPT $(POST_BUILD_SCRIPT)"
+	[ ! -z "$(POST_BUILD_SCRIPT)" ] || echo "Not Invoking POST_BUILD_SCRIPT"
 	[ -z "$(POST_BUILD_SCRIPT)" ] || bash $(POST_BUILD_SCRIPT) $(BUILDDIR)/$(PROJECT).bin $(OBFUSCATED_OUT)
 	@touch $@
 
 $(ST_DRIVERS): | $(DRIVERS_FOLDER)
 	wget https://rusefi.com/build_server/st_files/silent_st_drivers2.exe -P $(dir $@)
 
-$(DELIVER) $(ARTIFACTS) $(FOLDER) $(CONSOLE_FOLDER) $(DRIVERS_FOLDER):
+$(DELIVER) $(ARTIFACTS) $(STAGING_FOLDER) $(CONSOLE_FOLDER) $(DRIVERS_FOLDER):
 	mkdir -p $@
+
+$(BRANCH_REF_FILE):
+	cp $(PROJECT_DIR)/../release.txt $(BRANCH_REF_FILE)
+	echo "platform=$(BUNDLE_NAME)" >> $(BRANCH_REF_FILE) ; echo "release=$(BRANCH_REF_FOR_BUNDLE)" >> $(BRANCH_REF_FILE)
 
 $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME).zip: $(BUNDLE_FILES) | $(ARTIFACTS)
 	zip -r $@ $(BUNDLE_FILES)
+	[ -z "$(POST_ZIP_SCRIPT)" ] || bash $(POST_ZIP_SCRIPT)
 
 $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_obfuscated_public.zip:  $(OBFUSCATED_OUT) $(BUNDLE_FILES) | $(ARTIFACTS)
 	zip -r $@ $(FULL_BUNDLE_CONTENT) $(MOST_COMMON_BUNDLE_FILES) $(OBFUSCATED_SREC)
+	[ -z "$(POST_O_ZIP_SCRIPT)" ] || bash $(POST_O_ZIP_SCRIPT)
 
 # The autopdate zip doesn't have a folder with the bundle contents
 $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_autoupdate.zip: $(UPDATE_BUNDLE_FILES) | $(ARTIFACTS)
@@ -218,12 +252,12 @@ $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_autoupdate.zip: $(UPDATE_BUNDLE_FILES) |
 $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_obfuscated_public_autoupdate.zip:  $(OBFUSCATED_OUT) $(BUNDLE_FILES) | $(ARTIFACTS)
 	cd $(FOLDER) &&	zip -r ../$@ $(subst $(FOLDER)/,,$(MOST_COMMON_BUNDLE_FILES)) $(subst $(FOLDER)/,,$(OBFUSCATED_SREC))
 
-.PHONY: bundle bundles autoupdate obfuscated bin hex dfu map elf list srec bootloader
+.PHONY: bundle build_both_bundles autoupdate obfuscated bin hex dfu map elf list srec bootloader
 
 bundle: $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME).zip
 autoupdate: $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_autoupdate.zip
 obfuscated: $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_obfuscated_public.zip $(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_obfuscated_public_autoupdate.zip
-bundles: bundle autoupdate
+build_both_bundles: bundle autoupdate
 
 bootloader: $(BOOTLOADER_BIN)
 

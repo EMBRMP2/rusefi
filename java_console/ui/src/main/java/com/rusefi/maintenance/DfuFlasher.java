@@ -1,17 +1,15 @@
 package com.rusefi.maintenance;
 
-import com.rusefi.FileLog;
-import com.rusefi.Launcher;
-import com.rusefi.Timeouts;
+import com.rusefi.*;
 import com.rusefi.autodetect.PortDetector;
 import com.rusefi.autodetect.SerialAutoChecker;
 import com.rusefi.config.generated.Integration;
 import com.rusefi.core.FindFileHelper;
-import com.rusefi.config.generated.Fields;
-import com.rusefi.io.DfuHelper;
+import com.rusefi.io.BootloaderHelper;
 import com.rusefi.io.IoStream;
 import com.rusefi.io.UpdateOperationCallbacks;
 import com.rusefi.io.serial.BufferedSerialIoStream;
+import com.rusefi.maintenance.jobs.JobHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,10 +19,8 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 import static com.rusefi.core.FindFileHelper.INPUT_FILES_PATH;
 
@@ -32,6 +28,8 @@ import static com.rusefi.core.FindFileHelper.INPUT_FILES_PATH;
  * @see StLinkFlasher
  */
 public class DfuFlasher {
+    //private static final Logging log = getLogging(DfuFlasher.class);
+
     public static final String BOOTLOADER_BIN_FILE = INPUT_FILES_PATH + "/" + "openblt.bin";
     private static final String DFU_CMD_TOOL_LOCATION = Launcher.TOOLS_PATH + File.separator + "STM32_Programmer_CLI/bin";
     private static final String DFU_CMD_TOOL = "STM32_Programmer_CLI.exe";
@@ -41,28 +39,50 @@ public class DfuFlasher {
         return new File(BOOTLOADER_BIN_FILE).exists();
     }
 
-    public static void doAutoDfu(JComponent parent, String port, UpdateOperationCallbacks callbacks) {
+    public static boolean doAutoDfu(
+        final JComponent parent,
+        final String port,
+        final UpdateOperationCallbacks callbacks, ConnectivityContext connectivityContext
+    ) {
+        return CalibrationsHelper.updateFirmwareAndRestorePreviousCalibrations(
+            parent,
+            port,
+            callbacks,
+            () -> dfuUpdateFirmware(parent, port, callbacks), connectivityContext
+        );
+    }
+
+    private static boolean dfuUpdateFirmware(
+        final JComponent parent,
+        final String port,
+        final UpdateOperationCallbacks callbacks
+    ) {
         if (port == null) {
             JOptionPane.showMessageDialog(parent, "Failed to locate serial ports");
-            return;
+            return false;
         }
 
         AtomicBoolean isSignatureValidated = rebootToDfu(parent, port, callbacks, Integration.CMD_REBOOT_DFU);
         if (isSignatureValidated == null)
-            return;
+            return false;
         if (isSignatureValidated.get()) {
             if (!FileLog.isWindows()) {
-                callbacks.appendLine("Switched to DFU mode!");
-                callbacks.appendLine("rusEFI console can only program on Windows");
-                return;
+                callbacks.logLine("Switched to DFU mode!");
+                callbacks.logLine("rusEFI console can only program on Windows");
+                return false;
             }
 
-            submitAction(() -> {
+            timeForDfuSwitch(callbacks);
+            if (executeDFU(callbacks, FindFileHelper.findFirmwareFile())) {
+                // We need to wait to allow connection to ECU port (see #7403)
                 timeForDfuSwitch(callbacks);
-                executeDFU(callbacks, FindFileHelper.FIRMWARE_BIN_FILE);
-            });
+                return true;
+            } else {
+                return false;
+            }
         } else {
             callbacks.logLine("Please use manual DFU to change bundle type.");
+            return false;
         }
     }
 
@@ -75,56 +95,58 @@ public class DfuFlasher {
         AtomicBoolean isSignatureValidated = new AtomicBoolean(true);
         if (!PortDetector.isAutoPort(port)) {
             callbacks.logLine("Using selected " + port + "\n");
-            IoStream stream = BufferedSerialIoStream.openPort(port);
-            AtomicReference<String> signature = new AtomicReference<>();
-            new SerialAutoChecker(PortDetector.DetectorMode.DETECT_TS, port, new CountDownLatch(1)).checkResponse(stream, new Function<SerialAutoChecker.CallbackContext, Void>() {
-                @Override
-                public Void apply(SerialAutoChecker.CallbackContext callbackContext) {
+            try (final IoStream stream = BufferedSerialIoStream.openPort(port)) {
+                AtomicReference<String> signature = new AtomicReference<>();
+                SerialAutoChecker.checkResponse(stream, callbackContext -> {
                     signature.set(callbackContext.getSignature());
                     return null;
-                }
-            });
-            if (signature.get() == null) {
-                callbacks.appendLine("");
-                callbacks.appendLine("");
-                callbacks.appendLine("");
-                callbacks.appendLine("Make sure TUNERSTUDIO IS DISCONNECTED FROM ECU");
-                callbacks.appendLine("");
-                callbacks.appendLine("");
-                callbacks.appendLine("");
-              callbacks.appendLine("*** ERROR *** rusEFI has not responded on selected " + port + "\n" +
+                });
+                if (signature.get() == null) {
+                    callbacks.logLine("");
+                    callbacks.logLine("");
+                    callbacks.logLine("");
+                    callbacks.logLine("Make sure TUNERSTUDIO IS DISCONNECTED FROM ECU");
+                    callbacks.logLine("");
+                    callbacks.logLine("");
+                    callbacks.logLine("");
+                    callbacks.logLine("*** ERROR *** rusEFI has not responded on selected " + port + "\n" +
                         "Maybe try automatic serial port detection?");
-                callbacks.error();
-                return null;
+                    callbacks.error();
+                    return null;
+                }
+                boolean isSignatureValidatedLocal = BootloaderHelper.sendBootloaderRebootCommand(parent, signature.get(), stream, callbacks, command);
+                isSignatureValidated.set(isSignatureValidatedLocal);
             }
-            boolean isSignatureValidatedLocal = DfuHelper.sendDfuRebootCommand(parent, signature.get(), stream, callbacks, command);
-            isSignatureValidated.set(isSignatureValidatedLocal);
         } else {
             callbacks.logLine("Auto-detecting port...\n");
             // instead of opening the just-detected port we execute the command using the same stream we used to discover port
             // it's more reliable this way
             // ISSUE: that's blocking stuff on UI thread at the moment, TODO smarter threading!
             port = PortDetector.autoDetectSerial(callbackContext -> {
-                boolean isSignatureValidatedLocal = DfuHelper.sendDfuRebootCommand(parent, callbackContext.getSignature(), callbackContext.getStream(), callbacks, command);
+                boolean isSignatureValidatedLocal = BootloaderHelper.sendBootloaderRebootCommand(parent, callbackContext.getSignature(), callbackContext.getStream(), callbacks, command);
                 isSignatureValidated.set(isSignatureValidatedLocal);
                 return null;
             }).getSerialPort();
             if (port == null) {
-                callbacks.appendLine("*** ERROR *** rusEFI serial port not detected");
+                callbacks.logLine("*** ERROR *** rusEFI serial port not detected");
                 callbacks.error();
                 return null;
             } else {
-                callbacks.appendLine("Detected rusEFI on " + port + "\n");
+                callbacks.logLine("Detected rusEFI on " + port + "\n");
             }
         }
         return isSignatureValidated;
     }
 
-    public static void runDfuEraseAsync(UpdateOperationCallbacks callbacks) {
+    public static void runDfuEraseAsync(UpdateOperationCallbacks callbacks, final Runnable onJobFinished) {
         submitAction(() -> {
-            runDfuErase(callbacks);
-            // it's a lengthy operation let's signal end
-            Toolkit.getDefaultToolkit().beep();
+            JobHelper.doJob(() -> {
+                    runDfuErase(callbacks);
+                    // it's a lengthy operation let's signal end
+                    Toolkit.getDefaultToolkit().beep();
+                },
+                onJobFinished
+            );
         });
     }
 
@@ -139,20 +161,40 @@ public class DfuFlasher {
         }
     }
 
-    public static void runDfuProgramming(UpdateOperationCallbacks callbacks) {
-        submitAction(() -> executeDFU(callbacks, FindFileHelper.FIRMWARE_BIN_FILE));
+    public static void runDfuProgramming(UpdateOperationCallbacks callbacks, final Runnable onJobFinished) {
+        submitAction(() -> {
+            JobHelper.doJob(
+                () -> executeDfuAndPaintStatusPanel(callbacks, FindFileHelper.findFirmwareFile()),
+                onJobFinished
+            );
+        });
     }
 
-    public static void runOpenBltInitialProgramming(UpdateOperationCallbacks callbacks) {
-        submitAction(() -> executeDFU(callbacks, DfuFlasher.BOOTLOADER_BIN_FILE));
+    public static void runOpenBltInitialProgramming(UpdateOperationCallbacks callbacks, final Runnable onJobFinished) {
+        submitAction(() -> {
+            JobHelper.doJob(
+                () -> executeDfuAndPaintStatusPanel(callbacks, DfuFlasher.BOOTLOADER_BIN_FILE),
+                onJobFinished
+            );
+        });
     }
 
-    private static void executeDFU(UpdateOperationCallbacks callbacks, String firmwareBinFile) {
+    private static void executeDfuAndPaintStatusPanel(
+        final UpdateOperationCallbacks callbacks,
+        final String firmwareBinFile
+    ) {
+        if (executeDFU(callbacks, firmwareBinFile)) {
+            callbacks.done();
+        } else {
+            callbacks.error();
+        }
+    }
+
+    private static boolean executeDFU(UpdateOperationCallbacks callbacks, String firmwareBinFile) {
         boolean driverIsHappy = detectSTM32BootloaderDriverState(callbacks);
         if (!driverIsHappy) {
-            callbacks.appendLine("*** DRIVER ERROR? *** Did you have a chance to try 'Install Drivers' button on top of rusEFI console start screen?");
-            callbacks.error();
-            return;
+            callbacks.logLine("*** DRIVER ERROR? *** Did you have a chance to try 'Install Drivers' button on top of rusEFI console start screen?");
+            return false;
         }
 
         StringBuffer stdout = new StringBuffer();
@@ -163,32 +205,31 @@ public class DfuFlasher {
                 DFU_CMD_TOOL, callbacks, stdout);
         } catch (FileNotFoundException e) {
             callbacks.logLine("ERROR: " + e);
-            callbacks.error();
-            return;
+            return false;
         }
 
         if (stdout.toString().contains("Download verified successfully")) {
             // looks like sometimes we are not catching the last line of the response? 'Upgrade' happens before 'Verify'
             callbacks.logLine("SUCCESS!");
             callbacks.logLine("Please power cycle device to exit DFU mode");
-            callbacks.done();
+            return true;
         } else if (stdout.toString().contains("Target device not found")) {
-            callbacks.appendLine("ERROR: Device not connected or STM32 Bootloader driver not installed?");
+            callbacks.logLine("ERROR: Device not connected or STM32 Bootloader driver not installed?");
             appendWindowsVersion(callbacks);
-            callbacks.appendLine("ERROR: Please try installing drivers using 'Install Drivers' button on rusEFI splash screen");
-            callbacks.appendLine("ERROR: Alternatively please install drivers using Device Manager pointing at 'drivers/silent_st_drivers/DFU_Driver' folder");
+            callbacks.logLine("ERROR: Please try installing drivers using 'Install Drivers' button on rusEFI splash screen");
+            callbacks.logLine("ERROR: Alternatively please install drivers using Device Manager pointing at 'drivers/silent_st_drivers/DFU_Driver' folder");
             appendDeviceReport(callbacks);
-            callbacks.error();
+            return false;
         } else {
             appendWindowsVersion(callbacks);
             appendDeviceReport(callbacks);
             callbacks.logLine(stdout.length() + " / " + errorResponse.length());
-            callbacks.error();
+            return false;
         }
     }
 
     public static boolean detectSTM32BootloaderDriverState(UpdateOperationCallbacks callbacks) {
-        return MaintenanceUtil.detectDevice(callbacks, WMIC_DFU_QUERY_COMMAND, "ConfigManagerErrorCode=0");
+        return MaintenanceUtil.detectDevice(callbacks, WMIC_DFU_QUERY_COMMAND, "ConfigManagerErrorCode=0", true);
     }
 
     private static void appendWindowsVersion(UpdateOperationCallbacks callbacks) {

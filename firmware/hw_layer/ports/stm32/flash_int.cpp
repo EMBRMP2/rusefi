@@ -3,13 +3,17 @@
  * http://www.chibios.com/forum/viewtopic.php?f=8&t=820
  * https://github.com/tegesoft/flash-stm32f407
  *
- * @file    flash_int.c
+ * @file    flash_int.cpp
  * @brief	Lower-level code related to internal flash memory
  */
 
 #include "pch.h"
 
-#if defined(EFI_BOOTLOADER) || EFI_STORAGE_INT_FLASH
+#ifndef EFI_STORAGE_INT_FLASH_DRIVER
+#define EFI_STORAGE_INT_FLASH_DRIVER TRUE
+#endif
+
+#if defined(EFI_BOOTLOADER) || EFI_STORAGE_INT_FLASH_DRIVER
 
 #include "flash_int.h"
 #include <string.h>
@@ -58,8 +62,7 @@ flashsector_t intFlashSectorAt(flashaddr_t address) {
 	return sector;
 }
 
-static void intFlashClearErrors(void)
-{
+static void intFlashClearErrors() {
 #ifdef STM32H7XX
 	FLASH->CCR2 = 0xffffffff;
 #else
@@ -67,8 +70,7 @@ static void intFlashClearErrors(void)
 #endif
 }
 
-static int intFlashCheckErrors(void)
-{
+static int intFlashCheckErrors() {
 	uint32_t sr = FLASH_SR;
 
 #ifdef FLASH_SR_OPERR
@@ -124,12 +126,26 @@ static bool intFlashUnlock(void) {
 
 #ifdef STM32F7XX
 static bool isDualBank(void) {
+#ifdef FLASH_OPTCR_nDBANK
 	// cleared bit indicates dual bank
 	return (FLASH->OPTCR & FLASH_OPTCR_nDBANK) == 0;
+#else
+	return 0;
+#endif
 }
 #endif
 
-int intFlashSectorErase(flashsector_t sector) {
+/**
+ * @brief Erase the flash @p sector.
+ * @details The sector is checked for errors after erase.
+ * @note The sector is deleted regardless of its current state.
+ *
+ * @param sector Sector which is going to be erased.
+ * @return FLASH_RETURN_SUCCESS         No error erasing the sector.
+ * @return FLASH_RETURN_BAD_FLASH       Flash cell error.
+ * @return FLASH_RETURN_NO_PERMISSION   Access denied.
+ */
+static int intFlashSectorErase(flashsector_t sector) {
 	int ret;
 	uint8_t sectorRegIdx = sector;
 #ifdef STM32F7XX

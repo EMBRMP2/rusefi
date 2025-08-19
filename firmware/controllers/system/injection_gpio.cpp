@@ -6,7 +6,7 @@
 
 extern bool printFuelDebug;
 
-void startSimultaneousInjection(void*) {
+void startSimultaneousInjection() {
 	efitick_t nowNt = getTimeNowNt();
 	for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
 		enginePins.injectors[i].open(nowNt);
@@ -50,7 +50,7 @@ void InjectorOutputPin::open(efitick_t nowNt) {
 #endif /* FUEL_MATH_EXTREME_LOGGING */
 	} else {
 #if EFI_TOOTH_LOGGER
-		LogTriggerInjectorState(nowNt, true);
+		LogTriggerInjectorState(nowNt, injectorIndex, true);
 #endif // EFI_TOOTH_LOGGER
 		setHigh();
 	}
@@ -72,7 +72,7 @@ void InjectorOutputPin::close(efitick_t nowNt) {
 #endif /* FUEL_MATH_EXTREME_LOGGING */
 	} else {
 #if EFI_TOOTH_LOGGER
-	LogTriggerInjectorState(nowNt, false);
+	LogTriggerInjectorState(nowNt, injectorIndex, false);
 #endif // EFI_TOOTH_LOGGER
 		setLow();
 	}

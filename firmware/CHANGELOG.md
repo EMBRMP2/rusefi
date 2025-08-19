@@ -26,6 +26,94 @@ Release template (copy/paste this for new release):
 
 # Changelog
 
+## Unreleased
+
+### Added
+ - OilTempGauge
+ - LUA_USER_HEAP is no longer used
+ - official binaries use gcc14
+ - Jeep EVA 36-2-2 trigger pattern
+ - migration to ChibiOS 21.11
+ - long term fuel trim LTFT using SD card #6223
+ - Add Lua hook for Launch Control request with 'setLaunchTrigger' method #7161
+ - option to use Fahrenheit units #4788
+ - lua editor highlighting #8413
+ - lua: count dropped CAN messages #8225
+ - larger LUA_canFrameCount on F7
+
+### Fixed
+ - 3000gt 6g72 triggers cam and crank 3-0 more accuracy
+ - unneeded ETB PID reset causes AE and causes AFR dip #8392
+
+## June 2025 "Day 1210"
+
+### Added
+ - SD card mode selection: do not wait for USB if vbatt voltage #7424
+ - SD card mass storage read access performance improvements
+ - migrate injector lag is now a table #7522
+ - Allow fractional tachometer pulse ratio for fine tachometer calibration #7547
+ - separate boost control open loop axis from closed loop axis #7580
+ - verbose CAN PerCylinderKnock
+ - modern Chrysler VVT cam decoder https://github.com/rusefi/rusefi/wiki/All-Supported-Triggers#vvt
+ - SD card formatting indicator
+ - additional status on WBO dialog
+ - default Lua tick rate changed from 10Hz to 200Hz
+ - GMLAN slow single wire baud rate
+
+### Fixed
+ - map window averaging is broken since April 20th #7867
+ - map window averaging does not use crank angle #7869
+
+## February 2025 "Day 1075"
+
+### Added
+ - Flex Fuel sensor settings should be under "Fuel sensor" #7097
+ - GM SENT fuel pressure sensor #6997
+ - ETB calibration automatically enables ETB if needed #7197
+ - Fuel Level Sensor should have a RAW option #6979
+ - SD card bit data points #7227
+ - stm32 build-in watchdog for F7/H7 #1339
+ - improvements to SD card management #7327
+ - FatFS: update to latest R0.15a version #7315
+ - Honda J30 trigger wheel
+
+### Fixed
+ - Critical error when using big values on Boost Control Open Loop with Y axis as MAP #7093
+ - "Baro Correction" axis label
+ - unused "Throttle Up switch" is removed
+ - Lua: fix heap used accumulator calculation: Do not increase if allocation failed #6924
+ - Check Engine output hidden since the whole feature pretty much does not exist
+
+### Breaking Changes
+ - Lua: onCanRx parameter value to be use Lua-indexing #7110
+ - After start enrichment Engine Cycles is now represented with U16 data type
+
+## November 2024 "Day 998"
+
+### Added
+ - Support wasted spark on odd cylinder count 4-stroke engines. Improves startup and allows running without a cam sensor!
+ - CLT/IAT boost duty/target compensation #6424
+ - DFCO MAP condition hysteresis #6915
+ - Add I-term bounds for Alternator Control #6988
+ - knock fuel trim + disable suppression then deceleration #7017
+ - TS runtime rate improvement
+
+### Fixed
+ - Removed questionable MAP sampling trigger index option
+ - boost control load axis range and rename #6840
+ - alphaNUseIat calculations are wrong #6907
+ - TPS/PPS Error Detection Threshold visible twice in same dialog #6922
+ - V-Twin MAP phase sense does not need to always wait for sync #6985
+ - Organize sensor categories #6856
+ - USB serial is sometimes lost #6595
+ - fix detect cylinder for knock then wasted_spark #7062
+ - Change BMW E46 CAN interval to 10 ms #6974
+
+### Breaking Changes
+- Now secondary injectors use `Secondary injector flow compensation mode` and `Secondary injector reference pressure` instead of `Injector flow compensation mode` and `Injector reference pressure` Tuner Studio settings #6972
+
+## August 2024 "Day 898"
+
 ### Added
  - new rusEFI console tab: Knock analyzer #6467
  - Suzuki K6A (NON VVTI Trigger) #6490
@@ -44,6 +132,9 @@ Release template (copy/paste this for new release):
  - STM32Cube v2.17
  - Better validation of thermistor configuration #6724
  - Full layout vs tuning layout #5154
+ - Usability: turn on boost controller without ECU power cycle #6761
+ - Knock frequency inputs to be bore diameter and checkbox #6767
+ - Nissan HR crank trigger wheel #6773
 
 ### Fixed
  - knock logic not activated until any configuration change via TS #6462
@@ -55,17 +146,17 @@ Release template (copy/paste this for new release):
  - Launch RPM + Launch Control window is not correct #6533
  - MAX3185X_REFRESH_TIME is now 0.1 sec.
  - ADC array out of bounds when using analog muxes #6376
+ - DFCO without a MAP sensor #6771
 
 ### Breaking Changes
  - "60/2 VW" trigger wheel renamed to "60-2 Wrong Polarity" #988
- - exhaust VVTs now use it's onw Edge Select setting
+ - exhaust VVTs now use it's own Edge Select setting
  - removing weird 1+16 trigger wheel #6418
  - critical error in case of unneeded second channel #6419
  - Open Loop Boost vertical axis needs to be configured #4778
  - Cranking Cycle Multiplier is now a Map with Coolant Temp as the additional axis. #6584
  - Now we use "Alternator Voltage Target Table" instead of "Target(Volts)" setting on "Alternator Settings" area to calculate alternator voltage target. #6523
-
-## Unreleased
+ - Now console generates current_configuration.binary_image in new format instead of current_configuration.rusefi_binary #6863
 
 ## April 2024 "Day 785"
 

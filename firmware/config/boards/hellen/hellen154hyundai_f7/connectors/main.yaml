@@ -48,17 +48,16 @@ pins:
     meta: H144_IN_D_3
     function: 'Exhaust Cam Sensor (2014: yellow)'
     class: event_inputs
-    ts_name: Exhaust Cam - K15
+    ts_name: Exhaust Cam - ___
 
   - pin: K16
     function: Analog Ground
 
-
-  - pin: K17b
+  - pin: K17
     function: Crank Sensor
-    meta: H144_IN_CRANK
+    meta: H144_IN_D_1
     class: event_inputs
-    ts_name: Crank - K17
+    ts_name: Crank - ___
 
   - pin: K18
     function: BK2 WBO IP
@@ -75,7 +74,7 @@ pins:
     function: Ambient Temperature
 
   - pin: K22
-    meta: H144_IN_AUX3
+    meta: H144_IN_AUX3_ANALOG
     function: BK2 Wastegate Position - 22
     class: analog_inputs
     ts_name: BK2 Wastegate Position - 22
@@ -119,7 +118,7 @@ pins:
     function: Manifold Pressure Sensor
 
   - pin: K32
-    meta: H144_IN_AUX1
+    meta: H144_IN_TPS2
     class: analog_inputs
     ts_name: TPS 2
     function: TPS 2 sensor input
@@ -134,7 +133,7 @@ pins:
     function: Analog Ground
 
   - pin: K35
-    meta: H144_IN_AUX2
+    meta: H144_IN_PPS2
     class: analog_inputs
     ts_name: PPS 2
     function: PPS 2 sensor input
@@ -170,6 +169,12 @@ pins:
     class: outputs
     ts_name: ___ BK1 Wastegate Solenoid
     function: BK1 Wastegate Solenoid
+
+  - pin: K48
+    meta: H144_LS_8
+    class: outputs
+    ts_name: ___ OUT_RCV
+    function: OUT_RCV
 
   - pin: K53
     meta: H144_IN_IAT
@@ -372,6 +377,7 @@ info:
   directory: hellen/hellen154hyundai_revD
   title: Hellen 154 Hyundai
   order: 0
+  cid: main
   image:
     file: main.jpg
   pins:
@@ -426,7 +432,7 @@ info:
     - pin: K16
       x: 2940
       y: 660
-    - pin: K17c
+    - pin: K17
       x: 3011
       y: 660
     - pin: K18

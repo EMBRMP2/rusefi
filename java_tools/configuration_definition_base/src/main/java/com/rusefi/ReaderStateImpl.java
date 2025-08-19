@@ -3,13 +3,14 @@ package com.rusefi;
 import com.devexperts.logging.Logging;
 import com.opensr5.ini.RawIniFile;
 import com.opensr5.ini.field.EnumIniField;
+import com.rusefi.config.FieldType;
 import com.rusefi.core.Pair;
 import com.rusefi.enum_reader.Value;
 import com.rusefi.output.*;
 import com.rusefi.parse.TokenUtil;
 import com.rusefi.parse.TypesHelper;
+import com.rusefi.tools.tune.FileLinesHelper;
 import com.rusefi.util.LazyFile;
-import com.rusefi.util.SystemOut;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
@@ -33,7 +34,8 @@ public class ReaderStateImpl implements ReaderState {
     private static final String END_STRUCT = "end_struct";
     private static final String STRUCT_NO_PREFIX = "struct_no_prefix ";
     private static final String STRUCT = "struct ";
-    private static final String VARIABLE_PREFIX = "@@";
+    public static final String SPLIT_LINES = "split_lines";
+    public static final String INCLUDE_FILE = "include_file";
     // used to update other files
     private final List<String> inputFiles = new ArrayList<>();
     private final Stack<ConfigStructureImpl> stack = new Stack<>();
@@ -117,7 +119,7 @@ public class ReaderStateImpl implements ReaderState {
          * this is the most important invocation - here we read the primary input file and generated code into all
          * the destinations/writers
          */
-        SystemOut.println("Reading definition from " + Objects.requireNonNull(definitionInputFile));
+        log.info("Reading definition from " + Objects.requireNonNull(definitionInputFile));
         String fileNameWithRoot = RootHolder.ROOT + definitionInputFile;
         try (BufferedReader definitionReader = new BufferedReader(readerProvider.read(fileNameWithRoot))) {
             readBufferedReader(definitionReader, destinations);
@@ -174,6 +176,10 @@ public class ReaderStateImpl implements ReaderState {
 
         RawIniFile.Line rawLine = new RawIniFile.Line(tunerStudioLine);
         if (rawLine.getTokens()[0].equals("bits")) {
+            String tsTypeString = rawLine.getTokens()[1];
+            FieldType typeInTsString = FieldType.parseTs(tsTypeString);
+            if (size != typeInTsString.getStorageSize())
+                throw new SizeMismatchException("Size mismatch " + customSize + " vs " + tsTypeString + " in " + customLineWithPrefix);
             EnumIniField.ParseBitRange bitRange = new EnumIniField.ParseBitRange().invoke(rawLine.getTokens()[3]);
             int totalCount = 1 << (bitRange.getBitSize0() + 1);
             List<String> enums = Arrays.asList(rawLine.getTokens()).subList(4, rawLine.getTokens().length);
@@ -256,9 +262,14 @@ public class ReaderStateImpl implements ReaderState {
         String lineReaded;
         while ((lineReaded = definitionReader.readLine()) != null) {
             lineReaded = ToolUtil.trimLine(lineReaded);
-            if (lineReaded.startsWith(VARIABLE_PREFIX)) {
-                String lineExpanded = variableRegistry.applyVariables(lineReaded);
-                String sublines[] = lineExpanded.split("\\r?\\n");
+            if (lineReaded.startsWith(INCLUDE_FILE)) {
+                String fileName = lineReaded.substring(INCLUDE_FILE.length()).trim();
+                log.info("Including " + fileName);
+                lines.addAll(FileLinesHelper.readAllLinesWithRoot(fileName));
+            } else if (lineReaded.startsWith(SPLIT_LINES)) {
+                String template = lineReaded.substring(SPLIT_LINES.length());
+                String lineExpanded = variableRegistry.applyVariables(template);
+                String[] sublines = lineExpanded.split("\\r?\\n");
                 lines.addAll(Arrays.asList(sublines));
             } else {
                 lines.add(lineReaded);
@@ -334,8 +345,12 @@ public class ReaderStateImpl implements ReaderState {
     }
 
     private static void processField(ReaderStateImpl state, String line) {
-
-        ConfigFieldImpl cf = ConfigFieldImpl.parse(state, line);
+        ConfigFieldImpl cf;
+        try {
+            cf = ConfigFieldImpl.parse(state, line);
+        } catch (Throwable e) {
+            throw new ParsingException("While parsing " + line, e);
+        }
 
         if (cf == null) {
             if (ConfigFieldImpl.isPreprocessorDirective(line)) {
@@ -397,7 +412,7 @@ public class ReaderStateImpl implements ReaderState {
     @Override
     public void setDefinitionInputFile(String definitionInputFile) {
         this.definitionInputFile = definitionInputFile;
-        headerMessage = ToolUtil.getGeneratedAutomaticallyTag() + definitionInputFile + " " + new Date();
+        headerMessage = ToolUtil.getGeneratedAutomaticallyTag() + definitionInputFile;
         inputFiles.add(definitionInputFile);
     }
 
@@ -407,7 +422,6 @@ public class ReaderStateImpl implements ReaderState {
     }
 
     public void addJavaDestination(String fileName) {
-        destinations.add(new FileJavaFieldsConsumer(this, fileName, 0, fileFactory));
     }
 
     @Override
@@ -416,12 +430,25 @@ public class ReaderStateImpl implements ReaderState {
             // see LiveDataProcessor use-case with dynamic prepend usage
             return;
         }
+        variableRegistry.readPrependValues(fileName, false);
         inputFiles.add(fileName);
-        addPrependNotInput(fileName);
     }
 
     @Override
-    public void addPrependNotInput(String fileName) {
+    public void addSoftPrepend(String fileName){
+        if (fileName == null || fileName.isEmpty()) {
+            return;
+        }
+        File file = new File(IoUtil3.prependIfNotAbsolute(RootHolder.ROOT, fileName));
+        if (!file.exists()){
+            return;
+        }
+        variableRegistry.readPrependValues(fileName, false);
+        inputFiles.add(fileName);
+    }
+
+    @Override
+    public void addPostponedPrependNotInput(String fileName) {
         prependFiles.add(fileName);
     }
 

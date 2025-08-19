@@ -33,8 +33,9 @@ void setDodgeNeon1995EngineConfiguration() {
 	engineConfiguration->ignitionMode = IM_WASTED_SPARK;
 	engineConfiguration->firingOrder = FO_1_3_4_2;
 
-	// set global_trigger_offset_angle 497
-	engineConfiguration->globalTriggerAngleOffset = 497;
+	// set global_trigger_offset_angle 137
+	engineConfiguration->camSyncOnSecondCrankRevolution = true;
+	engineConfiguration->globalTriggerAngleOffset = 137;
 
 	// set cranking_timing_angle 0
 	engineConfiguration->crankingTimingAngle = 0;
@@ -131,8 +132,6 @@ void setDodgeNeonNGCEngineConfiguration() {
 
 	engineConfiguration->map.sensor.type = MT_DODGE_NEON_2003;
 
-	engineConfiguration->hip9011Gain = 0.3;
-
 	engineConfiguration->cylinderBore = 87.5;
 
 	engineConfiguration->clutchDownPin = Gpio::C12;
@@ -147,8 +146,6 @@ void setDodgeNeonNGCEngineConfiguration() {
 //	engineConfiguration->fanOnTemperature = 115; // knock testing - value is a bit high
 //	engineConfiguration->fanOffTemperature = 100;
 
-//	engineConfiguration->tunerStudioSerialSpeed = 9600;
-	engineConfiguration->tunerStudioSerialSpeed = 19200;
 	setAlgorithm(LM_SPEED_DENSITY);
 
 //temp	engineConfiguration->alternatorControlPin = Gpio::D5;
@@ -168,7 +165,7 @@ void setDodgeNeonNGCEngineConfiguration() {
 	engineConfiguration->wwaeBeta = 0;
 
 	engineConfiguration->isSdCardEnabled = false;
-	engineConfiguration->manIdlePosition = 36; // set_idle_pwm 40
+	setTable(config->cltIdleCorrTable, 36.0);
 
 	// end of setDodgeNeonNGCEngineConfiguration
 }

@@ -8,15 +8,16 @@
 #ifdef __cplusplus
 
 // Base MCU
-void baseMCUInit(void);
+void baseMCUInit();
 void jump_to_bootloader();
 #if EFI_USE_OPENBLT
 void jump_to_openblt();
 #endif
 void causeHardFault();
-bool allowFlashWhileRunning();
 
-bool ramReadProbe(volatile const char *read_address);
+// If mcu can erase/write part of its internal memory without stalling CPU
+bool mcuCanFlashWhileRunning();
+
 #if defined(STM32F4)
 bool isStm32F42x();
 #endif // STM32F4
@@ -27,6 +28,7 @@ bool isStm32F42x();
 adc_channel_e getAdcChannel(brain_pin_e pin);
 brain_pin_e getAdcChannelBrainPin(const char *msg, adc_channel_e hwChannel);
 bool adcIsMuxedInput(adc_channel_e hwChannel);
+adc_channel_e adcMuxedGetParent(adc_channel_e hwChannel);
 int getAdcInternalChannel(ADC_TypeDef *adc, adc_channel_e hwChannel);
 
 // deprecated - migrate to 'getAdcChannelBrainPin'
@@ -65,6 +67,8 @@ void initSpiModule(SPIDriver *driver, brain_pin_e sck, brain_pin_e miso,
 void initSpiCsNoOccupy(SPIConfig *spiConfig, brain_pin_e csPin);
 void initSpiCs(SPIConfig *spiConfig, brain_pin_e csPin);
 void turnOnSpi(spi_device_e device);
+int spiGetBaseClock(SPIDriver *spip);
+int spiCalcClockDiv(SPIDriver *spip, SPIConfig *spiConfig, unsigned int clk);
 #endif // HAL_USE_SPI
 
 #if HAL_USE_ICU
@@ -101,6 +105,7 @@ typedef enum {
 	Reset_Cause_WWatchdog,		// Window watchdog
 	Reset_Cause_Soft_Reset,		// NVIC_SystemReset or by debugger
 	Reset_Cause_NRST_Pin,		// Reset from NRST pin
+	Reset_Cause_POR,			// POR/PDR reset
 	Reset_Cause_Illegal_Mode,	// Reset after illegal Stop, Standby or Shutdown mode entry
 	Reset_Cause_BOR,			// BOR reset
 	Reset_Cause_Firewall,		// Firewall reset
@@ -128,3 +133,12 @@ void HardFaultVector(void);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+
+// search:openblt_version
+// ascii 'BL02' in reverse LBS byte order
+#define BLT_CURRENT_VERSION 0x32304C42
+#define BLT_BIN_VERSION_ADDR              ((uint32_t)0x08000024U)       /*! 3rd reserved DWORD in vector table search:openblt_version */
+
+#if EFI_USE_OPENBLT
+#define getOpenBltVersion() (((uint32_t *)BLT_BIN_VERSION_ADDR)[0])
+#endif

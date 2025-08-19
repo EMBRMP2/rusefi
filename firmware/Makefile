@@ -56,15 +56,9 @@ PCHSUB = firmware
 # Imported source files and paths
 CHIBIOS_CONTRIB = ChibiOS-Contrib
 
-# Configure libfirmware Paths/Includes
-RUSEFI_LIB = $(PROJECT_DIR)/libfirmware
-include $(RUSEFI_LIB)/util/util.mk
-include $(RUSEFI_LIB)/pt2001/pt2001.mk
+include $(PROJECT_DIR)/common_libfirmware.mk
 
 include rusefi.mk
-
-# by default EXTRA_PARAMS is empty and we create 'debug' version of the firmware with additional assertions and statistics
-# for 'release' options see 'clean_compile_two_versions.bat' file
 
 ifeq ($(DEBUG_LEVEL_OPT),)
   # Default to a release build - but leave in debug info.  It doesn't change the hex/bin output.
@@ -80,7 +74,7 @@ endif
 # yes we have two kinds of EXTRA_*PARAMS so that we can define those in two different places independently
 #
 ifeq ($(USE_OPT),)
-  USE_OPT = $(EXTRA_PARAMS) $(EXTRA_2_PARAMS) $(DEBUG_LEVEL_OPT) $(RFLAGS) -fomit-frame-pointer -fsingle-precision-constant  -fno-inline-functions
+  USE_OPT = $(EXTRA_PARAMS) $(EXTRA_2_PARAMS) $(EXTRA_3_PARAMS) $(DEBUG_LEVEL_OPT) $(RFLAGS) -fomit-frame-pointer -fsingle-precision-constant  -fno-inline-functions
 endif
 
 # EFI_UNIT_TEST determines if we are running in a unit test (hide things from hw/sim)
@@ -129,6 +123,12 @@ ifeq ($(USE_LTO),)
   USE_OPT += -flto=auto
 endif
 
+ifeq ($(OS),Windows_NT)
+   USE_OPT += -DIS_WINDOWS_COMPILER=1
+else
+   USE_OPT += -DIS_WINDOWS_COMPILER=0
+endif
+
 # If enabled, this option allows to compile the application in THUMB mode.
 ifeq ($(USE_THUMB),)
   USE_THUMB = yes
@@ -174,11 +174,6 @@ ifeq ($(USE_EXCEPTIONS_STACKSIZE),)
   USE_EXCEPTIONS_STACKSIZE = 0x1000
 endif
 
-# Enables the use of FPU on Cortex-M4 (no, softfp, hard).
-ifeq ($(USE_FPU),)
-  USE_FPU = hard
-endif
-
 # and this is not working for be :( See https://github.com/rusefi/rusefi/issues/638
 # use -j4 unless some value was specified
 NUMJOBS=${NUMJOBS:-" -j4 "}
@@ -204,12 +199,14 @@ endif
 endif
 DDEFS += -DSHORT_BOARD_NAME=$(SHORT_BOARD_NAME)
 
-# should be after 'board.mk'
-include rusefi_rules.mk
-
 # Include various ChibiOS mk files
 # Licensing files.
 include $(CHIBIOS)/os/license/license.mk
+
+# should be after 'board.mk'
+# includes ChibiOS's platform.mk for specified CPU
+include rusefi_rules.mk
+
 # Startup files.
 include $(CPU_STARTUP_DIR)
 # HAL-OSAL files (optional).
@@ -218,7 +215,7 @@ include $(CPU_PLATFORM)
 include $(CHIBIOS)/os/hal/osal/rt-nil/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/rt/rt.mk
-include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
+include $(CHIBIOS)/os/common/ports/ARMv7-M/compilers/GCC/mk/port.mk
 # EX files (optional).
 ifeq ($(EFI_ONBOARD_MEMS_LIS2DW12),yes)
   DDEFS += -DEFI_ONBOARD_MEMS_LIS2DW12=TRUE
@@ -246,6 +243,7 @@ endif
 include $(CHIBIOS)/os/hal/lib/complex/mfs/hal_mfs.mk
 
 ifeq ($(USE_FATFS),yes)
+  DDEFS += -DEFI_SUPPORT_FATFS=TRUE
   include $(CHIBIOS)/os/various/fatfs_bindings/fatfs.mk
 endif
 
@@ -262,6 +260,7 @@ endif
 
 include $(PROJECT_DIR)/hw_layer/mass_storage/mass_storage.mk
 include $(PROJECT_DIR)/common.mk
+include $(PROJECT_DIR)/controllers/modules/modules.mk
 
 ifeq ($(USE_OPENBLT),yes)
   # Reserve start of flash for OpenBLT
@@ -295,6 +294,13 @@ CSRC =  gcc_version_check.c \
   $(RUSEFI_LIB_C) \
   $(PROJECT_DIR)/hw_layer/main_hardfault.c
 
+# todo: reduce copy/paste between all three Makefiles!
+ifneq ($(BOARD_DIR),)
+ifneq ("$(wildcard ../firmware/$(BOARD_DIR)/default_tune.cpp)","")
+  BOARDCPPSRC += ../firmware/$(BOARD_DIR)/default_tune.cpp
+endif
+endif
+
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
 CPPSRC = \
@@ -306,6 +312,7 @@ CPPSRC = \
   $(HW_LAYER_DRIVERS_CPP) \
   $(CONSOLE_SRC_CPP) \
   $(RUSEFI_LIB_CPP) \
+  $(MODULES_CPPSRC) \
   rusefi.cpp \
   main.cpp
 
@@ -337,10 +344,11 @@ ASMXSRC = $(ALLXASMSRC) \
 #
 # WARNING! order of variables is important here - for instance cypress own folders should go before default folders
 #
-INCDIR = \
+INCDIR += \
   $(PCH_DIR) \
   $(BOARDINC) \
   $(ALLINC) \
+  $(MODULES_INC) \
   $(TESTINC) \
   $(CHIBIOS)/os/various \
   $(RUSEFI_LIB_INC) \
@@ -380,8 +388,7 @@ OD   = $(TRGT)objdump
 SZ   = $(TRGT)size
 HEX  = $(CP) -O ihex
 BIN  = $(CP) -O binary
-# OpenBLT flasher expects srec files, but we create them in our bundle.mk, not in rules.mk
-#SREC = $(CP) -O srec
+# for srec files see bundle.mk
 
 # ARM-specific options here
 AOPT =
@@ -426,6 +433,7 @@ include $(RULESFILE)
 
 include target_sentinel.mk
 
+# this one would include ../java_tools/java_tools.mk for gradlew for config and console and plugin jars
 include rusefi_config.mk
 
 include docs_enums.mk

@@ -44,7 +44,7 @@ void initGpPwm() {
 		// Setup pin & pwm
 		pins[i].initPin("gp pwm", cfg.pin);
 		if (usePwm) {
-			startSimplePwm(&outputs[i], channelNames[i], &engine->executor, &pins[i], freq, 0);
+			startSimplePwm(&outputs[i], channelNames[i], &engine->scheduler, &pins[i], freq, 0);
 		}
 
 		// Set up this channel's lookup table
@@ -56,11 +56,8 @@ void initGpPwm() {
 }
 
 void updateGppwm() {
-	// There are only 8 debug float fields, this will overflow if more channels
-	static_assert(efi::size(channels) <= 8);
-
 	for (size_t i = 0; i < efi::size(channels); i++) {
-		auto result = channels[i].update();
+		auto result = channels[i].update(i);
 
 		engine->outputChannels.gppwmOutput[i] = result.Result;
 		engine->outputChannels.gppwmXAxis[i] = result.X;

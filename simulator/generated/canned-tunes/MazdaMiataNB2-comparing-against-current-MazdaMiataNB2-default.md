@@ -196,7 +196,7 @@
     // default "500kbps"
     engineConfiguration->can2BaudRate = B100KBPS;
     // default "Executor"
-    engineConfiguration->debugMode = DBG_TPS_ACCEL;
+    engineConfiguration->debugMode = DBG_1;
     // default 300.0
     engineConfiguration->boostCutPressure = 0;
     // default 250.0
@@ -309,7 +309,6 @@
 	nb2cannedhpfpDeadtimeVoltsBins();
 	nb2cannedtpsTpsAccelTable();
 	nb2cannedboostRpmBins();
-	nb2cannedboostTpsBins();
 	nb2cannedboostTableOpenLoop();
 	nb2cannedboostTableClosedLoop();
 	nb2cannedvvtTable1RpmBins();

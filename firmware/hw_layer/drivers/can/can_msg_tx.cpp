@@ -14,7 +14,7 @@
 
 #include "can.h"
 
-#if EFI_SIMULATOR
+#if EFI_SIMULATOR || EFI_UNIT_TEST
 #include "fifo_buffer.h"
 fifo_buffer<CANTxFrame, 1024> txCanBuffer;
 #endif // EFI_SIMULATOR
@@ -55,36 +55,49 @@ CanTxMessage::CanTxMessage(CanCategory p_category, uint32_t eid, uint8_t dlc, si
 
 	setBus(bus);
 
-	memset(m_frame.data8, 0, sizeof(m_frame.data8));
+	setArrayValues(m_frame.data8, 0);
 #endif // HAS_CAN_FRAME
 }
 
 CanTxMessage::~CanTxMessage() {
-#if EFI_SIMULATOR
+#if EFI_SIMULATOR || EFI_UNIT_TEST
 	txCanBuffer.put(m_frame);
+
+#if EFI_UNIT_TEST
+	printf("%s Sending CAN%d message: ID=%x/l=%x %x %x %x %x %x %x %x %x \n",
+		   getCanCategory(category),
+		   busIndex + 1,
+		   (unsigned int)CAN_ID(m_frame),
+		   m_frame.DLC,
+		   m_frame.data8[0], m_frame.data8[1],
+		   m_frame.data8[2], m_frame.data8[3],
+		   m_frame.data8[4], m_frame.data8[5],
+		   m_frame.data8[6], m_frame.data8[7]);
+#endif
 #endif // EFI_SIMULATOR
 
 #if EFI_CAN_SUPPORT
-	auto device = s_devices[busIndex];
-
-	if (!device) {
-		warning(ObdCode::CUSTOM_ERR_CAN_CONFIGURATION, "Send: CAN configuration issue %d", busIndex);
-		return;
-	}
+	ScopePerf pc(PE::CanDriverTx);
 
 	if (!engine->allowCanTx) {
 		return;
 	}
 
-	if (engineConfiguration->verboseCan) {
-		efiPrintf("%s Sending CAN bus%d message: ID=%x/l=%x %x %x %x %x %x %x %x %x",
-		        getCanCategory(category),
-				busIndex,
-#ifndef STM32H7XX
-				(unsigned int)((m_frame.IDE == CAN_IDE_EXT) ? CAN_EID(m_frame) : CAN_SID(m_frame)),
-#else
-				(unsigned int)(m_frame.common.XTD ? CAN_EID(m_frame) : CAN_SID(m_frame)),
-#endif
+	auto device = s_devices[busIndex];
+	if (!device) {
+		criticalError("Send: CAN%d device not configured %s %x", busIndex + 1, getCanCategory(category),
+		   (unsigned int)CAN_ID(m_frame));
+		return;
+	}
+
+	bool verboseCan0 = engineConfiguration->verboseCan && busIndex == 0;
+	bool verboseCan1 = engineConfiguration->verboseCan2 && busIndex == 1;
+
+	if (verboseCan0 || verboseCan1) {
+		efiPrintf("%s Sending CAN%d message: ID=%x/l=%x %x %x %x %x %x %x %x %x",
+				getCanCategory(category),
+				busIndex + 1,
+				(unsigned int)CAN_ID(m_frame),
 				m_frame.DLC,
 				m_frame.data8[0], m_frame.data8[1],
 				m_frame.data8[2], m_frame.data8[3],

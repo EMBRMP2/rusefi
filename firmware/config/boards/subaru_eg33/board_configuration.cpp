@@ -11,6 +11,7 @@
 #include "smart_gpio.h"
 #include "drivers/gpio/mc33810.h"
 #include "device_mpu_util.h"
+#include "board_overrides.h"
 
 Gpio getCommsLedPin() {
 	return Gpio::G6;	/* LD1 - green */
@@ -39,7 +40,7 @@ static void setSerialConfigurationOverrides() {
  * @brief   Board-specific configuration defaults.
 
  */
-void setBoardDefaultConfiguration() {
+static void subaru_eg33_boardDefaultConfiguration() {
 	setSerialConfigurationOverrides();
 
 	/* Battery voltage */
@@ -179,25 +180,10 @@ void setBoardDefaultConfiguration() {
 	/* User can disable this bus */
 	engineConfiguration->is_enabled_spi_2 = true;
 
-	engineConfiguration->sdCardSpiDevice = SPI_DEVICE_1;
-	engineConfiguration->sdCardCsPin = Gpio::A2;
-	engineConfiguration->isSdCardEnabled = false;
+	/* SD card is located on SDIO interface */
+	engineConfiguration->isSdCardEnabled = true;
+	engineConfiguration->sdCardCsPin = Gpio::Unassigned;
 
-	/* Knock sensor */
-	/* Interface settings */
-	engineConfiguration->hip9011SpiDevice = SPI_DEVICE_4;
-	engineConfiguration->hip9011CsPin = Gpio::E11;	/* SPI4_NSS1 */
-	engineConfiguration->hip9011CsPinMode = OM_OPENDRAIN;
-	engineConfiguration->hip9011IntHoldPin = Gpio::H8;
-	engineConfiguration->hip9011IntHoldPinMode = OM_OPENDRAIN;
-	engineConfiguration->hipOutputChannel = EFI_ADC_7; /* PA7 */
-	engineConfiguration->isHip9011Enabled = true;
-	/* this board has TPIC8101, that supports advanced mode */
-	engineConfiguration->useTpicAdvancedMode = true;
-	/* Chip settings */
-	engineConfiguration->hip9011PrescalerAndSDO = (0x6 << 1); //HIP_16MHZ_PRESCALER;
-	engineConfiguration->hip9011Gain = 1.0;
-	engineConfiguration->knockBandCustom = 0.0;
 	engineConfiguration->cylinderBore = 96.9;
 
 	/* Cylinder to knock bank mapping */
@@ -229,14 +215,14 @@ void setBoardDefaultConfiguration() {
 		setAlgorithm(LM_ALPHA_N);
 }
 
-void setBoardConfigOverrides() {
+static void subaru_eg33_boardConfigOverrides() {
 	/* Optional SPI display */
 	engineConfiguration->spi2sckPin = Gpio::I1;
 	engineConfiguration->spi2misoPin = Gpio::I2;
 	engineConfiguration->spi2mosiPin = Gpio::I3;
 	/* User can disable this bus and change pin mode, but not pins itself */
 
-	/* Smart chip and TPIC9011 */
+	/* Smart chip */
 	engineConfiguration->spi4sckPin = Gpio::E12;
 	engineConfiguration->spi4misoPin = Gpio::E13;
 	engineConfiguration->spi4mosiPin = Gpio::E14;
@@ -255,19 +241,20 @@ void setBoardConfigOverrides() {
 	engineConfiguration->spi5MisoMode = PO_DEFAULT;
 	/* This is mandatory to have this bus enabled */
 	engineConfiguration->is_enabled_spi_5 = true;
+
 }
 
 /* Schematic RefDef DA3 */
 static const struct mc33810_config mc33810_odd = {
 	.spi_bus = &SPID5,
 	.spi_config = {
-		.circular = false,
+	.circular = false,
 #ifdef _CHIBIOS_RT_CONF_VER_6_1_
-		.end_cb = NULL,
+	.end_cb = nullptr,
 #else
-        .slave = false,
-        .data_cb = NULL,
-        .error_cb = NULL,
+	.slave = false,
+	.data_cb = nullptr,
+	.error_cb = nullptr,
 #endif
 		.ssport = GPIOF,
 		.sspad = 1,
@@ -299,20 +286,26 @@ static const struct mc33810_config mc33810_odd = {
 		[7] = {.port = GPIOB, .pad = 8},	/* IGN 5 */
 	},
 	/* en shared between two chips */
-	.en = {.port = GPIOI, .pad = 7}
+	.en = {.port = GPIOI, .pad = 7},
+	// TODO: pick from engineConfiguration->spi5sckPin or whatever SPI is used
+	.sck = {.port = GPIOF, .pad = 7},
+	/* TODO: */
+	.spkdur = Gpio::Unassigned,
+	.nomi = Gpio::Unassigned,
+	.maxi = Gpio::Unassigned
 };
 
 /* Schematic RefDef DA22 */
 static const struct mc33810_config mc33810_even = {
 	.spi_bus = &SPID5,
 	.spi_config = {
-		.circular = false,
+	.circular = false,
 #ifdef _CHIBIOS_RT_CONF_VER_6_1_
-	.end_cb = NULL,
+	.end_cb = nullptr,
 #else
-        .slave = false,
-        .data_cb = NULL,
-        .error_cb = NULL,
+	.slave = false,
+	.data_cb = nullptr,
+	.error_cb = nullptr,
 #endif
 		.ssport = GPIOF,
 		.sspad = 2,
@@ -343,7 +336,13 @@ static const struct mc33810_config mc33810_even = {
 		[7] = {.port = GPIOC, .pad = 13},	/* IGN 1 */
 	},
 	/* en shared between two chips */
-	.en = {.port = nullptr, .pad = 0}
+	.en = {.port = nullptr, .pad = 0},
+	// TODO: pick from engineConfiguration->spi5sckPin or whatever SPI is used
+	.sck = {.port = GPIOF, .pad = 7},
+	/* TODO: */
+	.spkdur = Gpio::Unassigned,
+	.nomi = Gpio::Unassigned,
+	.maxi = Gpio::Unassigned
 };
 
 static void board_init_ext_gpios()
@@ -364,9 +363,12 @@ static void board_init_ext_gpios()
 
 /**
  * @brief Board-specific initialization code.
- * @todo  Add your board-specific code, if any.
  */
-void boardInit(void)
-{
+void boardInit() {
 	board_init_ext_gpios();
+}
+
+void setup_custom_board_overrides() {
+	custom_board_DefaultConfiguration = subaru_eg33_boardDefaultConfiguration;
+	custom_board_ConfigOverrides =  subaru_eg33_boardConfigOverrides;
 }

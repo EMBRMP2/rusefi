@@ -13,6 +13,7 @@
 #include "pch.h"
 #include "defaults.h"
 #include "hellen_meta.h"
+#include "board_overrides.h"
 
 static void setInjectorPins() {
 	engineConfiguration->injectionPins[0] = Gpio::MC33810_0_OUT_0;
@@ -46,17 +47,33 @@ static void setupDefaultSensorInputs() {
 	engineConfiguration->iat.adcChannel = H144_IN_IAT;
 }
 
-void setBoardConfigOverrides() {
+static struct tle9201_config tle9201 = {
+	.spi_bus = &SPID3,
+	.spi_config = {
+		.circular = false,
+#ifdef _CHIBIOS_RT_CONF_VER_6_1_
+		.end_cb = nullptr,
+#else
+		.slave = false,
+		.data_cb = nullptr,
+		.error_cb = nullptr,
+#endif
+		// H_SPI3_CS
+		.ssport = GPIOA,
+		.sspad = 15,
+		.cr1 = TLE9201_CONFIG_CR1,
+		.cr2 = TLE9201_CONFIG_CR2
+	}
+};
+
+static void hellen154hyundai_f7_boardConfigOverrides() {
 	/* Force 3.3V PWR_EN as MC33810 is powered from this power line */
 	setHellenMegaEnPin();
-	setHellenVbatt();
 
-	hellenMegaSdWithAccelerometer();
+	hellenMegaModule();
 
 	/* MC33810, ETB1 and WASTGATE1 */
 	enableHellenSpi3();
-
-    setDefaultHellenAtPullUps();
 
 	// trigger inputs
 	engineConfiguration->triggerInputPins[0] = Gpio::H144_IN_D_1;
@@ -80,7 +97,7 @@ void setBoardConfigOverrides() {
  *
 
  */
-void setBoardDefaultConfiguration() {
+static void hellen154hyundai_f7_boardDefaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
 
@@ -96,7 +113,9 @@ void setBoardDefaultConfiguration() {
 	engineConfiguration->clutchUpPin = Gpio::H144_IN_RES2;
 	engineConfiguration->acSwitch = Gpio::H144_IN_RES1;
 
+#ifndef EFI_BOOTLOADER
   setCommonNTCSensor(&engineConfiguration->oilTempSensor, HELLEN_DEFAULT_AT_PULLUP); // random calibration for now
+#endif
   engineConfiguration->oilTempSensor.adcChannel = H144_IN_AT2;
 
 	// "required" hardware is done - set some reasonable defaults
@@ -132,11 +151,11 @@ static const struct mc33810_config mc33810 = {
 	.spi_config = {
 		.circular = false,
 #ifdef _CHIBIOS_RT_CONF_VER_6_1_
-		.end_cb = NULL,
+		.end_cb = nullptr,
 #else
-        .slave = false,
-        .data_cb = NULL,
-        .error_cb = NULL,
+		.slave = false,
+		.data_cb = nullptr,
+		.error_cb = nullptr,
 #endif
 		// SPI3_CS_33810 OUT_PWM1 H144_OUT_PWM1
 		.ssport = GPIOD,
@@ -163,21 +182,28 @@ static const struct mc33810_config mc33810 = {
 		[6] = {.port = GPIOG, .pad = 11},	/* H144_OUT_IO6 */
 		[7] = {.port = GPIOG, .pad = 2},	/* H144_OUT_IO11 */
 	},
-	.en = {.port = GPIOG, .pad = 9} // H144_GP_IO4 hopefully
+	.en = {.port = GPIOG, .pad = 9}, // H144_GP_IO4 hopefully
+	// TODO: pick from engineConfiguration->spi3sckPin or whatever SPI is used
+	.sck = {.port = GPIOC, .pad = 10},
+	.spkdur = Gpio::Unassigned,
+	.nomi = Gpio::Unassigned,
+	.maxi = Gpio::Unassigned
 };
 
-/*PUBLIC_API_WEAK*/ void boardInitHardware() {
-	static OutputPin spi3CsEtb;
+static void hellen154hyundai_f7_boardInitHardware() {
 	static OutputPin spi3CsWastegate;
 
-	spi3CsEtb.initPin("spi3-cs-etb", H_SPI3_CS);
-	spi3CsEtb.setValue(1);
 	spi3CsWastegate.initPin("spi3-cs-wg", Gpio::H144_GP_IO6);
 	spi3CsWastegate.setValue(1);
 	// mc33810 takes care of the CS on it's own
 //	static OutputPin spi3CsMc33810;
 //	spi3CsMc33810.initPin("spi3-cs-mc33810", Gpio::H144_OUT_PWM1);
 //	spi3CsMc33810.setValue(1);
+
+          gpio_pin_markUsed(tle9201.spi_config.ssport, tle9201.spi_config.sspad, "TLE9201 ETB CS");
+          palSetPadMode(tle9201.spi_config.ssport, tle9201.spi_config.sspad, PAL_MODE_OUTPUT_PUSHPULL);
+          int retTle = tle9201_add(0, &tle9201);
+          efiPrintf("*****************+ tle9201_add %d +*******************", retTle);
 
     #if (BOARD_MC33810_COUNT > 0)
       gpio_pin_markUsed(mc33810.spi_config.ssport, mc33810.spi_config.sspad, "mc33810 CS");
@@ -205,3 +231,10 @@ int getBoardMetaDcOutputsCount() {
 Gpio* getBoardMetaOutputs() {
     return OUTPUTS;
 }
+
+void setup_custom_board_overrides() {
+	custom_board_InitHardware = hellen154hyundai_f7_boardInitHardware;
+	custom_board_DefaultConfiguration = hellen154hyundai_f7_boardDefaultConfiguration;
+	custom_board_ConfigOverrides =  hellen154hyundai_f7_boardConfigOverrides;
+}
+

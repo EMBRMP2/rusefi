@@ -1,7 +1,7 @@
 VERSION ""
 
 
-NS_ : 
+NS_ :
 	NS_DESC_
 	CM_
 	BA_DEF_
@@ -98,8 +98,8 @@ BO_ 517 BASE5: 8 Vector__XXX
 BO_ 518 BASE6: 8 Vector__XXX
  SG_ FuelUsed : 0|16@1+ (1,0) [0|0] "g" Vector__XXX
  SG_ FuelFlow : 16|16@1+ (0.005,0) [0|327] "g/s" Vector__XXX
- SG_ FuelTrim1 : 32|16@1+ (0.01,0) [-50|50] "%" Vector__XXX
- SG_ FuelTrim2 : 48|16@1+ (0.01,0) [-50|50] "%" Vector__XXX
+ SG_ FuelTrim1 : 32|16@1- (0.01,0) [-50|50] "%" Vector__XXX
+ SG_ FuelTrim2 : 48|16@1- (0.01,0) [-50|50] "%" Vector__XXX
 
 BO_ 519 BASE7: 8 Vector__XXX
  SG_ Lam1 : 0|16@1+ (0.0001,0) [0|2] "lambda" Vector__XXX
@@ -117,6 +117,25 @@ BO_ 520 BASE8: 8 Vector__XXX
  SG_ Cam2E : 48|8@1- (1,0) [-100|100] "deg" Vector__XXX
  SG_ Cam2Etar : 56|8@1- (1,0) [-100|100] "deg" Vector__XXX
 
+BO_ 521 BASE9: 8 Vector__XXX
+ SG_ Egt1 : 0|8@1+ (5,0) [0|1250] "deg C" Vector__XXX
+ SG_ Egt2 : 8|8@1+ (5,0) [0|1250] "deg C" Vector__XXX
+ SG_ Egt3 : 16|8@1+ (5,0) [0|1250] "deg C" Vector__XXX
+ SG_ Egt4 : 24|8@1+ (5,0) [0|1250] "deg C" Vector__XXX
+ SG_ Egt5 : 32|8@1+ (5,0) [0|1250] "deg C" Vector__XXX
+ SG_ Egt6 : 40|8@1+ (5,0) [0|1250] "deg C" Vector__XXX
+ SG_ Egt7 : 48|8@1+ (5,0) [0|1250] "deg C" Vector__XXX
+ SG_ Egt8 : 56|8@1+ (5,0) [0|1250] "deg C" Vector__XXX
+
+BO_ 522 BASE10: 8 Vector__XXX
+ SG_ knock0 : 0|8@1- (1,0) [-60|10] "db" Vector__XXX
+ SG_ knock1 : 8|8@1- (1,0) [-60|10] "db" Vector__XXX
+ SG_ knock2 : 16|8@1- (1,0) [-60|10] "db" Vector__XXX
+ SG_ knock3 : 24|8@1- (1,0) [-60|10] "db" Vector__XXX
+ SG_ knock4 : 32|8@1- (1,0) [-60|10] "db" Vector__XXX
+ SG_ knock5 : 40|8@1- (1,0) [-60|10] "db" Vector__XXX
+ SG_ knock6 : 48|8@1- (1,0) [-60|10] "db" Vector__XXX
+ SG_ knock7 : 56|8@1- (1,0) [-60|10] "db" Vector__XXX
 
 
 CM_ SG_ 3221225472 AFR "Current AFR Reading

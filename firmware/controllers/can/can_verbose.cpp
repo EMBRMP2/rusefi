@@ -18,6 +18,10 @@
 #include "fuel_math.h"
 #include "spark_logic.h"
 
+#ifdef HW_HELLEN
+#include "hellen_meta.h"
+#endif // HW_HELLEN
+
 #define CAN_PEDAL_TPS_OFFSET 2
 #define CAN_SENSOR_1_OFFSET 3
 
@@ -57,8 +61,10 @@ static void populateFrame(Status& msg) {
 
 	msg.gear = Sensor::getOrZero(SensorType::DetectedGear);
 
+#ifdef MODULE_ODOMETER
 	// scale to units of 0.1km
 	msg.distanceTraveled = engine->module<TripOdometer>()->getDistanceMeters() / 100;
+#endif // MODULE_ODOMETER
 }
 
 struct Speeds {
@@ -165,10 +171,12 @@ struct Fueling2 {
 };
 
 static void populateFrame(Fueling2& msg) {
+#ifdef MODULE_ODOMETER
 	msg.fuelConsumedGram = engine->module<TripOdometer>()->getConsumedGrams();
 	msg.fuelFlowRate = engine->module<TripOdometer>()->getConsumptionGramPerSecond();
+#endif // MODULE_ODOMETER
 
-	for (size_t i = 0; i < STFT_BANK_COUNT; i++) {
+	for (size_t i = 0; i < FT_BANK_COUNT; i++) {
 		msg.fuelTrim[i] = 100.0f * (engine->engineState.stftCorrection[i] - 1.0f);
 	}
 }
@@ -176,8 +184,8 @@ static void populateFrame(Fueling2& msg) {
 struct Fueling3 {
 	scaled_channel<uint16_t, 10000> Lambda;
 	scaled_channel<uint16_t, 10000> Lambda2;
-	scaled_channel<int16_t, 30> FuelPressureLow;
-	scaled_channel<int16_t, 10> FuelPressureHigh;
+	scaled_channel<uint16_t, 30> FuelPressureLow;
+	scaled_channel<uint16_t, 10> FuelPressureHigh;
 };
 
 static void populateFrame(Fueling3& msg) {
@@ -185,6 +193,16 @@ static void populateFrame(Fueling3& msg) {
 	msg.Lambda2 = Sensor::getOrZero(SensorType::Lambda2);
 	msg.FuelPressureLow = Sensor::getOrZero(SensorType::FuelPressureLow);
 	msg.FuelPressureHigh = KPA2BAR(Sensor::getOrZero(SensorType::FuelPressureHigh));
+}
+
+struct PerCylinderKnock {
+  int8_t knock[8];
+};
+
+static void populateFrame(PerCylinderKnock& msg) {
+  for (size_t index = 0;index<std::min(8, MAX_CYLINDER_COUNT);index++) {
+	  msg.knock[index] = engine->module<KnockController>()->m_knockCyl[index];
+  }
 }
 
 struct Cams {
@@ -220,9 +238,15 @@ struct Egts {
 static void populateFrame(Egts& msg) {
 	msg.egt[0] = Sensor::getOrZero(SensorType::EGT1) / 5;
 	msg.egt[1] = Sensor::getOrZero(SensorType::EGT2) / 5;
+	// DBC Defines signals Egt3 through Egt8 but we do not have the code
 }
 
 void sendCanVerbose() {
+#if HW_HELLEN && EFI_PROD_CODE
+        if (!getHellenBoardEnabled()) {
+            return;
+        }
+#endif // HW_HELLEN
 	auto base = engineConfiguration->verboseCanBaseAddress;
 	auto isExt = engineConfiguration->rusefiVerbose29b;
 	auto canChannel = engineConfiguration->canBroadcastUseChannelTwo;
@@ -238,6 +262,7 @@ void sendCanVerbose() {
 	transmitStruct<Cams>		(CanCategory::VERBOSE, base + 8, isExt, canChannel);
 
 	transmitStruct<Egts>	(CanCategory::VERBOSE, base + 9, isExt, canChannel);
+	transmitStruct<PerCylinderKnock>	(CanCategory::VERBOSE, base + 10, isExt, canChannel);
 }
 
 #endif // EFI_CAN_SUPPORT

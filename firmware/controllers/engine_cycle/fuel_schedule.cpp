@@ -8,27 +8,21 @@
 
 #if EFI_ENGINE_CONTROL
 
-void turnInjectionPinHigh(uintptr_t arg) {
-	efitick_t nowNt = getTimeNowNt();
+void turnInjectionPinHigh(scheduler_arg_t const arg) {
+	auto const nowNt{ getTimeNowNt() };
 
-	// clear last bit to recover the pointer
-	InjectionEvent *event = reinterpret_cast<InjectionEvent*>(arg & ~(1UL));
+	auto const taggedPointer{ TaggedPointer<InjectionEvent>::fromRaw(arg) };
+	auto const event{ taggedPointer.getOriginalPointer() };
+	auto const hasStage2Injection{ taggedPointer.getFlag() };
 
-	// extract last bit
-	bool stage2Active = arg & 1;
-
-	for (size_t i = 0; i < efi::size(event->outputs); i++) {
-		InjectorOutputPin *output = event->outputs[i];
-
+	for (auto const& output: event->outputs) {
 		if (output) {
 			output->open(nowNt);
 		}
 	}
 
-	if (stage2Active) {
-		for (size_t i = 0; i < efi::size(event->outputsStage2); i++) {
-			InjectorOutputPin *output = event->outputsStage2[i];
-
+	if (hasStage2Injection) {
+		for (auto const& output: event->outputsStage2) {
 			if (output) {
 				output->open(nowNt);
 			}
@@ -51,8 +45,8 @@ void FuelSchedule::invalidate() {
 }
 
 void FuelSchedule::resetOverlapping() {
-	for (size_t i = 0; i < efi::size(enginePins.injectors); i++) {
-		enginePins.injectors[i].reset();
+	for (auto& inj : enginePins.injectors) {
+		inj.reset();
 	}
 }
 
@@ -79,10 +73,6 @@ static float getInjectionAngleCorrection(float fuelMs, float oneDegreeUs) {
 	}
 }
 
-InjectionEvent::InjectionEvent() {
-	memset(outputs, 0, sizeof(outputs));
-}
-
 // Returns the start angle of this injector in engine coordinates (0-720 for a 4 stroke),
 // or unexpected if unable to calculate the start angle due to missing information.
 expected<float> InjectionEvent::computeInjectionAngle() const {
@@ -93,9 +83,14 @@ expected<float> InjectionEvent::computeInjectionAngle() const {
 		return unexpected;
 	}
 
+	float fuelMs = getEngineState()->injectionDuration;
+	if (std::isnan(fuelMs)) {
+		return unexpected;
+	}
+
 	// injection phase may be scheduled by injection end, so we need to step the angle back
 	// for the duration of the injection
-	angle_t injectionDurationAngle = getInjectionAngleCorrection(getEngineState()->injectionDuration, oneDegreeUs);
+	angle_t injectionDurationAngle = getInjectionAngleCorrection(fuelMs, oneDegreeUs);
 
 	// User configured offset - degrees after TDC combustion
 	floatus_t injectionOffset = getEngineState()->injectionOffset;
@@ -119,7 +114,7 @@ expected<float> InjectionEvent::computeInjectionAngle() const {
 	wrapAngle(openingAngle, "addFuel#2", ObdCode::CUSTOM_ERR_6555);
 
 #if EFI_UNIT_TEST
-	printf("registerInjectionEvent openingAngle=%.2f inj %d\r\n", openingAngle, cylinderNumber);
+//	printf("registerInjectionEvent openingAngle=%.2f inj %d\r\n", openingAngle, cylinderNumber);
 #endif
 
 	return openingAngle;
@@ -160,7 +155,7 @@ bool InjectionEvent::update() {
 		injectorIndex = 0;
 	} else if (mode == IM_SEQUENTIAL || mode == IM_BATCH) {
 		// Map order index -> cylinder index (firing order)
-		injectorIndex = ID2INDEX(getFiringOrderCylinderId(ownIndex));
+		injectorIndex = getCylinderNumberAtIndex(ownIndex);
 	} else {
 		firmwareError(ObdCode::CUSTOM_OBD_UNEXPECTED_INJECTION_MODE, "Unexpected injection mode %d", mode);
 		injectorIndex = 0;
@@ -177,7 +172,7 @@ bool InjectionEvent::update() {
 		// Each injector gets fired as a primary (the same as sequential), but also
 		// fires the injector 360 degrees later in the firing order.
 		int secondOrder = (ownIndex + (engineConfiguration->cylindersCount / 2)) % engineConfiguration->cylindersCount;
-		int secondIndex = ID2INDEX(getFiringOrderCylinderId(secondOrder));
+		int secondIndex = getCylinderNumberAtIndex(secondOrder);
 		secondOutput = &enginePins.injectors[secondIndex];
 		secondOutputStage2 = &enginePins.injectorsStage2[secondIndex];
 	} else {

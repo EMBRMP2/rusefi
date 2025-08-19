@@ -12,6 +12,7 @@ struct_no_prefix engine_state_s
 		bit luaFuelCut
 		bit clutchDownState
 		bit disableDecelerationFuelCutOff
+		bit torqueReductionState
 	end_struct
 
 	struct speed_density_s
@@ -22,9 +23,12 @@ struct_no_prefix engine_state_s
 	struct cranking_fuel_s
 		float coolantTemperatureCoefficient;Fuel: cranking CLT mult
 		float tpsCoefficient;Fuel: cranking TPS mult
-		float durationCoefficient;Fuel: cranking duration mult
+		uint16_t autoscale baseFuel;Fuel: Cranking cycle base mass;"mg",{1/@@PACK_MULT_FUEL_MASS@@}, 0, 0, 0, 2
 		uint16_t autoscale fuel;Fuel: Cranking cycle mass;"mg",{1/@@PACK_MULT_FUEL_MASS@@}, 0, 0, 0, 2
 	end_struct
+
+	! Per-injection fuel mass, including TPS accel enrich
+	float[MAX_CYLINDER_COUNT iterate] injectionMass
 
 	LuaAdjustments lua
 	speed_density_s sd;
@@ -36,9 +40,8 @@ struct_no_prefix engine_state_s
 
 	int16_t hellenBoardId;Detected Board ID;"id", 1, 0, 0, 3000, 0
 
-    ! huh: why exactly are those byte states not bit states?!
+    ! huh: bit states are using a complete byte because SwitchedState helper class wants a reference
 	int8_t clutchUpState;@@INDICATOR_NAME_CLUTCH_UP@@
-	int8_t clutchDownState;@@INDICATOR_NAME_CLUTCH_DOWN@@
 	int8_t brakePedalState;@@INDICATOR_NAME_BRAKE_DOWN@@
 	int8_t startStopState
 	int8_t smartChipState
@@ -53,13 +56,13 @@ struct_no_prefix engine_state_s
 	bit luaDigitalState1
 	bit luaDigitalState2
 	bit luaDigitalState3
+	bit clutchDownState;@@INDICATOR_NAME_CLUTCH_DOWN@@
 	uint32_t startStopStateToggleCounter
 
+	float currentVe
 	float luaSoftSparkSkip
 	float luaHardSparkSkip
 	float tractionControlSparkSkip
-
-	int16_t desiredRpmLimit;User-defined RPM hard limit;"rpm", 1, 0, 0, 30000, 0
 
 	uint32_t fuelInjectionCounter;Fuel: Injection counter
 	uint32_t globalSparkCounter;Ign: Spark counter
@@ -73,6 +76,9 @@ struct_no_prefix engine_state_s
 	uint8_t overDwellCounter
 	uint8_t overDwellNotScheduledCounter
 	uint8_t sparkOutOfOrderCounter
+
+	! todo: extract to injection.txt?
+	float[FT_BANK_COUNT iterate] stftCorrection;STFT: Bank; "%", 100, -1.0, 50, 150, 1
 
 ! engine_state_s
 end_struct

@@ -59,7 +59,7 @@ public:
 	int getHwEventCounter(int index) const;
 	void resetCounters();
 	void validateCamVvtCounters();
-	void updateWaveform();
+	void applyShapesConfiguration();
 
   angle_t findNextTriggerToothAngle(int nextToothIndex);
 
@@ -136,10 +136,10 @@ public:
 	}
 
 	bool engineMovedRecently(efitick_t nowNt) const {
-    // todo: this user-defined property is a quick solution, proper fix https://github.com/rusefi/rusefi/issues/6593 is needed
-	  if (engineConfiguration->triggerEventsTimeoutMs != 0 && m_lastEventTimer.hasElapsedMs(engineConfiguration->triggerEventsTimeoutMs)) {
-	    return false;
-  	}
+		// todo: this user-defined property is a quick solution, proper fix https://github.com/rusefi/rusefi/issues/6593 is needed
+		if (engineConfiguration->triggerEventsTimeoutMs != 0 && m_lastEventTimer.hasElapsedMs(engineConfiguration->triggerEventsTimeoutMs)) {
+			return false;
+		}
 
 		constexpr float oneRevolutionLimitInSeconds = 60.0 / RPM_LOW_THRESHOLD;
 		auto maxAverageToothTime = oneRevolutionLimitInSeconds / triggerShape.getSize();
@@ -150,7 +150,7 @@ public:
 		// Clamp between 0.1 seconds ("instant" for a human) and worst case of one engine cycle on low tooth count wheel
 		maxAllowedGap = clampF(0.1f, maxAllowedGap, oneRevolutionLimitInSeconds);
 
-		return getSecondsSinceTriggerEvent(nowNt) < maxAllowedGap;
+		return (getSecondsSinceTriggerEvent(nowNt) < maxAllowedGap) || directSelfStimulation;
 	}
 
 	bool engineMovedRecently() const {
@@ -158,9 +158,6 @@ public:
 	}
 
 	TriggerNoiseFilter noiseFilter;
-
-	int vvtEventRiseCounter[CAM_INPUTS_COUNT];
-	int vvtEventFallCounter[CAM_INPUTS_COUNT];
 
 	angle_t getVVTPosition(uint8_t bankIndex, uint8_t camIndex);
 
@@ -207,8 +204,11 @@ public:
 	 */
 	bool isEngineSnifferEnabled = false;
 
+	void applyCamGapOverride();
+	bool isMapCamSync(efitick_t nowNt, float currentPhase);
 private:
-	void decodeMapCam(efitick_t nowNt, float currentPhase);
+	void decodeMapCam(int triggerIndexForListeners, efitick_t nowNt, float currentPhase);
+	void applyTriggerGapOverride();
 
 	bool isToothExpectedNow(efitick_t timestamp);
 
@@ -244,3 +244,16 @@ void onConfigurationChangeTriggerCallback();
 
 TriggerCentral * getTriggerCentral();
 int getCrankDivider(operation_mode_e operationMode);
+
+constexpr bool isTriggerUpEvent(trigger_event_e event) {
+	switch (event) {
+		case SHAFT_PRIMARY_FALLING:
+		case SHAFT_SECONDARY_FALLING:
+			return false;
+		case SHAFT_PRIMARY_RISING:
+		case SHAFT_SECONDARY_RISING:
+			return true;
+	}
+
+	return false;
+}

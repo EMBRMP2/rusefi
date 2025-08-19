@@ -5,7 +5,7 @@
 
 AirmassVeModelBase::AirmassVeModelBase(const ValueProvider3D& veTable) : m_veTable(&veTable) {}
 
-static float getVeLoadAxis(ve_override_e mode, float passedLoad) {
+float getVeLoadAxis(ve_override_e mode, float passedLoad) {
 	switch(mode) {
 		case VE_None: return passedLoad;
 		case VE_MAP: return Sensor::getOrZero(SensorType::Map);
@@ -14,7 +14,7 @@ static float getVeLoadAxis(ve_override_e mode, float passedLoad) {
 	}
 }
 
-float AirmassVeModelBase::getVe(int rpm, float load, bool postState) const {
+float AirmassVeModelBase::getVe(float rpm, float load, bool postState) const {
 	efiAssert(ObdCode::OBD_PCM_Processor_Fault, m_veTable != nullptr, "VE table null", 0);
 
 	// Override the load value if necessary
@@ -52,6 +52,7 @@ float AirmassVeModelBase::getVe(int rpm, float load, bool postState) const {
 			engine->outputChannels.veBlendParameter[i] = result.BlendParameter;
 			engine->outputChannels.veBlendBias[i] = result.Bias;
 			engine->outputChannels.veBlendOutput[i] = result.Value;
+			engine->outputChannels.veBlendYAxis[i] = result.TableYAxis;
 		}
 
 		// Skip extra floating point math if we can...

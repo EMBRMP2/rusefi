@@ -8,15 +8,18 @@
 #include "pch.h"
 using ::testing::_;
 
-static size_t hpfpTotalToggle = 0;
+static int hpfpTotalToggle = 0;
 
-static void assertToggleCounterExtra(EngineTestHelper *eth, size_t extra, const char *msg) {
+static void assertToggleCounterExtra(EngineTestHelper *eth, int extra, const char *msg) {
 	eth->smartFireTriggerEvents2(/*count*/4, /*delay*/ 16);
 	ASSERT_EQ(hpfpTotalToggle + extra, enginePins.hpfpValve.pinToggleCounter) << msg;
 	hpfpTotalToggle += extra;
 }
 
+#if FUEL_RPM_COUNT == 16
 TEST(HPFP, IntegratedSchedule) {
+	extern bool unitTestTaskPrecisionHack;
+	unitTestTaskPrecisionHack = true;
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE, [](engine_configuration_s* engineConfiguration) {
 		engineConfiguration->hpfpValvePin = Gpio::A2; // arbitrary
 	});
@@ -57,5 +60,5 @@ TEST(HPFP, IntegratedSchedule) {
 
 	assertToggleCounterExtra(&eth, 6, "#5");
 }
-
+#endif //FUEL_RPM_COUNT == 16
 

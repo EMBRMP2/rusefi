@@ -175,14 +175,12 @@
     engineConfiguration->startCrankingDuration = 5;
     // default "false"
     engineConfiguration->enableSoftwareKnock = true;
-    // default 0.0
-    engineConfiguration->knockBandCustom = 12.80005;
+    // default 87.5
+    engineConfiguration->cylinderBore = 89.90039;
     // default 20.0
     engineConfiguration->knockRetardAggression = 5;
     // default 3.0
     engineConfiguration->knockRetardReapplyRate = 0.1;
-    // default 87.5
-    engineConfiguration->cylinderBore = 89.90039;
     // default 1000.0
     engineConfiguration->stft.maxIdleRegionRpm = 900;
     // default 60.0
@@ -221,8 +219,6 @@
     engineConfiguration->can2BaudRate = B100KBPS;
     // default "None"
     engineConfiguration->canNbcType = CAN_BUS_W202_C180;
-    // default 0.0
-    engineConfiguration->auxSerialSpeed = 115200;
     // default "Executor"
     engineConfiguration->debugMode = DBG_STEPPER_IDLE_CONTROL;
     // default 7000.0
@@ -287,6 +283,8 @@
     engineConfiguration->etbFreq = 2000;
     // default 100.0
     engineConfiguration->etbMaximumPosition = 97;
+    // default 1.0
+    engineConfiguration->etbJamTimeout = 0;
     // default "false"
     engineConfiguration->launchControlEnabled = true;
     // default 30.0
@@ -409,7 +407,6 @@
 	cannedtpsTpsAccelTable();
 	cannedtractionControlSlipBins();
 	cannedboostRpmBins();
-	cannedboostTpsBins();
 	cannedboostTableOpenLoop();
 	cannedboostTableClosedLoop();
 	cannedscriptTable1RpmBins();

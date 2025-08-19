@@ -1,5 +1,13 @@
 /**
  * can_gpio_msiobox.cpp
+ *
+ *  - discrete output works
+ *  - PWM output works
+ *
+ * TODO list:
+ *  - implement input reading
+ *  - support PWM out mode
+ *  - support VSS capture
  */
 
 #include "pch.h"
@@ -11,13 +19,6 @@
 #include "can_listener.h"
 #include "can_msg_tx.h"
 #include <rusefi/endian.h>
-
-/*
- * TODO list:
- *  - implement input reading
- *  - support PWM out mode
- *  - support VSS capture
- */
 
 /*==========================================================================*/
 /* Driver local definitions.												*/
@@ -61,13 +62,13 @@
 #define CAN_IOBOX_BASE2         0x220
 #define CAN_IOBOX_BASE3         0x240
 
-/* Packets from MS3 to device */
+/* Packets from ECU to device */
 #define CAN_IOBOX_PING          0x00
 #define CAN_IOBOX_CONFIG        0x01
 #define CAN_IOBOX_SET_PWM(n)    (0x02 + ((n) & 0x03))
 #define CAN_IOBOX_LAST_IN       0x05
 
-/* Packets from device to MS3 */
+/* Packets from device to ECU */
 #define CAN_IOBOX_WHOAMI        0x08
 #define CAN_IOBOX_ADC14         0x09
 #define CAN_IOBOX_ADC57         0x0A
@@ -154,9 +155,9 @@ static_assert(sizeof(iobox_tach) == 8);
 typedef enum {
 	MSIOBOX_DISABLED = 0,
 	MSIOBOX_WAIT_INIT,
-	MSIOBOX_WAIT_WHOAMI,
+	MSIOBOX_WAIT_WHOAMI, // 2
 	MSIOBOX_READY,
-	MSIOBOX_FAILED
+	MSIOBOX_FAILED // 4
 } msiobox_state;
 
 class MsIoBox final : public GpioChip, public CanListener {
@@ -170,8 +171,13 @@ public:
 	MsIoBox();
 	MsIoBox(uint32_t bus, uint32_t base, uint16_t period);
 
+	void printState() {
+	  efiPrintf("IO state: %d", (int)state);
+	  efiPrintf("pwmBaseFreq: %d", (int)pwmBaseFreq);
+	}
+
 	CanListener* request() override;
-	bool acceptFrame(const CANRxFrame& frame) const override;
+	bool acceptFrame(const size_t busIndex, const CANRxFrame& frame) const override;
 
 	int init() override;
 	int config(uint32_t bus, uint32_t base, uint16_t period);
@@ -269,7 +275,9 @@ int MsIoBox::config(uint32_t bus, uint32_t base, uint16_t period)
 	return 0;
 }
 
-bool MsIoBox::acceptFrame(const CANRxFrame& frame) const {
+bool MsIoBox::acceptFrame(const size_t busIndex, const CANRxFrame& frame) const {
+	/* TODO: check busIndex! */
+
 	/* 11 bit only */
 	if (CAN_ISX(frame)) {
 		return false;
@@ -288,14 +296,14 @@ bool MsIoBox::acceptFrame(const CANRxFrame& frame) const {
 
 /* Ping iobox */
 int MsIoBox::ping() {
-	CanTxTyped<iobox_ping> frame(CanCategory::MEGASQUIRT, m_base + CAN_IOBOX_PING, false, 0);
+	CanTxTyped<iobox_ping> frame(CanCategory::CAN_IOBOX, m_base + CAN_IOBOX_PING, false, 0);
 
 	return 0;
 }
 
 /* Send init settings */
 int MsIoBox::setup() {
-	CanTxTyped<iobox_cfg> cfg(CanCategory::MEGASQUIRT, m_base + CAN_IOBOX_CONFIG, false, 0);
+	CanTxTyped<iobox_cfg> cfg(CanCategory::CAN_IOBOX, m_base + CAN_IOBOX_CONFIG, false, 0);
 
 	cfg->pwm_mask = OutMode;
 	cfg->tachin_mask = InMode;
@@ -328,7 +336,7 @@ int MsIoBox::update() {
 		if ((OutMode & (BIT(i) | BIT(i + 1))) == 0)
 			continue;
 
-		CanTxTyped<iobox_pwm> pwm(CanCategory::MEGASQUIRT, m_base + CAN_IOBOX_SET_PWM(i), false, 0);
+		CanTxTyped<iobox_pwm> pwm(CanCategory::CAN_IOBOX, m_base + CAN_IOBOX_SET_PWM(i), false, 0);
 		for (size_t j = 0; j < 2; j++) {
 			CalcOnOffPeriod(i + j, pwm->ch[j]);
 		}
@@ -336,7 +344,7 @@ int MsIoBox::update() {
 
 	/* PWM7 periods and on/off outputs bitfield - sent always */
 	{
-		CanTxTyped<iobox_pwm_last> pwm(CanCategory::MEGASQUIRT, m_base + CAN_IOBOX_SET_PWM(3), false, 0);
+		CanTxTyped<iobox_pwm_last> pwm(CanCategory::CAN_IOBOX, m_base + CAN_IOBOX_SET_PWM(3), false, 0);
 
 		CalcOnOffPeriod(MSIOBOX_OUT_COUNT - 1, pwm->ch[0]);
 
@@ -535,9 +543,9 @@ CanListener* MsIoBox::request(void) {
 
 static MsIoBox instance[BOARD_CAN_GPIO_COUNT];
 
-int initCanGpioMsiobox() {
+void initCanGpioMsiobox() {
 	if (engineConfiguration->msIoBox0.id == MsIoBoxId::OFF) {
-		return 0;
+		return;
 	}
 
 	// MSIOBOX_0_OUT_1
@@ -549,10 +557,17 @@ int initCanGpioMsiobox() {
 			registerCanListener(instance[i]);
 			/* register */
 			int ret = gpiochip_register(Gpio::MSIOBOX_0_OUT_1, DRIVER_NAME, instance[i], MSIOBOX_SIGNALS);
-			if (ret < 0)
-				return ret;
+			if (ret < 0) {
+			  // no error handling, not returning error code
+				return;
+			}
 		}
 	}
-	return 0;
+
+	addConsoleAction("msioinfo", [](){
+	  for (size_t i = 0; i < BOARD_CAN_GPIO_COUNT; i++) {
+	    instance[i].printState();
+	  }
+  });
 }
 #endif // EFI_CAN_GPIO

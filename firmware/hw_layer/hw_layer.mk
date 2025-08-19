@@ -20,12 +20,11 @@ HW_LAYER_CPP = \
 	$(PROJECT_DIR)/hw_layer/ports/arm_common.cpp \
 	$(PROJECT_DIR)/hw_layer/kline.cpp \
 	$(PROJECT_DIR)/hw_layer/mmc_card.cpp \
+	$(PROJECT_DIR)/hw_layer/mmc_card_util.cpp \
 	$(PROJECT_DIR)/hw_layer/adc/adc_inputs.cpp \
 	$(PROJECT_DIR)/hw_layer/adc/adc_inputs_onchip.cpp \
 	$(PROJECT_DIR)/hw_layer/adc/adc_subscription.cpp \
 	$(PROJECT_DIR)/hw_layer/adc/ads1015.cpp \
-	$(PROJECT_DIR)/hw_layer/sensors/hip9011.cpp \
-	$(PROJECT_DIR)/hw_layer/sensors/hip9011_logic.cpp \
 	$(PROJECT_DIR)/hw_layer/mc33816.cpp \
 	$(PROJECT_DIR)/hw_layer/stepper.cpp \
 	$(PROJECT_DIR)/hw_layer/stepper_dual_hbridge.cpp \

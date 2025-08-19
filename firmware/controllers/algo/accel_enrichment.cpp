@@ -24,26 +24,36 @@
 #include "pch.h"
 #include "accel_enrichment.h"
 
-static tps_tps_Map3D_t tpsTpsMap{"tps"};
 
 // on this level we do not distinguish between multiplier and 'ms adder' modes
 float TpsAccelEnrichment::getTpsEnrichment() {
 	ScopePerf perf(PE::GetTpsEnrichment);
+	
+	// If predictive MAP mode is active, the old "adder" logic is disabled.
+	if (engineConfiguration->accelEnrichmentMode == AE_MODE_PREDICTIVE_MAP) {
+		return 0;
+	}
 
 	if (engineConfiguration->tpsAccelLookback == 0) {
 		// If disabled, return 0.
 		return 0;
 	}
-	int rpm = Sensor::getOrZero(SensorType::Rpm);
+	float rpm = Sensor::getOrZero(SensorType::Rpm);
 	if (rpm == 0) {
 		return 0;
 	}
 
 	if (isAboveAccelThreshold) {
-		valueFromTable = tpsTpsMap.getValue(tpsFrom, tpsTo);
+    valueFromTable = interpolate3d(config->tpsTpsAccelTable,
+      config->tpsTpsAccelToRpmBins, tpsTo,
+      config->tpsTpsAccelFromRpmBins, tpsFrom
+    );
+
 		extraFuel = valueFromTable;
+		m_timeSinceAccel.reset();
 	} else if (isBelowDecelThreshold) {
 		extraFuel = deltaTps * engineConfiguration->tpsDecelEnleanmentMultiplier;
+		m_timeSinceAccel.reset();
 	} else {
 		extraFuel = 0;
 	}
@@ -53,36 +63,23 @@ float TpsAccelEnrichment::getTpsEnrichment() {
 	isFractionalEnrichment = engineConfiguration->tpsAccelFractionPeriod > 1 || engineConfiguration->tpsAccelFractionDivisor > 1.0f;
 	if (isFractionalEnrichment) {
 		// make sure both values are non-zero
-		float periodF = (float)maxI(engineConfiguration->tpsAccelFractionPeriod, 1);
-		float divisor = maxF(engineConfiguration->tpsAccelFractionDivisor, 1.0f);
+		float periodF = std::max<int>(engineConfiguration->tpsAccelFractionPeriod, 1);
+		float divisor = std::max(engineConfiguration->tpsAccelFractionDivisor, 1.0f);
 
 		// if current extra fuel portion is not "strong" enough, then we keep up the "pump pressure" with the accumulated portion
-		floatms_t maxExtraFuel = maxF(extraFuel, accumulatedValue);
+		floatms_t maxExtraFuel = std::max(extraFuel, accumulatedValue);
 		// use only a fixed fraction of the accumulated portion
 		fractionalInjFuel = maxExtraFuel / divisor;
 
 		// update max counters
-		maxExtraPerCycle = maxF(extraFuel, maxExtraPerCycle);
-		maxInjectedPerPeriod = maxF(fractionalInjFuel, maxInjectedPerPeriod);
+		maxExtraPerCycle = std::max(extraFuel, maxExtraPerCycle);
+		maxInjectedPerPeriod = std::max(fractionalInjFuel, maxInjectedPerPeriod);
 
 		// evenly split it between several engine cycles
 		extraFuel = fractionalInjFuel / periodF;
 	} else {
 		resetFractionValues();
 	}
-
-#if EFI_TUNER_STUDIO
-	if (engineConfiguration->debugMode == DBG_TPS_ACCEL) {
-		engine->outputChannels.debugFloatField1 = tpsFrom;
-		engine->outputChannels.debugFloatField2 = tpsTo;
-		engine->outputChannels.debugFloatField3 = valueFromTable;
-		engine->outputChannels.debugFloatField4 = extraFuel;
-		engine->outputChannels.debugFloatField5 = accumulatedValue;
-		engine->outputChannels.debugFloatField6 = maxExtraPerPeriod;
-		engine->outputChannels.debugFloatField7 = maxInjectedPerPeriod;
-		engine->outputChannels.debugIntField1 = cycleCnt;
-	}
-#endif /* EFI_TUNER_STUDIO */
 
 	float mult = interpolate2d(rpm, config->tpsTspCorrValuesBins,
 						config->tpsTspCorrValues);
@@ -100,7 +97,7 @@ void TpsAccelEnrichment::onEngineCycleTps() {
 
 	// we used some extra fuel during the current cycle, so we "charge" our "acceleration pump" with it
 	accumulatedValue -= maxExtraPerPeriod;
-	maxExtraPerPeriod = maxF(maxExtraPerCycle, maxExtraPerPeriod);
+	maxExtraPerPeriod = std::max(maxExtraPerCycle, maxExtraPerPeriod);
 	maxExtraPerCycle = 0;
 	accumulatedValue += maxExtraPerPeriod;
 
@@ -185,8 +182,21 @@ void TpsAccelEnrichment::onNewValue(float currentValue) {
 	// Update threshold detection
 	isAboveAccelThreshold = deltaTps > engineConfiguration->tpsAccelEnrichmentThreshold;
 
+	// If an acceleration event just happened, latch the flag so it can be read once.
+	if (isAboveAccelThreshold) {
+		m_accelEventJustOccurred = true;
+	}
+
 	// TODO: can deltaTps actually be negative? Will this ever trigger?
 	isBelowDecelThreshold = deltaTps < -engineConfiguration->tpsDecelEnleanmentThreshold;
+}
+
+bool TpsAccelEnrichment::isAccelEventTriggered() {
+	// Read the flag
+	bool result = m_accelEventJustOccurred;
+	// Reset it so we only fire once per event
+	m_accelEventJustOccurred = false;
+	return result;
 }
 
 TpsAccelEnrichment::TpsAccelEnrichment() {
@@ -194,29 +204,23 @@ TpsAccelEnrichment::TpsAccelEnrichment() {
 	cb.setSize(4);
 }
 
-#if ! EFI_UNIT_TEST
+void TpsAccelEnrichment::onConfigurationChange(engine_configuration_s const* /*previousConfig*/) {
+	constexpr float slowCallbackPeriodSecond = SLOW_CALLBACK_PERIOD_MS / 1000.0f;
+	int length = engineConfiguration->tpsAccelLookback / slowCallbackPeriodSecond;
 
-static void setTpsAccelLen(int length) {
 	if (length < 1) {
 		efiPrintf("setTpsAccelLen: Length should be positive [%d]", length);
 		return;
 	}
-	engine->tpsAccelEnrichment.setLength(length);
+
+	setLength(length);
 }
 
-void updateAccelParameters() {
-	constexpr float slowCallbackPeriodSecond = SLOW_CALLBACK_PERIOD_MS / 1000.0f;
-	setTpsAccelLen(engineConfiguration->tpsAccelLookback / slowCallbackPeriodSecond);
+float TpsAccelEnrichment::getTimeSinceAcell() const {
+	return m_timeSinceAccel.getElapsedSeconds();
 }
-
-#endif /* ! EFI_UNIT_TEST */
-
 
 void initAccelEnrichment() {
-	tpsTpsMap.initTable(config->tpsTpsAccelTable, config->tpsTpsAccelToRpmBins, config->tpsTpsAccelFromRpmBins);
 
-#if ! EFI_UNIT_TEST
-	updateAccelParameters();
-#endif /* ! EFI_UNIT_TEST */
+	engine->module<TpsAccelEnrichment>()->onConfigurationChange(nullptr);
 }
-

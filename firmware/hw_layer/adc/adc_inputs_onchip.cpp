@@ -5,15 +5,15 @@
  * rusEfi uses two ADC devices on the same 16 pins at the moment. Two ADC devices are used in order to distinguish between
  * fast and slow devices. The idea is that but only having few channels in 'fast' mode we can sample those faster?
  *
- * At the moment rusEfi does not allow to have more than 16 ADC channels combined. At the moment there is no flexibility to use
- * any ADC pins, only the hardcoded choice of 16 pins.
- *
  * Slow ADC group is used for IAT, CLT, AFR, VBATT etc - this one is currently sampled at 500Hz
  *
  * Fast ADC group is used for MAP, MAF HIP - this one is currently sampled at 10KHz
  *  We need frequent MAP for map_averaging.cpp
  *
  * 10KHz equals one measurement every 3.6 degrees at 6000 RPM
+ *
+ * PS: analog muxes allow to double number of analog inputs
+ * oh, and ADC3 is dedicated for knock
  *
  * @date Jan 14, 2013
  * @author Andrey Belomutskiy, (c) 2012-2020
@@ -29,19 +29,15 @@
 #include "periodic_thread_controller.h"
 #include "protected_gpio.h"
 
-// Board voltage, with divider coefficient accounted for
-float getVoltageDivided(const char *msg, adc_channel_e hwChannel) {
-	return getVoltage(msg, hwChannel) * getAnalogInputDividerCoefficient(hwChannel);
+// voltage in MCU universe, from zero to Vref
+float adcGetRawVoltage(const char *msg, adc_channel_e hwChannel) {
+	return adcRawValueToRawVoltage(adcGetRawValue(msg, hwChannel));
 }
 
-float PUBLIC_API_WEAK boardAdjustVoltage(float voltage, adc_channel_e hwChannel) {
-  // a hack useful when we do not trust voltage just after board EN was turned on. is this just hiding electrical design flaws?
-  return voltage;
-}
-
-// voltage in MCU universe, from zero to VDD
-float getVoltage(const char *msg, adc_channel_e hwChannel) {
-	float voltage = adcToVolts(getAdcValue(msg, hwChannel));
+// voltage in ECU universe, with all input dividers and OpAmps gains taken into account, voltage at ECU connector pin
+float adcGetScaledVoltage(const char *msg, adc_channel_e hwChannel) {
+	// TODO: merge getAnalogInputDividerCoefficient() and boardAdjustVoltage() into single board hook?
+	float voltage = adcGetRawVoltage(msg, hwChannel) * getAnalogInputDividerCoefficient(hwChannel);
 	return boardAdjustVoltage(voltage, hwChannel);
 }
 
@@ -82,13 +78,25 @@ static void fastAdcDoneCB(ADCDriver *adcp);
 static void fastAdcErrorCB(ADCDriver *, adcerror_t err);
 
 static ADCConversionGroup adcgrpcfgFast = {
+#if defined(EFI_INTERNAL_FAST_ADC_PWM)
+	.circular			= TRUE,
+#elif defined (EFI_INTERNAL_FAST_ADC_GPT)
 	.circular			= FALSE,
+#endif
 	.num_channels		= 0,
 	.end_cb				= fastAdcDoneCB,
 	.error_cb			= fastAdcErrorCB,
 	/* HW dependent part.*/
 	.cr1				= 0,
+#if defined(EFI_INTERNAL_FAST_ADC_PWM)
+	/* HW start using TIM8 CC 1 event rising edge
+	 * See "External trigger for regular channels" for magic 13 number
+	 * NOTE: Currently only TIM8 in PWM mode is supported */
+	.cr2				= ADC_CR2_EXTEN_0 | (13 << ADC_CR2_EXTSEL_Pos),
+#elif defined (EFI_INTERNAL_FAST_ADC_GPT)
+	/* SW start through GPT callback and SW kick */
 	.cr2				= ADC_CR2_SWSTART,
+#endif
 		/**
 		 * here we configure all possible channels for fast mode. Some channels would not actually
          * be used hopefully that's fine to configure all possible channels.
@@ -129,22 +137,54 @@ static volatile NO_CACHE adcsample_t fastAdcSampleBuf[ADC_BUF_DEPTH_FAST * ADC_M
 
 AdcDevice fastAdc(&ADC_FAST_DEVICE, &adcgrpcfgFast, fastAdcSampleBuf, ADC_BUF_DEPTH_FAST);
 
+static efitick_t lastTick = 0;
+
 static void fastAdcDoneCB(ADCDriver *adcp) {
 	// State may not be complete if we get a callback for "half done"
-	if (adcp->state == ADC_COMPLETE) {
-		fastAdc.conversionCount++;
+	if (adcIsBufferComplete(adcp)) {
+		efitick_t nowTick = getTimeNowNt();
+		efitick_t diff = nowTick - lastTick;
+		lastTick = nowTick;
+
+		engine->outputChannels.fastAdcPeriod = (uint32_t)diff;
+		engine->outputChannels.fastAdcConversionCount++;
+
 		onFastAdcComplete(adcp->samples);
 	}
 }
 
-static volatile adcerror_t fastAdcLastError;
-
 static void fastAdcErrorCB(ADCDriver *, adcerror_t err) {
-	fastAdcLastError = err;
-	engine->outputChannels.fastAdcErrorCallbackCount++;
+	engine->outputChannels.fastAdcLastError = (uint8_t)err;
+	engine->outputChannels.fastAdcErrorCount++;
+	if (err == ADC_ERR_OVERFLOW) {
+		engine->outputChannels.fastAdcOverrunCount++;
+	}
+	// TODO: restart?
 }
 
-static void fastAdcTrigger(GPTDriver*) {
+#if defined(EFI_INTERNAL_FAST_ADC_PWM)
+
+static const PWMConfig pwmcfg = {
+	/* on each trigger event regular group of channels is converted,
+	 * to get whole buffer filled we need ADC_BUF_DEPTH_FAST trigger events */
+	.frequency = GPT_FREQ_FAST * ADC_BUF_DEPTH_FAST,
+	.period = GPT_PERIOD_FAST,
+	.callback = nullptr,
+	.channels = {
+		{PWM_OUTPUT_ACTIVE_HIGH, nullptr},
+		{PWM_OUTPUT_ACTIVE_HIGH, nullptr},
+		{PWM_OUTPUT_ACTIVE_HIGH, nullptr},
+		{PWM_OUTPUT_ACTIVE_HIGH, nullptr}
+	},
+	.cr2 = 0,
+	.bdtr = 0,
+	.dier = 0,
+};
+
+#elif defined (EFI_INTERNAL_FAST_ADC_GPT)
+
+static void fastAdcStartTrigger(GPTDriver*)
+{
 #if EFI_INTERNAL_ADC
 	/*
 	 * Starts an asynchronous ADC conversion operation, the conversion
@@ -155,12 +195,16 @@ static void fastAdcTrigger(GPTDriver*) {
 #endif /* EFI_INTERNAL_ADC */
 }
 
-static GPTConfig fast_adc_config = {
+static const GPTConfig fast_adc_config = {
 	.frequency = GPT_FREQ_FAST,
-	.callback = fastAdcTrigger,
+	.callback = fastAdcStartTrigger,
 	.cr2 = 0,
 	.dier = 0,
 };
+
+#else
+	#error Please define EFI_INTERNAL_FAST_ADC_PWM or EFI_INTERNAL_FAST_ADC_GPT for Fast ADC
+#endif
 
 int AdcDevice::size() const {
 	return channelCount;
@@ -171,8 +215,15 @@ void AdcDevice::init(void) {
 	/* driver does this internally */
 	//hwConfig->sqr1 += ADC_SQR1_NUM_CH(size());
 
+#if defined(EFI_INTERNAL_FAST_ADC_PWM)
+	// Start the timer running
+	pwmStart(EFI_INTERNAL_FAST_ADC_PWM, &pwmcfg);
+	pwmEnableChannel(EFI_INTERNAL_FAST_ADC_PWM, 0, /* width */ 1);
+	adcStartConversion(adcp, hwConfig, (adcsample_t *)samples, depth);
+#elif defined (EFI_INTERNAL_FAST_ADC_GPT)
 	gptStart(EFI_INTERNAL_FAST_ADC_GPT, &fast_adc_config);
 	gptStartContinuous(EFI_INTERNAL_FAST_ADC_GPT, GPT_PERIOD_FAST);
+#endif
 }
 
 int AdcDevice::enableChannel(adc_channel_e hwChannel) {
@@ -211,15 +262,14 @@ int AdcDevice::enableChannel(adc_channel_e hwChannel) {
 void AdcDevice::startConversionI()
 {
 	chSysLockFromISR();
-	if ((ADC_FAST_DEVICE.state != ADC_READY) &&
-		(ADC_FAST_DEVICE.state != ADC_COMPLETE) &&
-		(ADC_FAST_DEVICE.state != ADC_ERROR)) {
-		engine->outputChannels.fastAdcErrorsCount++;
-		// todo: when? why? criticalError("ADC fast not ready?");
-		// see notes at https://github.com/rusefi/rusefi/issues/6399
-	} else {
+	if ((ADC_FAST_DEVICE.state == ADC_READY) ||
+		(ADC_FAST_DEVICE.state == ADC_ERROR)) {
 		/* drop volatile type qualifier - this is safe */
 		adcStartConversionI(adcp, hwConfig, (adcsample_t *)samples, depth);
+	} else {
+		engine->outputChannels.fastAdcErrorCount++;
+		// todo: when? why? criticalError("ADC fast not ready?");
+		// see notes at https://github.com/rusefi/rusefi/issues/6399
 	}
 	chSysUnlockFromISR();
 }
@@ -235,11 +285,8 @@ adcsample_t AdcDevice::getAvgAdcValue(adc_channel_e hwChannel) {
 
 	for (size_t i = 0; i < depth; i++) {
 		adcsample_t sample = samples[index];
-//		if (sample > 0x1FFF) {
-//			// 12bit ADC expected right now, make this configurable one day
-//			criticalError("fast ADC unexpected sample %d", sample);
-//		} else
 		if (sample > ADC_MAX_VALUE) {
+		  // 12bit ADC expected right now. An error here usually means major RAM corruption?
  			criticalError("ADC unexpected sample %d at %ld uptime.",
 				sample,
 				(uint32_t)getTimeNowS());
@@ -267,4 +314,4 @@ AdcToken AdcDevice::getAdcChannelToken(adc_channel_e hwChannel) {
 
 #endif // EFI_USE_FAST_ADC
 
-#endif
+#endif // HAL_USE_ADC

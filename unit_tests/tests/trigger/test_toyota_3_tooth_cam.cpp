@@ -2,6 +2,8 @@
 #include "logicdata_csv_reader.h"
 
 TEST(Toyota3ToothCam, RealEngineRunning) {
+	extern bool unitTestTaskPrecisionHack;
+	unitTestTaskPrecisionHack = true;
 	CsvReader reader(1, /* vvtCount */ 1);
 
 	reader.open("tests/trigger/resources/toyota_3_tooth_cam.csv");
@@ -39,7 +41,7 @@ TEST(Toyota3ToothCam, RealEngineRunning) {
 	ASSERT_EQ(3078, round(Sensor::getOrZero(SensorType::Rpm)));
 
 	// TODO: why warnings?
-	ASSERT_EQ(1, eth.recentWarnings()->getCount());
+	ASSERT_EQ(1u, eth.recentWarnings()->getCount());
 	ASSERT_EQ(ObdCode::CUSTOM_PRIMARY_TOO_MANY_TEETH, eth.recentWarnings()->get(0).Code);
 }
 

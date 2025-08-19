@@ -15,7 +15,8 @@ Debug/
 doxygen/
 /.idea
 workspace.xml
-java_console_binary
+unit_test*xml
+/console
 .vscode/.*
 *.cmp
 *.net
@@ -30,3 +31,6 @@ log.txt
 
 # rusEFI simulator makes logs, ignore those
 rusefi_simulator_log.mlg
+
+# bundle
+artifacts

@@ -17,10 +17,6 @@
 
 #include "trigger_central.h"
 
-#if EFI_SENSOR_CHART
-#include "sensor_chart.h"
-#endif // EFI_SENSOR_CHART
-
 #include "engine_sniffer.h"
 
 // See RpmCalculator::checkIfSpinning()
@@ -50,10 +46,6 @@ uint32_t RpmCalculator::getRevolutionCounterSinceStart(void) const {
 	return revolutionCounterSinceStart;
 }
 
-/**
- * @return -1 in case of isNoisySignal(), current RPM otherwise
- * See NOISY_RPM
- */
 float RpmCalculator::getCachedRpm() const {
 	return cachedRpmValue;
 }
@@ -161,6 +153,10 @@ void RpmCalculator::assignRpmValue(float floatRpmValue) {
 }
 
 void RpmCalculator::setRpmValue(float value) {
+	if (value > MAX_ALLOWED_RPM) {
+		value = 0;
+	}
+
 	assignRpmValue(value);
 	spinning_state_e oldState = state;
 	// Change state
@@ -284,7 +280,7 @@ void rpmShaftPositionCallback(trigger_event_e ckpSignalType,
 		 */
 			if (!alwaysInstantRpm) {
 				if (periodSeconds == 0) {
-					rpmState->setRpmValue(NOISY_RPM);
+					rpmState->setRpmValue(0);
 					rpmState->rpmRate = 0;
 				} else {
 				  // todo: extract utility method? see duplication with high_pressure_pump.cpp
@@ -294,7 +290,7 @@ void rpmShaftPositionCallback(trigger_event_e ckpSignalType,
 					auto rpmDelta = rpm - rpmState->previousRpmValue;
 					rpmState->rpmRate = rpmDelta / (mult * periodSeconds);
 
-					rpmState->setRpmValue(rpm > UNREALISTIC_RPM ? NOISY_RPM : rpm);
+					rpmState->setRpmValue(rpm);
 				}
 			}
 		} else {
@@ -306,15 +302,6 @@ void rpmShaftPositionCallback(trigger_event_e ckpSignalType,
 		rpmState->onNewEngineCycle();
 	}
 
-#if EFI_SENSOR_CHART
-	// this 'index==0' case is here so that it happens after cycle callback so
-	// it goes into sniffer report into the first position
-	if (getEngineState()->sensorChartMode == SC_TRIGGER) {
-		angle_t crankAngle = engine->triggerCentral.getCurrentEnginePhase(nowNt).value_or(0);
-		int signal = 1000 * ckpSignalType + trgEventIndex;
-		scAddData(crankAngle, signal);
-	}
-#endif /* EFI_SENSOR_CHART */
 
 	// Always update instant RPM even when not spinning up
 	engine->triggerCentral.instantRpm.updateInstantRpm(
@@ -343,14 +330,14 @@ float RpmCalculator::getSecondsSinceEngineStart(efitick_t nowNt) const {
  * This callback has nothing to do with actual engine control, it just sends a Top Dead Center mark to the rusEfi console
  * digital sniffer.
  */
-static void onTdcCallback(void *) {
+static void onTdcCallback() {
 #if EFI_UNIT_TEST
 	if (!engine->needTdcCallback) {
 		return;
 	}
 #endif /* EFI_UNIT_TEST */
 
-	int rpm = Sensor::getOrZero(SensorType::Rpm);
+	float rpm = Sensor::getOrZero(SensorType::Rpm);
 	addEngineSnifferTdcEvent(rpm);
 #if EFI_TOOTH_LOGGER
 	LogTriggerTopDeadCenter(getTimeNowNt());
@@ -374,13 +361,13 @@ void tdcMarkCallback(
 
 		// two instances of scheduling_s are needed to properly handle event overlap
 		int revIndex2 = getRevolutionCounter() % 2;
-		int rpm = Sensor::getOrZero(SensorType::Rpm);
+		float rpm = Sensor::getOrZero(SensorType::Rpm);
 		// todo: use tooth event-based scheduling, not just time-based scheduling
-		if (isValidRpm(rpm)) {
+		if (rpm != 0) {
 			angle_t tdcPosition = tdcPosition();
 			// we need a positive angle offset here
 			wrapAngle(tdcPosition, "tdcPosition", ObdCode::CUSTOM_ERR_6553);
-			scheduleByAngle(&engine->tdcScheduler[revIndex2], nowNt, tdcPosition, onTdcCallback);
+			scheduleByAngle(&engine->tdcScheduler[revIndex2], nowNt, tdcPosition, action_s::make<onTdcCallback>());
 		}
 	}
 }
@@ -392,13 +379,12 @@ void tdcMarkCallback(
  *
  * @return tick time of scheduled action
  */
-efitick_t scheduleByAngle(scheduling_s *timer, efitick_t nowNt, angle_t angle,
-		action_s action) {
+efitick_t scheduleByAngle(scheduling_s *timer, efitick_t nowNt, angle_t angle, action_s const& action) {
 	float delayUs = engine->rpmCalculator.oneDegreeUs * angle;
 
 	efitick_t actionTimeNt = sumTickAndFloat(nowNt, USF2NT(delayUs));
 
-	engine->executor.scheduleByTimestampNt("angle", timer, actionTimeNt, action);
+	engine->scheduler.schedule("angle", timer, actionTimeNt, action);
 
 	return actionTimeNt;
 }

@@ -14,15 +14,15 @@
 #define DEFAULT_ENGINE_TYPE engine_type_e::MINIMAL_PINS
 #endif
 
-#define CLT_MANUAL_IDLE_CORRECTION config->cltIdleCorrBins, config->cltIdleCorr, CLT_CURVE_SIZE
 #define WARMUP_CLT_EXTRA_FUEL_CURVE config->cltFuelCorrBins, config->cltFuelCorr, CLT_CURVE_SIZE
 #define IAT_FUEL_CORRECTION_CURVE config->iatFuelCorrBins, config->iatFuelCorr, IAT_CURVE_SIZE
-#define INJECTOR_LAG_CURVE engineConfiguration->injector.battLagCorrBins, engineConfiguration->injector.battLagCorr, VBAT_INJECTOR_CURVE_SIZE
 
 #define MOCK_UNDEFINED -1
 
-// why is Windows compiler not happy around simulator?! feature or defect?!
-#if !defined(EFI_SIM_IS_WINDOWS) || !EFI_SIM_IS_WINDOWS
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=90826 Weak symbol does not work reliably on windows
+// https://sourceware.org/bugzilla/show_bug.cgi?id=9687 Weak symbols not working on mingw32
+// DEPRECATED see PUBLIC_API_WEAK
+#if !defined(IS_WINDOWS_COMPILER) || !IS_WINDOWS_COMPILER
 #define PUBLIC_API_WEAK_SOMETHING_WEIRD __attribute__((weak))
 #else
 #define PUBLIC_API_WEAK_SOMETHING_WEIRD
@@ -30,10 +30,9 @@
 
 void setCrankOperationMode();
 void setCamOperationMode();
-void setTwoStrokeOperationMode();
 
 void prepareVoidConfiguration(engine_configuration_s *activeConfiguration);
-void setTargetRpmCurve(int rpm);
+void setTargetRpmCurve(float rpm);
 void setFuelTablesLoadBin(float minValue, float maxValue);
 void setWholeIatCorrTimingTable(float value);
 void setWholeTimingTable(angle_t value);
@@ -74,6 +73,7 @@ Gpio getWarningLedPin();
 Gpio getRunningLedPin();
 
 int hackHellenBoardId(int detectedId);
+void applyEngineType(engine_type_e engineType);
 
 #if !EFI_UNIT_TEST
 extern persistent_config_container_s persistentState;

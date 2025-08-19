@@ -72,12 +72,12 @@ public class ConfigStructureImpl implements ConfigStructure {
          */
         FieldIteratorWithOffset iterator = new FieldIteratorWithOffset(cFields) {
             @Override
-            public void end() {
-                super.end();
+            public void end(int currentPosition) {
+                super.end(currentPosition);
                 currentOffset += cf.getSize(next);
             }
         };
-        iterator.loop();
+        iterator.loop(0);
 
         totalSize = iterator.currentOffset;
         int fillSize = totalSize % alignment == 0 ? 0 : alignment - (totalSize % alignment);
@@ -94,7 +94,7 @@ public class ConfigStructureImpl implements ConfigStructure {
             }
             ConfigFieldImpl fill = new ConfigFieldImpl(state, ALIGNMENT_FILL_AT + totalSize, "need 4 byte alignment",
                     "" + fillSize,
-                    TypesHelper.UINT8_T, fillSizeArray, "\"units\", 1, 0, -20, 100, 0", false, false, null, null);
+                    TypesHelper.UINT8_T, fillSizeArray, "\"units\", 1, 0, 0, 100, 0", false, false, null, null);
             addBoth(fill);
         }
         totalSize += fillSize;

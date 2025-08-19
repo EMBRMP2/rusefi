@@ -29,7 +29,7 @@ static void printMAPInfo() {
 #if EFI_ANALOG_SENSORS
 	efiPrintf("instant value=%.2fkPa", Sensor::getOrZero(SensorType::Map));
 
-#if EFI_MAP_AVERAGING
+#if EFI_MAP_AVERAGING && defined (MODULE_MAP_AVERAGING)
 	efiPrintf("map type=%d/%s MAP=%.2fkPa", engineConfiguration->map.sensor.type,
 			getAir_pressure_sensor_type_e(engineConfiguration->map.sensor.type),
 			Sensor::getOrZero(SensorType::Map));
@@ -38,7 +38,7 @@ static void printMAPInfo() {
 	adc_channel_e mapAdc = engineConfiguration->map.sensor.hwChannel;
 	char pinNameBuffer[16];
 
-	efiPrintf("MAP %.2fv @%s", getVoltage("mapinfo", mapAdc),
+	efiPrintf("MAP %.2fv @%s", adcGetRawVoltage("mapinfo", mapAdc),
 			getPinNameByAdcChannel("map", mapAdc, pinNameBuffer, sizeof(pinNameBuffer)));
 	if (engineConfiguration->map.sensor.type == MT_CUSTOM) {
 		efiPrintf("at %.2fv=%.2f at %.2fv=%.2f",
@@ -65,7 +65,7 @@ static void printMAPInfo() {
 void initMapDecoder() {
 	if (engineConfiguration->useFixedBaroCorrFromMap) {
 		// Read initial MAP sensor value and store it for Baro correction.
-		float storedInitialBaroPressure = Sensor::get(SensorType::MapSlow).value_or(101.325);
+		float storedInitialBaroPressure = Sensor::get(SensorType::MapSlow).value_or(STD_ATMOSPHERE);
 		efiPrintf("Get initial baro MAP pressure = %.2fkPa", storedInitialBaroPressure);
 		// validate if it's within a reasonable range (the engine should not be spinning etc.)
 		storedInitialBaroPressure = validateBaroMap(storedInitialBaroPressure);

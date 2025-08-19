@@ -11,6 +11,7 @@
 #include "pch.h"
 #include "hellen_meta.h"
 #include "defaults.h"
+#include "board_overrides.h"
 
 static OutputPin alphaTachPullUp;
 static OutputPin alphaTempPullUp;
@@ -54,7 +55,7 @@ static void setupDefaultSensorInputs() {
 	engineConfiguration->iat.adcChannel = H144_IN_IAT;
 }
 
-void boardInitHardware() {
+static void alphax_2chan_boardInitHardware() {
 
 	alphaTachPullUp.initPin("a-tach", Gpio::H144_OUT_IO1);
 	alphaTempPullUp.initPin("a-temp", Gpio::H144_OUT_IO4);
@@ -62,7 +63,6 @@ void boardInitHardware() {
 	alphaCrankNPullUp.initPin("a-crank-n", Gpio::H144_OUT_IO5);
 	alpha2stepPullDown.initPin("a-2step", Gpio::H144_OUT_IO7);
 	alphaCamPullDown.initPin("a-cam", Gpio::H144_OUT_IO8);
-	boardOnConfigurationChange(nullptr);
 }
 
 void boardOnConfigurationChange(engine_configuration_s * /*previousConfiguration*/) {
@@ -77,12 +77,17 @@ void boardOnConfigurationChange(engine_configuration_s * /*previousConfiguration
 
 
 static bool isMegaModuleRevision() {
+#ifndef EFI_BOOTLOADER
     int16_t hellenBoardId = engine->engineState.hellenBoardId;
     return hellenBoardId != BOARD_ID_ALPHA2CH_B && hellenBoardId != BOARD_ID_ALPHA2CH_C && hellenBoardId != BOARD_ID_ALPHA2CH_D;
+#else
+  return true;
+#endif // EFI_BOOTLOADER
 }
 
-void setBoardConfigOverrides() {
+static void alphax_2chan_ConfigOverrides() {
 	setHellenVbatt();
+#ifndef EFI_BOOTLOADER
     int16_t hellenBoardId = engine->engineState.hellenBoardId;
 
 	// rev.D uses SPI1 pins for CAN2, but rev.E and later uses mega-module meaning SPI1 for SD-card
@@ -108,6 +113,7 @@ void setBoardConfigOverrides() {
 
     engineConfiguration->vrThreshold[1].pin = Gpio::Unassigned; // 2chan never had second VR
     setDefaultHellenAtPullUps();
+#endif // EFI_BOOTLOADER
 
 	setHellenCan();
 }
@@ -118,7 +124,7 @@ void setBoardConfigOverrides() {
  * See also setDefaultEngineConfiguration
  *
  */
-void setBoardDefaultConfiguration() {
+static void  alphax_2chan_defaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
 
@@ -167,3 +173,8 @@ Gpio* getBoardMetaOutputs() {
     return OUTPUTS;
 }
 
+void setup_custom_board_overrides() {
+	custom_board_InitHardware = alphax_2chan_boardInitHardware;
+	custom_board_DefaultConfiguration = alphax_2chan_defaultConfiguration;
+	custom_board_ConfigOverrides = alphax_2chan_ConfigOverrides;
+}

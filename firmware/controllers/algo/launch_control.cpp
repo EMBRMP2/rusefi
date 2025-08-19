@@ -11,11 +11,9 @@
 #if EFI_LAUNCH_CONTROL
 #include "boost_control.h"
 #include "launch_control.h"
-#include "periodic_task.h"
-#include "advance_map.h"
 #include "engine_state.h"
-#include "advance_map.h"
-#include "tinymt32.h"
+#include "tinymt32.h" // TL,DR: basic implementation of 'random'
+#include "gppwm_channel_reader.h"
 
 /**
  * We can have active condition from switch or from clutch.
@@ -24,20 +22,22 @@
 bool LaunchControlBase::isInsideSwitchCondition() {
 	isSwitchActivated = engineConfiguration->launchActivationMode == SWITCH_INPUT_LAUNCH;
 	isClutchActivated = engineConfiguration->launchActivationMode == CLUTCH_INPUT_LAUNCH;
-    isBrakePedalActivated = engineConfiguration->launchActivationMode == STOP_INPUT_LAUNCH;
+	isBrakePedalActivated = engineConfiguration->launchActivationMode == STOP_INPUT_LAUNCH;
 
 	if (isSwitchActivated) {
 #if !EFI_SIMULATOR
 		if (isBrainPinValid(engineConfiguration->launchActivatePin)) {
-			launchActivatePinState = engineConfiguration->launchActivateInverted ^ efiReadPin(engineConfiguration->launchActivatePin);
+			launchActivatePinState = efiReadPin(engineConfiguration->launchActivatePin, engineConfiguration->launchActivatePinMode);
 		}
 #endif // EFI_PROD_CODE
 		return launchActivatePinState;
 	} else if (isClutchActivated) {
-		  return getClutchDownState();
+		return getClutchDownState();
 	} else if (isBrakePedalActivated) {
-      return getBrakePedalState();
-    } else {
+		return getBrakePedalState();
+	} else if (engineConfiguration->launchActivationMode == LUA_LAUNCH) {
+		return luaLaunchState;
+	} else {
 		// ALWAYS_ACTIVE_LAUNCH
 		return true;
 	}
@@ -71,7 +71,18 @@ bool LaunchControlBase::isInsideTpsCondition() const {
 	return engineConfiguration->launchTpsThreshold < tps.Value;
 }
 
-LaunchCondition LaunchControlBase::calculateRPMLaunchCondition(const int rpm) {
+LaunchCondition LaunchControlBase::calculateRPMLaunchCondition(const float rpm) {
+	if ((engineConfiguration->launchActivationMode == SWITCH_INPUT_LAUNCH)
+		&& (engineConfiguration->torqueReductionActivationMode == LAUNCH_BUTTON)
+		&& engineConfiguration->torqueReductionEnabled
+		&& (engineConfiguration->torqueReductionArmingRpm <= rpm)
+	) {
+		// We need perform Shift Torque Reduction stuff (see
+		// https://github.com/rusefi/rusefi/issues/5608#issuecomment-2391500472 and
+		// https://github.com/rusefi/rusefi/issues/5608#issuecomment-2391772899 for details)
+		return LaunchCondition::NotMet;
+	}
+
 	const int launchRpm = engineConfiguration->launchRpm;
 	const int preLaunchRpm = launchRpm - engineConfiguration->launchRpmWindow;
 	if (rpm < preLaunchRpm) {
@@ -83,7 +94,7 @@ LaunchCondition LaunchControlBase::calculateRPMLaunchCondition(const int rpm) {
 	}
 }
 
-LaunchCondition LaunchControlBase::calculateLaunchCondition(const int rpm) {
+LaunchCondition LaunchControlBase::calculateLaunchCondition(const float rpm) {
 	const LaunchCondition currentRpmLaunchCondition = calculateRPMLaunchCondition(rpm);
 	activateSwitchCondition = isInsideSwitchCondition();
 	rpmLaunchCondition = (currentRpmLaunchCondition == LaunchCondition::Launch);
@@ -113,7 +124,7 @@ void LaunchControlBase::update() {
 		return;
 	}
 
-	const int rpm = Sensor::getOrZero(SensorType::Rpm);
+	const float rpm = Sensor::getOrZero(SensorType::Rpm);
 	const LaunchCondition launchCondition = calculateLaunchCondition(rpm);
 	isLaunchCondition = (launchCondition == LaunchCondition::Launch);
 	isPreLaunchCondition = (launchCondition == LaunchCondition::PreLaunch);
@@ -136,7 +147,7 @@ bool LaunchControlBase::isLaunchFuelRpmRetardCondition() const {
 	return isLaunchRpmRetardCondition() && engineConfiguration->launchFuelCutEnable;
 }
 
-float LaunchControlBase::calculateSparkSkipRatio(const int rpm) const {
+float LaunchControlBase::calculateSparkSkipRatio(const float rpm) const {
 	float result = 0.0f;
 	if (engineConfiguration->launchControlEnabled && engineConfiguration->launchSparkCutEnable) {
 		if (isLaunchCondition) {
@@ -165,7 +176,7 @@ SoftSparkLimiter::SoftSparkLimiter(const bool p_allowHardCut)
 void SoftSparkLimiter::updateTargetSkipRatio(
 	const float luaSparkSkip,
 	const float tractionControlSparkSkip,
-	const float launchControllerSparkSkipRatio
+	const float launchOrShiftTorqueReductionControllerSparkSkipRatio
 ) {
 	targetSkipRatio = luaSparkSkip;
 	if (engineConfiguration->useHardSkipInTraction) {
@@ -181,7 +192,7 @@ void SoftSparkLimiter::updateTargetSkipRatio(
 		 * We are applying launch controller spark skip ratio only for hard skip limiter (see
 		 * https://github.com/rusefi/rusefi/issues/6566#issuecomment-2153149902).
 		 */
-		targetSkipRatio += launchControllerSparkSkipRatio;
+		targetSkipRatio += launchOrShiftTorqueReductionControllerSparkSkipRatio;
 	}
 }
 
@@ -193,8 +204,8 @@ bool SoftSparkLimiter::shouldSkip()  {
 		return false;
 	}
 
-	float r = tinymt32_generate_float(&tinymt);
-	wasJustSkipped = r < (allowHardCut ? 1 : 2) * targetSkipRatio;
+	float random = tinymt32_generate_float(&tinymt);
+	wasJustSkipped = random < (allowHardCut ? 1 : 2) * targetSkipRatio;
 	return wasJustSkipped;
 }
 

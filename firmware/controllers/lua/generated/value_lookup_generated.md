@@ -1,9 +1,6 @@
 ### startButtonSuppressOnStartUpMs
 null
 
-### sensorSnifferRpmThreshold
-Disable sensor sniffer above this rpm
-
 ### launchRpm
 A secondary Rev limit engaged by the driver to help launch the vehicle faster
 
@@ -28,32 +25,53 @@ Above this CLT, disable AC to prevent overheating the engine. Set to 0 to disabl
 ### compressionRatio
 Just for reference really, not taken into account by any logic at this point
 
-### wastegatePositionMin
-Voltage when the wastegate is closed.\nYou probably don't have one of these!
-
-### wastegatePositionMax
-Voltage when the wastegate is fully open.\nYou probably don't have one of these!\n1 volt = 1000 units
-
 ### idlePositionMin
 Voltage when the idle valve is closed.\nYou probably don't have one of these!
 
 ### idlePositionMax
 Voltage when the idle valve is open.\nYou probably don't have one of these!\n1 volt = 1000 units
 
-### etbExpAverageLength
-By the way ETB PID runs at 500hz, length in 1/500 of second here.
+### ltitEnabled
+Enable LTIT (Long Term Idle Trim) learning
+
+### ltitEmaAlpha
+EMA filter constant for LTIT (0-255)
+
+### ltitStableRpmThreshold
+RPM range to consider stable idle
+
+### ltitStableTime
+Minimum time of stable idle before learning
+
+### ltitCorrectionRate
+LTIT learning rate
+
+### ltitIgnitionOnDelay
+Delay after ignition ON before LTIT learning/application
+
+### ltitIgnitionOffSaveDelay
+Delay after ignition OFF before LTIT save
+
+### ltitClampMin
+Minimum LTIT multiplicative correction value
+
+### ltitClampMax
+Maximum LTIT multiplicative correction value
+
+### ltitSmoothingIntensity
+LTIT table regional smoothing intensity (0=no smoothing)
+
+### ltitIntegratorThreshold
+Minimum threshold of PID integrator for LTIT correction
 
 ### launchFuelAdderPercent
 
 
 ### etbJamTimeout
-Time required to detect a stuck throttle.
+Time after which the throttle is considered jammed.
 
 ### acIdleExtraOffset
 Additional idle % while A/C is active
-
-### manIdlePosition
-Value between 0 and 100 used in Manual mode
 
 ### multisparkMaxSparkingAngle
 This parameter sets the latest that the last multispark can occur after the main ignition event. For example, if the ignition timing is 30 degrees BTDC, and this parameter is set to 45, no multispark will ever be fired after 15 degrees ATDC.
@@ -65,10 +83,10 @@ Configures the maximum number of extra sparks to fire (does not include main spa
 
 
 ### injector.flow
-This is your injector flow at the fuel pressure used in the vehicle. cc/min, cubic centimetre per minute\nBy the way, g/s = 0.125997881 * (lb/hr)\ng/s = 0.125997881 * (cc/min)/10.5\ng/s = 0.0119997981 * cc/min
+This is your injector flow at the fuel pressure used in the vehicle\nSee units setting below
 
 ### injectorSecondary.flow
-This is your injector flow at the fuel pressure used in the vehicle. cc/min, cubic centimetre per minute\nBy the way, g/s = 0.125997881 * (lb/hr)\ng/s = 0.125997881 * (cc/min)/10.5\ng/s = 0.0119997981 * cc/min
+This is your injector flow at the fuel pressure used in the vehicle\nSee units setting below
 
 ### isForcedInduction
 Does the vehicle have a turbo or supercharger?
@@ -87,12 +105,6 @@ Turn on this fan when AC is on.
 
 ### enableFan2WithAc
 Turn on this fan when AC is on.
-
-### disableFan1WhenStopped
-Inhibit operation of this fan while the engine is not running.
-
-### disableFan2WhenStopped
-Inhibit operation of this fan while the engine is not running.
 
 ### enableTrailingSparks
 Enable secondary spark outputs that fire after the primary (rotaries, twin plug engines).
@@ -121,9 +133,6 @@ This uses separate ignition timing and VE tables not only for idle conditions, a
 ### launchControlEnabled
 
 
-### doNotFilterTriggerEdgeNoise
-"Detect double trigger edges"
-
 ### antiLagEnabled
 
 
@@ -131,7 +140,7 @@ This uses separate ignition timing and VE tables not only for idle conditions, a
 For cranking either use the specified fixed base fuel mass, or use the normal running math (VE table).
 
 ### displayLogicLevelsInEngineSniffer
-Shall we display real life signal or just the part consumed by trigger decoder.\nApplies to both trigger and cam/vvt input.\n\nenable logic_level_trigger
+Shall we display real life signal or just the part consumed by trigger decoder.\nApplies to both trigger and cam/vvt input.
 
 ### useTLE8888_stepper
 
@@ -166,20 +175,20 @@ If enabled - use onboard SPI Accelerometer, otherwise listen for CAN messages
 ### enableStagedInjection
 
 
+### useIdleAdvanceWhileCoasting
+
+
 ### tpsMin
-Closed throttle, 1 volt = 200 units.\nSee also tps1_1AdcChannel\nset tps_min X
+Closed throttle, 1 volt = 200 units.\nSee also tps1_1AdcChannel
 
 ### tpsMax
-Full throttle.\nSee also tps1_1AdcChannel\nset tps_max X
+Full throttle.\nSee also tps1_1AdcChannel
 
 ### tpsErrorDetectionTooLow
 TPS error detection: what throttle % is unrealistically low?\nAlso used for accelerator pedal error detection if so equipped.
 
 ### tpsErrorDetectionTooHigh
 TPS error detection: what throttle % is unrealistically high?\nAlso used for accelerator pedal error detection if so equipped.
-
-### cranking.baseFuel
-Base mass of the per-cylinder fuel injected during cranking. This is then modified by the multipliers for CLT, IAT, TPS ect, to give the final cranking pulse width.\nA reasonable starting point is 60mg per liter per cylinder.\nex: 2 liter 4 cyl = 500cc/cyl, so 30mg cranking fuel.
 
 ### cranking.rpm
 This sets the RPM limit below which the ECU will use cranking fuel and ignition logic, typically this is around 350-450rpm. \nset cranking_rpm X
@@ -194,10 +203,10 @@ Once engine speed passes this value, start reducing ETB angle.
 This far above 'Soft limiter start', fully close the throttle. At the bottom of the range, throttle control is normal. At the top of the range, the throttle is fully closed.
 
 ### map.sensor.lowValue
-kPa value at low volts
+kPa/psi value at low volts
 
 ### map.sensor.highValue
-kPa value at high volts
+kPa/psi value at high volts
 
 ### clt.config.tempC_1
 these values are in Celcius
@@ -244,14 +253,20 @@ Pull-up resistor value on your board
 ### launchTimingRetard
 
 
-### hip9011PrescalerAndSDO
-value '6' for 8MHz hw osc\nread hip9011 datasheet for details\ntodo split into two bit fields
+### idleMaximumAirmass
+Maximum commanded airmass for the idle controller.
 
-### knockBandCustom
-Use any online calculator and input your bore.\nReminder that in some cases double frequency works better!
+### tuningDetector
+Zero value means do not detect tuning
+
+### alternator_iTermMin
+iTerm min value
+
+### alternator_iTermMax
+iTerm max value
 
 ### displacement
-Engine displacement in litres
+@@DISPLACEMENT_TOOLTIP@@
 
 ### triggerSimulatorRpm
 
@@ -262,8 +277,11 @@ Number of cylinder the engine has.
 ### justATempTest
 null
 
+### mapSyncThreshold
+Delta kPa/psi for MAP sync
+
 ### cylinderBore
-Cylinder diameter in mm.
+@@CYLINDER_BORE_TOOLTIP@@
 
 ### ALSMaxTPS
 
@@ -287,7 +305,7 @@ How many consecutive gap rations have to match expected ranges for sync to happe
 Above this speed, disable closed loop idle control. Set to 0 to disable (allow closed loop idle at any speed).
 
 ### camDecoder2jzPrecision
-null
+Allowed range around detection position
 
 ### minOilPressureAfterStart
 Expected oil pressure after starting the engine. If oil pressure does not reach this level within 5 seconds of engine start, fuel will be cut. Set to 0 to disable and always allow starting.
@@ -310,6 +328,24 @@ Cooling fan turn-on temperature threshold, in Celsius
 ### fanOffTemperature
 Cooling fan turn-off temperature threshold, in Celsius
 
+### fan2OnTemperature
+Cooling fan turn-on temperature threshold, in Celsius
+
+### fan2OffTemperature
+Cooling fan turn-off temperature threshold, in Celsius
+
+### disableFan1AtSpeed
+null
+
+### disableFan2AtSpeed
+null
+
+### disableFan1WhenStopped
+Inhibit operation of this fan while the engine is not running.
+
+### disableFan2WhenStopped
+Inhibit operation of this fan while the engine is not running.
+
 ### driveWheelRevPerKm
 Number of revolutions per kilometer for the wheels your vehicle speed sensor is connected to. Use an online calculator to determine this based on your tire size.
 
@@ -321,9 +357,6 @@ CANbus thread period in ms
 
 ### idle_derivativeFilterLoss
 0.1 is a good default value
-
-### trailingSparkAngle
-just a temporary solution
 
 ### trigger.customTotalToothCount
 
@@ -347,7 +380,7 @@ null
 
 
 ### mapCamDetectionAnglePosition
-
+Magic engine phase: we compare instant MAP at X to instant MAP at x+360 angle in one complete cycle
 
 ### afr.v1
 
@@ -365,10 +398,10 @@ null
 TPS/PPS error threshold
 
 ### baroSensor.lowValue
-kPa value at low volts
+kPa/psi value at low volts
 
 ### baroSensor.highValue
-kPa value at high volts
+kPa/psi value at high volts
 
 ### idle.solenoidFrequency
 
@@ -430,12 +463,6 @@ Use 11 bit (standard) or 29 bit (extended) IDs for rusEFI verbose CAN format.
 ### rethrowHardFault
 
 
-### isHip9011Enabled
-
-
-### requireFootOnBrakeToCrank
-
-
 ### verboseQuad
 
 
@@ -445,9 +472,6 @@ This setting should only be used if you have a stepper motor idle valve and a st
 ### enabledStep1Limiter
 
 
-### useTpicAdvancedMode
-
-
 ### lambdaProtectionEnable
 
 
@@ -455,12 +479,9 @@ This setting should only be used if you have a stepper motor idle valve and a st
 
 
 ### enableVerboseCanTx
-CAN broadcast using custom rusEFI protocol\nenable can_broadcast/disable can_broadcast
+CAN broadcast using custom rusEFI protocol
 
-### etb1configured
-
-
-### etb2configured
+### externalRusEfiGdiModule
 
 
 ### measureMapOnlyInOneCylinder
@@ -493,9 +514,6 @@ Allows disabling the ETB when the engine is stopped. You may not like the power 
 ### pauseEtbControl
 Disable the electronic throttle motor and DC idle motor for testing.\nThis mode is for testing ETB/DC idle position sensors, etc without actually driving the throttle.
 
-### tpsTpsPercentMode
-
-
 ### verboseKLine
 
 
@@ -504,6 +522,9 @@ Disable the electronic throttle motor and DC idle motor for testing.\nThis mode 
 
 ### enableAemXSeries
 AEM X-Series or rusEFI Wideband
+
+### modeledFlowIdle
+
 
 ### verboseCanBaseAddress
 
@@ -520,14 +541,14 @@ Minimum MAP before closed loop boost is enabled. Use to prevent misbehavior upon
 ### finalIgnitionCutPercentBeforeLaunch
 
 
-### vehicleWeight
-
-
 ### idlePidRpmUpperLimit
 How far above idle speed do we consider idling, i.e. coasting detection threshold.\nFor example, if target = 800, this param = 200, then anything below 1000 RPM is considered idle.
 
 ### applyNonlinearBelowPulse
 Apply nonlinearity correction below a pulse of this duration. Pulses longer than this duration will receive no adjustment.
+
+### torqueReductionArmingRpm
+Since torque reduction pin is usually shared with launch control, most people have an RPM where behavior under that is Launch Control, over that is Flat Shift/Torque Reduction
 
 ### stoichRatioSecondary
 Stoichiometric ratio for your secondary fuel. This value is used when the Flex Fuel sensor indicates E100, typically 9.0
@@ -559,9 +580,6 @@ Below this throttle position, the engine is considered idling. If you have an el
 ### tps1SecondaryMax
 
 
-### antiLagRpmTreshold
-
-
 ### startCrankingDuration
 Maximum time to crank starter when start/stop button is pressed
 
@@ -571,10 +589,10 @@ Maximum time to crank starter when start/stop button is pressed
 ### lambdaProtectionTimeout
 Only respond once lambda is out of range for this period of time. Use to avoid transients triggering lambda protection when not needed
 
-### clutchUpPinInverted
+### idleReturnTargetRamp
+Ramp the idle target down from the entry threshold over N seconds when returning to idle. Helps prevent overshooting (below) the idle target while returning to idle from coasting.
 
-
-### clutchDownPinInverted
+### useInjectorFlowLinearizationTable
 
 
 ### useHbridgesToDriveIdleStepper
@@ -595,12 +613,6 @@ This property is useful if using rusEFI as TCM or BCM only
 ### enableCanVss
 Read VSS from OEM CAN bus according to selected CAN vehicle configuration.
 
-### enableInnovateLC2
-
-
-### showHumanReadableWarning
-
-
 ### stftIgnoreErrorMagnitude
 If enabled, adjust at a constant rate instead of a rate proportional to the current lambda error. This mode may be easier to tune, and more tolerant of sensor noise.
 
@@ -611,7 +623,7 @@ If enabled, adjust at a constant rate instead of a rate proportional to the curr
 
 
 ### verboseVVTDecoding
-Verbose info in console below engineSnifferRpmThreshold\nenable vvt_details
+Verbose info in console below engineSnifferRpmThreshold
 
 ### invertCamVVTSignal
 
@@ -694,8 +706,20 @@ Output Max Duty Cycle
 ### tpsAccelLookback
 How long to look back for TPS-based acceleration enrichment. Increasing this time will trigger enrichment for longer when a throttle position change occurs.
 
+### tpsDecelEnleanmentThreshold
+For decel we simply multiply delta of TPS and tFor decel we do not use table?!
+
+### tpsDecelEnleanmentMultiplier
+Magic multiplier, we multiply delta of TPS and get fuel squirt duration
+
+### mapPredictionBlendDuration
+Time to blend from predicted MAP back to real MAP. Used only in Predictive MAP mode.
+
 ### noFuelTrimAfterDfcoTime
 Pause closed loop fueling after deceleration fuel cut occurs. Set this to a little longer than however long is required for normal fueling behavior to resume after fuel cut.
+
+### noFuelTrimAfterAccelTime
+Pause closed loop fueling after acceleration fuel occurs. Set this to a little longer than however long is required for normal fueling behavior to resume after fuel accel.
 
 ### launchSpeedThreshold
 Launch disabled above this speed if setting is above zero
@@ -706,8 +730,11 @@ Starting Launch RPM window to activate (subtracts from Launch RPM)
 ### triggerEventsTimeoutMs
 
 
-### mapExpAverageAlpha
+### ppsExpAverageAlpha
+A higher alpha (closer to 1) means the EMA reacts more quickly to changes in the data.\n'1' means no filtering, 0.98 would be some filtering.
 
+### mapExpAverageAlpha
+A higher alpha (closer to 1) means the EMA reacts more quickly to changes in the data.\n'1' means no filtering, 0.98 would be some filtering.
 
 ### magicNumberAvailableForDevTricks
 null
@@ -725,10 +752,10 @@ null
 Below this RPM, the idle region is active, idle+300 would be a good value
 
 ### stft.maxOverrunLoad
-Below this engine load, the overrun region is active
+Below this engine load, the overrun region is active\nWhen tuning by MAP the units are kPa/psi, e.g. 30 would mean 30kPa. When tuning TPS, 30 would be 30%
 
 ### stft.minPowerLoad
-Above this engine load, the power region is active
+Above this engine load, the power region is active\nWhen tuning by MAP the units are kPa/psi
 
 ### stft.deadband
 When close to correct AFR, pause correction. This can improve stability by not changing the adjustment if the error is extremely small, but is not required.
@@ -745,6 +772,24 @@ Above this AFR, correction is paused
 ### stft.startupDelay
 Delay after starting the engine before beginning closed loop correction.
 
+### ltft.enabled
+Enables lambda sensor long term fuel corrections learning
+
+### ltft.correctionEnabled
+Enables applying long term fuel corrections
+
+### ltft.deadband
+When close to correct AFR, pause correction. This can improve stability by not changing the adjustment if the error is extremely small, but is not required.
+
+### ltft.maxAdd
+Maximum % that the long term fuel trim can add
+
+### ltft.maxRemove
+Maximum % that the long term fuel trim can remove
+
+### ltft.timeConstant
+Commonly referred as Integral gain.\nTime constant for correction while in this cell: this sets responsiveness of the closed loop correction. A value of 30.0 means it will try to make most of the correction within 30 seconds, and a value of 300.0 will try to correct within 5 minutes.\nLower values makes the correction more sensitive, higher values slow the correction down.
+
 ### tps2SecondaryMin
 
 
@@ -757,11 +802,11 @@ Select which bus the wideband controller is attached to.
 ### fuelClosedLoopCorrectionEnabled
 Enables lambda sensor closed loop feedback for fuelling.
 
-### oddFireEngine
-On even fire engines with even number of cylinders we go wasted spark during cranking. Use this setting to disable wasted spark cranking on odd fire engines.
-
 ### alwaysWriteSdCard
 Write SD card log even when powered by USB
+
+### knockDetectionUseDoubleFrequency
+Second harmonic (aka double) is usually quieter background noise
 
 ### yesUnderstandLocking
 
@@ -781,6 +826,9 @@ enable can_write/disable can_write. See also can1ListenMode
 ### useLinearIatSensor
 
 
+### enableOilPressureProtect
+
+
 ### tachPulseDurationAsDutyCycle
 Treat milliseconds value as duty cycle value, i.e. 0.5ms would become 50%
 
@@ -794,7 +842,7 @@ https://wiki.rusefi.com/Trigger-Configuration-Guide\nThis setting flips the sign
 https://wiki.rusefi.com/Trigger-Configuration-Guide\nThis setting flips the signal from the secondary engine speed sensor.
 
 ### cutFuelOnHardLimit
-
+When enabled, this option cuts the fuel supply when the RPM limit is reached. Cutting fuel provides a smoother limiting action; however, it may lead to slightly higher combustion chamber temperatures since unburned fuel is not present to cool the combustion process.
 
 ### cutSparkOnHardLimit
 Be careful enabling this: some engines are known to self-disassemble their valvetrain with a spark cut. Fuel cut is much safer.
@@ -805,14 +853,20 @@ Be careful enabling this: some engines are known to self-disassemble their valve
 ### launchSparkCutEnable
 This is the Cut Mode normally used
 
+### torqueReductionEnabled
+
+
+### camSyncOnSecondCrankRevolution
+
+
+### limitTorqueReductionTime
+
+
 ### verboseIsoTp
 Are you a developer troubleshooting TS over CAN ISO/TP?
 
 ### engineSnifferFocusOnInputs
-
-
-### launchActivateInverted
-
+In this mode only trigger events go into engine sniffer and not coils/injectors etc
 
 ### twoStroke
 
@@ -841,11 +895,8 @@ RPM is measured based on last 720 degrees while instant RPM is measured based on
 ### isMapAveragingEnabled
 
 
-### overrideCrankingIacSetting
-If enabled, use separate temperature multiplier table for cranking idle position.\nIf disabled, use normal running multiplier table applied to the cranking base position.
-
 ### useSeparateAdvanceForIdle
-This activates a separate ignition timing table for idle conditions, this can help idle stability by using ignition retard and advance either side of the desired idle speed. Extra retard at low idle speeds will prevent stalling and extra advance at high idle speeds can help reduce engine power and slow the idle speed.
+This activates a separate ignition timing table for idle conditions, this can help idle stability by using ignition retard and advance either side of the desired idle speed. Extra advance at low idle speeds will prevent stalling and extra retard at high idle speeds can help reduce engine power and slow the idle speed.
 
 ### isWaveAnalyzerEnabled
 
@@ -854,13 +905,7 @@ This activates a separate ignition timing table for idle conditions, this can he
 This activates a separate fuel table for Idle, this allows fine tuning of the idle fuelling.
 
 ### verboseTriggerSynchDetails
-Verbose info in console below engineSnifferRpmThreshold\nenable trigger_details
-
-### isManualSpinningMode
-Usually if we have no trigger events that means engine is stopped\nUnless we are troubleshooting and spinning the engine by hand - this case a longer\ndelay is needed
-
-### cutFuelInAcr
-
+Verbose info in console below engineSnifferRpmThreshold
 
 ### hondaK
 
@@ -896,7 +941,7 @@ Some engines are OK running semi-random sequential while other engine require ph
 If enabled, use a curve for RPM limit (based on coolant temperature) instead of a constant value.
 
 ### forceO2Heating
-If enabled, don't wait for engine start to heat O2 sensors. WARNING: this will reduce the life of your sensor, as condensation in the exhaust from a cold start can crack the sensing element.
+If enabled, don't wait for engine start to heat O2 sensors.\nWARNING: this will reduce the life of your sensor, as condensation in the exhaust from a cold start can crack the sensing element.
 
 ### invertVvtControlIntake
 If increased VVT duty cycle increases the indicated VVT angle, set this to 'advance'. If it decreases, set this to 'retard'. Most intake cams use 'advance', and most exhaust cams use 'retard'.
@@ -909,9 +954,6 @@ If increased VVT duty cycle increases the indicated VVT angle, set this to 'adva
 
 ### sdTriggerLog
 'Trigger' mode will write a high speed log of trigger events (warning: uses lots of space!). 'Normal' mode will write a standard MLG of sensors, engine function, etc. similar to the one captured in TunerStudio.
-
-### ALSActivateInverted
-
 
 ### stepper_dc_use_two_wires
 
@@ -934,20 +976,14 @@ set warningPeriod X
 ### knockDetectionWindowStart
 
 
-### knockDetectionWindowEnd
-
-
 ### idleStepperReactionTime
 
 
 ### idleStepperTotalSteps
 
 
-### noAccelAfterHardLimitPeriodSecs
-TODO: finish this #413
-
-### mapAveragingSchedulingAtIndex
-At what trigger index should some MAP-related math be executed? This is a performance trick to reduce load on synchronization trigger callback.
+### torqueReductionArmingApp
+Pedal position to realize that we need to reduce torque when the trigger pin is uuuh triggered
 
 ### tachPulseDuractionMs
 Duration in ms or duty cycle depending on selected mode
@@ -1010,10 +1046,10 @@ Full throttle#2. tpsMax value as 10 bit ADC value. Not Voltage!\nSee also tps1_1
 
 
 ### mapErrorDetectionTooLow
-kPa value which is too low to be true
+kPa/psi value which is too low to be true
 
 ### mapErrorDetectionTooHigh
-kPa value which is too high to be true
+kPa/psi value which is too high to be true
 
 ### multisparkSparkDuration
 How long to wait for the spark to fire before recharging the coil for another spark.
@@ -1076,7 +1112,7 @@ See Over/Undervoltage Shutdown/Retry bit in documentation
 Send out board statistics
 
 ### luaCanRxWorkaround
-
+global_can_data performance hack
 
 ### flexSensorInverted
 
@@ -1105,7 +1141,7 @@ AEM X-Series EGT gauge kit or rusEFI EGT sensor from Wideband controller
 ### tcu_rangeSensorPulldown
 
 
-### brakePedalPinInverted
+### devBit01
 
 
 ### devBit0
@@ -1136,13 +1172,13 @@ AEM X-Series EGT gauge kit or rusEFI EGT sensor from Wideband controller
 
 
 ### enableKnockSpectrogram
+"Available via TS Plugin see https://rusefi.com/s/knock"
 
+### enableKnockSpectrogramFilter
 
-### afterCrankingIACtaperDuration
-This is the duration in cycles that the IAC will take to reach its normal idle position, it can be used to hold the idle higher for a few seconds after cranking to improve startup.\Should be 100 once tune is better
 
 ### iacByTpsTaper
-IAC Value added when coasting and transitioning into idle.
+This value is an added for base idle value. Idle Value added when coasting and transitioning into idle.
 
 ### coastingFuelCutVssLow
 Below this speed, disable DFCO. Use this to prevent jerkiness from fuel enable/disable in low gears.
@@ -1161,15 +1197,6 @@ Additional idle % when fan #1 is active
 
 ### uartConsoleSerialSpeed
 Band rate for primary TTL
-
-### tpsDecelEnleanmentThreshold
-For decel we simply multiply delta of TPS and tFor decel we do not use table?!
-
-### tpsDecelEnleanmentMultiplier
-Magic multiplier, we multiply delta of TPS and get fuel squirt duration
-
-### auxSerialSpeed
-
 
 ### throttlePedalSecondaryUpVoltage
 
@@ -1199,7 +1226,7 @@ Allow OpenBLT on Primary CAN
 Allow OpenBLT on Secondary CAN
 
 ### injectorFlowAsMassFlow
-Select whether to configure injector flow in volumetric flow (defualt, cc/min) or mass flow (g/s).
+Select whether to configure injector flow in volumetric flow (default, cc/min) or mass flow (g/s).
 
 ### boardUseCanTerminator
 
@@ -1214,7 +1241,7 @@ ListenMode is about acknowledging CAN traffic on the protocol level. Different f
 
 
 ### camDecoder2jzPosition
-null
+Angle of tooth detection within engine phase cycle
 
 ### benchTestOnTime
 Duration of each test pulse
@@ -1226,7 +1253,7 @@ Duration of each test pulse
 
 
 ### boostCutPressure
-MAP value above which fuel is cut in case of overboost.\nSet to 0 to disable overboost cut.
+Specifies the boost pressure allowed before triggering a cut. Setting this to 0 will DISABLE overboost cut.
 
 ### fixedTiming
 Fixed timing, useful for TDC testing
@@ -1239,9 +1266,6 @@ MAP voltage for low point
 
 ### egoValueShift
 EGO value correction
-
-### crankingIACposition
-This is the IAC position during cranking, some engines start better if given more air during cranking to improve cylinder filling.
 
 ### tChargeMinRpmMinTps
 
@@ -1271,7 +1295,7 @@ Additional idle % when fan #2 is active
 Delay to allow fuel pressure to build before firing the priming pulse.
 
 ### fuelReferencePressure
-This is the pressure at which your injector flow is known.\nFor example if your injectors flow 400cc/min at 3.5 bar, enter 350kpa here.
+This is the pressure at which your injector flow is known.\nFor example if your injectors flow 400cc/min at 3.5 bar, enter 350kpa/50.7psi here.\nThis is gauge pressure/in reference to atmospheric.
 
 ### auxTempSensor1.config.tempC_1
 these values are in Celcius
@@ -1351,6 +1375,9 @@ Use to limit the max.current through the stepper motor (100% = no limit)
 ### idlePidActivationTime
 
 
+### vvtControlMinClt
+Minimum coolant temperature to activate VVT
+
 ### oilPressure.v1
 
 
@@ -1362,12 +1389,6 @@ Use to limit the max.current through the stepper motor (100% = no limit)
 
 ### oilPressure.value2
 
-
-### fan2OnTemperature
-Cooling fan turn-on temperature threshold, in Celsius
-
-### fan2OffTemperature
-Cooling fan turn-off temperature threshold, in Celsius
 
 ### auxFrequencyFilter
 
@@ -1429,9 +1450,6 @@ Maximum allowed rate of increase allowed for the estimated charge temperature
 ### tChargeAirDecrLimit
 Maximum allowed rate of decrease allowed for the estimated charge temperature
 
-### hip9011Gain
-
-
 ### etb_iTermMin
 iTerm min value
 
@@ -1462,9 +1480,6 @@ Output Max Duty Cycle
 ### idleTimingSoftEntryTime
 When entering idle, and the PID settings are aggressive, it's good to make a soft entry upon entering closed loop
 
-### etbRocExpAverageLength
-By the way ETB PID runs at 500hz, length in 1/500 of second here.
-
 ### tpsAccelFractionPeriod
 A delay in cycles between fuel-enrich. portions
 
@@ -1494,12 +1509,6 @@ Trigger comparator hysteresis voltage (Max)
 
 ### triggerCompSensorSatRpm
 VR-sensor saturation RPM
-
-### disableFan1AtSpeed
-null
-
-### disableFan2AtSpeed
-null
 
 ### mc33_i_boost
 Boost Current
@@ -1540,8 +1549,8 @@ Delay before engaging the AC compressor. Set to 0 to engage immediately with no 
 ### fordInjectorSmallPulseBreakPoint
 
 
-### etbJamIntegratorLimit
-
+### etbJamDetectThreshold
+Threshold in ETB error (target vs. actual) above which the jam timer is started. If the timer reaches the time specified in the jam detection timeout period, the throttle is considered jammed, and engine operation limited.
 
 ### hpfpCamLobes
 
@@ -1556,7 +1565,7 @@ If the requested activation time is below this angle, don't bother running the p
 Size of the pump chamber in cc. Typical Bosch HDP5 has a 9.0mm diameter, typical BMW N* stroke is 4.4mm.
 
 ### hpfpActivationAngle
-How long to keep the valve activated (in order to allow the pump to build pressure and keep the valve open on its own)
+How long to keep the valve activated (in order to allow the pump to build pressure and keep the valve open on its own)\nhttps://rusefi.com/forum/viewtopic.php?t=2192
 
 ### issFilterReciprocal
 
@@ -1567,6 +1576,12 @@ How long to keep the valve activated (in order to allow the pump to build pressu
 ### hpfpPidI
 
 
+### hpfpPid_iTermMin
+iTerm min value
+
+### hpfpPid_iTermMax
+iTerm max value
+
 ### hpfpTargetDecay
 The fastest rate the target pressure can be reduced by. This is because HPFP have no way to bleed off pressure other than injecting fuel.
 
@@ -1574,7 +1589,7 @@ The fastest rate the target pressure can be reduced by. This is because HPFP hav
 We need to give engine time to build oil pressure without diverting it to VVT
 
 ### acrDisablePhase
-
+During revolution where ACR should be disabled at what specific angle to disengage
 
 ### auxLinear1.v1
 
@@ -1601,9 +1616,12 @@ We need to give engine time to build oil pressure without diverting it to VVT
 
 
 ### etbMinimumPosition
-
+Set a minimum allowed target position to avoid slamming/driving against the hard mechanical stop in the throttle.
 
 ### tuneHidingKey
+
+
+### torqueReductionActivationTemperature
 
 
 ### ALSMinRPM
@@ -1642,6 +1660,9 @@ null
 ### ALSSkipRatio
 
 
+### acPressureEnableHyst
+Hysterisis: if Pressure High Disable is 240kpa, and acPressureEnableHyst is 20, when the ECU sees 240kpa, A/C will be disabled, and stay disabled until 240-20=220kpa is reached
+
 ### tpsSecondaryMaximum
 For Ford TPS, use 53%. For Toyota ETCS-i, use ~65%
 
@@ -1670,7 +1691,7 @@ Degrees of timing REMOVED from actual timing during soft RPM limit window
 % of fuel ADDED during window
 
 ### rpmHardLimitHyst
-Hysterisis: if the hard limit is 7200rpm and rpmHardLimitHyst is 200rpm, then when the ECU sees 7200rpm, fuel/ign will cut, and stay cut until 7000rpm (7200-200) is reached
+Sets a buffer below the RPM hard limit, helping avoid rapid cycling of cut actions by defining a range within which RPM must drop before cut actions are re-enabled.\nHysterisis: if the hard limit is 7200rpm and rpmHardLimitHyst is 200rpm, then when the ECU sees 7200rpm, fuel/ign will cut, and stay cut until 7000rpm (7200-200) is reached
 
 ### benchTestOffTime
 Time between bench test pulses
@@ -1682,7 +1703,7 @@ Hysterisis: if hard cut is 240kpa, and boostCutPressureHyst is 20, when the ECU 
 How many test bench pulses do you want
 
 ### iacByTpsHoldTime
-How long initial IAC adder is held before starting to decay.
+How long initial idle adder is held before starting to decay.
 
 ### iacByTpsDecayTime
 How long it takes to remove initial IAC adder to return to normal idle.
@@ -1777,11 +1798,14 @@ Pull-up resistor value on your board
 ### speedometerPulsePerKm
 Number of speedometer pulses per kilometer travelled.
 
+### ignKeyAdcDivider
+null
+
 ### maxInjectorDutyInstant
-If injector duty cycle hits this value, instantly cut fuel.
+This sets an immediate limit on injector duty cycle. If this threshold is reached, the system will immediately cut the injectors.
 
 ### maxInjectorDutySustained
-If injector duty cycle hits this value for the specified delay time, cut fuel.
+This limit allows injectors to operate up to the specified duty cycle percentage for a short period (as defined by the delay). After this delay, if the duty cycle remains above the limit, it will trigger a cut.
 
 ### maxInjectorDutySustainedTimeout
 Timeout period for duty cycle over the sustained limit to trigger duty cycle protection.
@@ -1820,11 +1844,173 @@ Maximum coil charge current, 1A step
 
 
 ### minAcPressure
-value of A/C pressure in kPa before that compressor is disengaged
+value of A/C pressure in kPa/psi before that compressor is disengaged
 
 ### maxAcPressure
-value of A/C pressure in kPa after that compressor is disengaged
+value of A/C pressure in kPa/psi after that compressor is disengaged
+
+### minimumOilPressureTimeout
+Delay before cutting fuel due to low oil pressure. Use this to ignore short pressure blips and sensor noise.
+
+### auxLinear3.v1
+
+
+### auxLinear3.value1
+
+
+### auxLinear3.v2
+
+
+### auxLinear3.value2
+
+
+### auxLinear4.v1
+
+
+### auxLinear4.value1
+
+
+### auxLinear4.v2
+
+
+### auxLinear4.value2
+
+
+### knockSuppressMinTps
+Below TPS value all knock suppression will be disabled.
+
+### knockFuelTrimAggression
+Fuel to odd when a knock event occurs. Advice: 5% (mild), 10% (turbo/high comp.), 15% (high knock, e.g. GDI), 20% (spicy lump),
+
+### knockFuelTrimReapplyRate
+After a knock event, reapply fuel at this rate.
+
+### knockFuelTrim
+Fuel trim when knock, max 30%
+
+### knockSpectrumSensitivity
+
+
+### knockFrequency
+"Estimated knock frequency, ignore cylinderBore if this one > 0"
+
+### secondaryInjectorFuelReferencePressure
+This is the pressure at which your injector flow is known.\nFor example if your injectors flow 400cc/min at 3.5 bar, enter 350kpa here.
+
+### nitrousControlEnabled
+
+
+### nitrousLuaGaugeArmingValue
+
+
+### nitrousMinimumTps
+
+
+### nitrousMinimumClt
+
+
+### nitrousMaximumMap
+
+
+### nitrousMaximumAfr
+
+
+### nitrousActivationRpm
+
+
+### nitrousDeactivationRpm
+
+
+### nitrousDeactivationRpmWindow
+
+
+### dfcoRetardDeg
+Retard timing by this amount during DFCO. Smooths the transition back from fuel cut. After fuel is restored, ramp timing back in over the period specified.
+
+### dfcoRetardRampInTime
+Smooths the transition back from fuel cut. After fuel is restored, ramp timing back in over the period specified.
+
+### nitrousFuelAdderPercent
+
+
+### nitrousIgnitionRetard
+Retard timing to remove from actual final timing (after all corrections) due to additional air.
+
+### nitrousMinimumVehicleSpeed
+
+
+### fuelLevelAveragingAlpha
+Exponential Average Alpha filtering parameter
+
+### fuelLevelUpdatePeriodSec
+How often do we update fuel level gauge
+
+### fuelLevelLowThresholdVoltage
+Error below specified value
+
+### fuelLevelHighThresholdVoltage
+Error above specified value
+
+### afrExpAverageAlpha
+A higher alpha (closer to 1) means the EMA reacts more quickly to changes in the data.\n'1' means no filtering, 0.98 would be some filtering.
+
+### sparkHardwareLatencyCorrection
+Compensates for trigger delay due to belt stretch, or other electromechanical issues. beware that raising this value advances ignition timing!
+
+### maxOilPressureTimeout
+Delay before cutting fuel due to extra high oil pressure. Use this to ignore short pressure blips and sensor noise.
+
+### idleReturnTargetRampDuration
+idle return target ramp duration
+
+### wastegatePositionOpenedVoltage
+Voltage when the wastegate is fully open
+
+### wastegatePositionClosedVoltage
+Voltage when the wastegate is closed
 
 ### tcu_shiftTime
 
+
+### dynoRpmStep
+@@DYNO_RPM_STEP_TOOLTIP@@
+
+### dynoSaeTemperatureC
+@@DYNO_SAE_TEMPERATURE_C_TOOLTIP@@
+
+### dynoSaeRelativeHumidity
+@@DYNO_SAE_RELATIVE_HUMIDITY_TOOLTIP@@
+
+### dynoSaeBaro
+@@DYNO_SAE_BARO_TOOLTIP@@
+
+### dynoCarWheelDiaInch
+@@DYNO_CAR_WHEEL_DIA_INCH_TOOLTIP@@
+
+### dynoCarWheelAspectRatio
+@@DYNO_CAR_WHEEL_ASPECT_RATIO_TOOLTIP@@
+
+### dynoCarWheelTireWidthMm
+@@DYNO_CAR_WHEEL_TIRE_WIDTH_TOOLTIP@@
+
+### dynoCarGearPrimaryReduction
+@@DYNO_CAR_GEAR_PRIMARY_REDUCTION_TOOLTIP@@
+
+### dynoCarGearRatio
+@@DYNO_CAR_GEAR_RATIO_TOOLTIP@@
+
+### dynoCarGearFinalDrive
+@@DYNO_CAR_GEAR_FINAL_DRIVE_TOOLTIP@@
+
+### dynoCarCarMassKg
+@@DYNO_CAR_CAR_MASS_TOOLTIP@@
+
+### dynoCarCargoMassKg
+@@DYNO_CAR_CARGO_MASS_TOOLTIP@@
+
+### dynoCarCoeffOfDrag
+@@DYNO_CAR_COEFF_OF_DRAG_TOOLTIP@@
+
+### dynoCarFrontalAreaM2
+@@DYNO_CAR_FRONTAL_AREA_TOOLTIP@@
 

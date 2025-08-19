@@ -1,11 +1,10 @@
 package com.rusefi.binaryprotocol;
 
-import com.opensr5.Logger;
+import com.devexperts.logging.FileLogger;
 import com.rusefi.FileLog;
 import com.rusefi.Timeouts;
 import com.rusefi.composite.CompositeEvent;
 import com.rusefi.composite.CompositeParser;
-import com.rusefi.config.generated.Fields;
 import com.rusefi.config.generated.Integration;
 import com.rusefi.core.Sensor;
 import com.rusefi.core.SensorCentral;
@@ -51,6 +50,7 @@ public class BinaryProtocolLogger {
             }
         };
 
+        // fragile or just scary: here we install a JVM level callback for gradual file footer
         Runtime.getRuntime().addShutdownHook(hook);
         needCompositeLogger = linkManager.getCompositeLogicEnabled();
     }
@@ -72,7 +72,7 @@ public class BinaryProtocolLogger {
 
     @NotNull
     public static String getFileName(String prefix, String fileType) {
-        return Logger.DIR + prefix + FileLog.getDate() + fileType;
+        return FileLogger.DIR + prefix + FileLog.getDate() + fileType;
     }
 
     public void compositeLogic(BinaryProtocol binaryProtocol) {
@@ -93,7 +93,7 @@ public class BinaryProtocolLogger {
     }
 
     public void getComposite(BinaryProtocol binaryProtocol) {
-        if (binaryProtocol.isClosed)
+        if (binaryProtocol.isClosed())
             return;
 
         // get command would enable composite logging in controller but we need to turn it off from our end

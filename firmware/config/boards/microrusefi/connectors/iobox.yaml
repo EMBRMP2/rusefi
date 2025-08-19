@@ -43,7 +43,7 @@ pins:
     function: low side, mid current
     ts_name: MS IO-Box 0 OUT 7
 
-# MSIOBOX_0_OUT_8 is not exist
+# MSIOBOX_0_OUT_8 does not exist
 
   - pin: 32
     id: [MSIOBOX_0_VSS_1, MSIOBOX_0_VSS_1]
@@ -79,3 +79,6 @@ pins:
 # MSIOBOX_0_SW_4 is not exist
 
 # TODO: add ADC inputs
+
+info:
+  cid: iobox

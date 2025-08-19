@@ -1,5 +1,6 @@
 package com.rusefi.core.ui;
 
+import com.devexperts.logging.Logging;
 import com.rusefi.autoupdate.ReportedIOException;
 import com.rusefi.core.net.ConnectionAndMeta;
 import org.jetbrains.annotations.NotNull;
@@ -8,12 +9,18 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.UnknownHostException;
 import java.util.Date;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static com.devexperts.logging.Logging.getLogging;
 
 public class AutoupdateUtil {
+    private static final Logging log = getLogging(AutoupdateUtil.class);
     public static final boolean runHeadless = Boolean.getBoolean("run_headless") || GraphicsEnvironment.isHeadless();
 
     // todo: figure out a better way to work with absolute path
@@ -26,27 +33,12 @@ public class AutoupdateUtil {
         return result;
     }
 
-    static class ProgressView {
-        private final FrameHelper frameHelper;
-        private final JProgressBar progressBar;
-
-        ProgressView(FrameHelper frameHelper, JProgressBar progressBar) {
-            this.frameHelper = frameHelper;
-            this.progressBar = progressBar;
-        }
-
-        public void dispose() {
-            if (frameHelper != null) {
-                frameHelper.getFrame().dispose();
-            }
-        }
-    }
-
-    private static ProgressView createProgressView(String title) {
+    private static ProgressView doCreateProgressView(String title) {
         if (runHeadless) {
             return new ProgressView(null, null);
         } else {
             FrameHelper frameHelper = new FrameHelper();
+            setAppIcon(frameHelper.getFrame());
             JProgressBar jProgressBar = new JProgressBar();
 
             frameHelper.getFrame().setTitle(title);
@@ -62,20 +54,40 @@ public class AutoupdateUtil {
         try {
             ConnectionAndMeta.DownloadProgressListener listener = currentProgress -> {
                 if (!runHeadless) {
-                    SwingUtilities.invokeLater(() -> view.progressBar.setValue(currentProgress));
+                    SwingUtilities.invokeLater(() -> view.getProgressBar().setValue(currentProgress));
                 }
             };
 
             ConnectionAndMeta.downloadFile(localZipFileName, connectionAndMeta, listener);
         } catch (IOException e) {
-            if (view.progressBar!=null) {
-                JOptionPane.showMessageDialog(view.progressBar, "Error downloading: " + e, "Error", JOptionPane.ERROR_MESSAGE);
+            if (view.getProgressBar() != null) {
+                String message;
+                if (e instanceof UnknownHostException) {
+                    message = "Please fix your internet connection";
+                } else {
+                    message = "Error downloading: " + e;
+                }
+
+                JOptionPane.showMessageDialog(view.getProgressBar(), message, "Error", JOptionPane.ERROR_MESSAGE);
                 throw new ReportedIOException(e);
-            } else
+            } else {
                 throw e;
+            }
         } finally {
             view.dispose();
         }
+    }
+
+    private static ProgressView createProgressView(String title) {
+        AtomicReference<ProgressView> result = new AtomicReference<>();
+        try {
+            SwingUtilities.invokeAndWait(() -> result.set(doCreateProgressView(title)));
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+        return result.get();
     }
 
     private static class DynamicForResourcesURLClassLoader extends URLClassLoader {
@@ -115,7 +127,13 @@ public class AutoupdateUtil {
         );
     }
 
+    @Deprecated //
     public static void trueLayout(Component component) {
+        // todo: inline in Aug of 2025
+        trueLayoutAndRepaint(component);
+    }
+
+    public static void trueLayoutAndRepaint(Component component) {
         assertAwtThread();
         if (component == null)
             return;
@@ -173,24 +191,27 @@ public class AutoupdateUtil {
         if (imgURL != null) {
             return new ImageIcon(imgURL);
         } else {
+            log.info("Using secondary resource path for " + strPath);
             imgURL = dynamicResourcesLoader.getResource("/com/rusefi/" + strPath);
             if (imgURL != null) {
                 return new ImageIcon(imgURL);
             }
+            log.warn("icon resource not found " + strPath);
             return null;
         }
     }
 
     public static void setAppIcon(JFrame frame) {
+        // huh? sometimes we are making icon from logo and sometimes we have dedicated icon file?!
         ImageIcon icon = loadIcon(APPICON);
         if (icon != null)
             frame.setIconImage(icon.getImage());
     }
 
     public static void pack(Window window) {
-        trueLayout(window);
+        trueLayoutAndRepaint(window);
         if (window != null)
             window.pack();
-        trueLayout(window);
+        trueLayoutAndRepaint(window);
     }
 }

@@ -10,6 +10,7 @@
 #include "defaults.h"
 #include "hellen_meta.h"
 #include "honda_k_dbc.h"
+#include "board_overrides.h"
 
 static void setInjectorPins() {
 	engineConfiguration->injectionPins[0] = Gpio::H144_LS_1;
@@ -45,14 +46,12 @@ void onBoardStandBy() {
     hellenBoardStandBy();
 }
 
-void setBoardConfigOverrides() {
+static void hellen_honda_k_boardConfigOverrides() {
 	setHellenMegaEnPin();
-	setHellenVbatt();
 
-	hellenMegaSdWithAccelerometer();
+	hellenMegaModule();
 	configureHellenCanTerminator();
 
-	setDefaultHellenAtPullUps();
 
 	engineConfiguration->triggerInputPins[0] = Gpio::H144_IN_RES1;
 	engineConfiguration->camInputs[0] = Gpio::H144_IN_RES3;
@@ -79,7 +78,7 @@ void setBoardConfigOverrides() {
  *
 
  */
-void setBoardDefaultConfiguration() {
+static void hellen_honda_k_boardDefaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
 	setHondaK();
@@ -89,7 +88,8 @@ void setBoardDefaultConfiguration() {
 
 	engineConfiguration->displayLogicLevelsInEngineSniffer = true;
 
-	engineConfiguration->globalTriggerAngleOffset = 663;
+	engineConfiguration->camSyncOnSecondCrankRevolution = true;
+	engineConfiguration->globalTriggerAngleOffset = 303;
 
 	engineConfiguration->enableSoftwareKnock = true;
 
@@ -137,9 +137,10 @@ void setBoardDefaultConfiguration() {
 
 	engineConfiguration->injectorCompensationMode = ICM_FixedRailPressure;
 
-	setCommonNTCSensor(&engineConfiguration->clt, HELLEN_DEFAULT_AT_PULLUP);
-	setCommonNTCSensor(&engineConfiguration->iat, HELLEN_DEFAULT_AT_PULLUP);
-
+#ifndef EFI_BOOTLOADER
+	setCommonNTCSensorParameters(&engineConfiguration->clt);
+	setCommonNTCSensorParameters(&engineConfiguration->iat);
+#endif // EFI_BOOTLOADER
     setTPS1Calibration(100, 650);
 	hellenWbo();
 
@@ -163,8 +164,9 @@ static Gpio OUTPUTS[] = {
 	Gpio::H144_OUT_IO13, // E1 Fuel Relay
 	Gpio::H144_OUT_PWM8, // C11 Aux Low 3
 	Gpio::H144_OUT_IO9, // B18 Alternator Control
-	// high side starts here
+	// low-side with pull-up, faking push-pull
 	Gpio::H144_OUT_IO10, // 17: E26 Tachometer
+	// high side starts here
 	Gpio::H144_OUT_IO6, // B15 VTEC/VTS Output
 	Gpio::H144_IGN_1, // A30 - IGN1
 	Gpio::H144_IGN_2, // A29 - IGN2
@@ -177,9 +179,14 @@ int getBoardMetaOutputsCount() {
 }
 
 int getBoardMetaLowSideOutputsCount() {
-    return getBoardMetaOutputsCount() - 6;
+    return getBoardMetaOutputsCount() - 5;
 }
 
 Gpio* getBoardMetaOutputs() {
     return OUTPUTS;
+}
+
+void setup_custom_board_overrides() {
+	custom_board_DefaultConfiguration = hellen_honda_k_boardDefaultConfiguration;
+	custom_board_ConfigOverrides =  hellen_honda_k_boardConfigOverrides;
 }

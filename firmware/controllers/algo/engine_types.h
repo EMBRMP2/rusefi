@@ -1,6 +1,8 @@
 /*
  * @file engine_types.h
  *
+ * this header alone few similar ones is consumed by code generation layer for values to be available in .ini template etc
+ *
  * See 'integration API' note in rusefi_enums.h
  * TODO: spell out which enums belong here and which enums belong in rusefi_enums.h for what reasons
  *
@@ -13,217 +15,11 @@
 #include "generated_lookup_meta.h"
 
 /**
- * https://github.com/rusefi/rusefi/wiki/Engine-Types
- */
-enum class engine_type_e : uint16_t {
-	DEFAULT_FRANKENSO = 0,
-
-	MIATA_PROTEUS_TCU = 1,
-
-	/**
-	 * 1995 Dodge Neon
-	 * http://rusefi.com/forum/viewtopic.php?t=360
-	 */
-	DODGE_NEON_1995 = 2,
-	/**
-	 * 1996 1.3 Ford Aspire
-	 * http://rusefi.com/forum/viewtopic.php?t=375
-	 */
-	FORD_ASPIRE_1996 = 3,
-	/**
-	 * See also PROTEUS_LUA_DEMO
-	 */
-	MRE_SECONDARY_CAN = 4,
-
-	NISSAN_PRIMERA = 5,
-	HARLEY = 6,
-	FORD_INLINE_6_1995 = 7,
-	/**
-	 * one cylinder engine
-	 * 139qmb 50-90cc
-	 * http://rusefi.com/forum/viewtopic.php?f=3&t=332
-	 */
-	GY6_139QMB = 8,
-
-	POLARIS_RZR = 9,
-	MAZDA_MIATA_NA96 = 10,
-	FORD_COYOTE = 11,
-	MITSUBISHI_3A92 = 12,
-	TOYOTA_1NZ_FE = 13,
-
-	FORD_ESCORT_GT = 14,
-	FUEL_BENCH = 15,
-	MITSUBISHI_4G93 = 16,
-	TCU_4R70W = 17,
-
-	TEST_33816 = 18,
-
-	TEST_ROTARY = 19,
-	// Frankenso board
-	FRANKENSO_MIATA_NA6_MAP = 41,
-	MAZDA_MIATA_NC = 20,
-	ET_BOSCH_QUICK_START = 21,
-
-  // BMW e36 etc
-	BMW_M52 = 22,
-
-	/**
-	 * microRusEFI used as Body Control Module BCM BCU
-	 */
-	MRE_BODY_CONTROL = 23,
-	ET_TEST_WITH_BOSCH_QUICK_START = 24,
-
-	/**
-	 * See also MRE_SECONDARY_CAN
-	 */
-	PROTEUS_LUA_DEMO = 25,
-
-	TEST_ENGINE = 26,
-
-	PROTEUS_GM_LS_4 = 27,
-
-	TEST_CRANK_ENGINE = 28,
-
-  // two stroke
-	SACHS = 29,
-
-	PROTEUS_ANALOG_PWM_TEST = 30,
-
-	MRE_BOARD_NEW_TEST = 31,
-
-	VW_ABA = 32,
-
-	ME17_9_MISC = 33,
-
-	MAZDA_MIATA_NA6 = 34,
-
-	POLARIS = 35,
-
-	HELLEN_128_MERCEDES_4_CYL = 36,
-
-	MRE_SUBARU_EJ18 = 37,
-
-	DISCOVERY_PDM = 38,
-
-	PROTEUS_VW_B6 = 39,
-
-  // used by unit tests and HW CI
-	FRANKENSO_BMW_M73_F = 40,
-
-	PROTEUS_QC_TEST_BOARD = 42,
-
-	HONDA_600 = 43,
-
-	TOYOTA_2JZ_GTE_VVTi = 44,
-
-	TEST_ENGINE_VVT = 45,
-
-	DODGE_NEON_2003_CRANK = 46,
-
-	UNUSED47 = 47,
-
-    // todo: add wastegate case into HW CI
-	TEST_DC_WASTEGATE_DISCOVERY = 48,
-
-	FRANKENSO_QA_ENGINE = 49,
-
-	BMW_M73_MRE = 50,
-
-	BMW_M73_MRE_SLAVE = 51,
-
-
-	TEST_ISSUE_366_BOTH = 52,
-	TEST_ISSUE_366_RISE = 53,
-	MAVERICK_X3 = 54,
-	ET_UNUSED_55 = 55,
-	FRANKENSO_TEST_TLE9104 = 56,
-	HELLEN_HONDA_BCM = 57,
-	ETB_BENCH_ENGINE = 58,
-	FRANKENSO_TEST_33810 = 59,
-
-	L9779_BENCH_ENGINE = 60,
-	EEPROM_BENCH_ENGINE = 61,
-	MRE_VW_B6 = 62,
-	PROTEUS_BMW_M73 = 63,
-	DODGE_RAM = 64,
-	UNUSED_65 = 65,
-	HONDA_OBD1 = 66,
-	UNUSED67 = 67,
-	MERCEDES_M111 = 68,
-
-	MAZDA_MIATA_NB2 = 69,
-
-	SUBARU_EG33 = 70,
-
-	HELLEN_121_VAG_4_CYL = 71,
-	HELLEN_121_NISSAN_6_CYL = 72,
-	PROTEUS_STIM_QC = 73,
-	HELLEN_4CHAN_STIM_QC = 74,
-	HELLEN_2CHAN_STIM_QC = 75,
-	HELLEN_154_VAG = 76,
-
-	HELLEN_121_VAG_5_CYL = 77,
-	HELLEN_121_VAG_V6_CYL = 78,
-	HELLEN_121_VAG_VR6_CYL = 79,
-	HELLEN_121_VAG_8_CYL = 81,
-
-	MAZDA_MIATA_NA94 = 80,
-
-    // 82
-	HELLEN_154_HYUNDAI_COUPE_BK1 = 82,
-	MAZDA_MIATA_NB1 = 83,
-	// 84
-	HELLEN_121_NISSAN_4_CYL = 84,
-
-    HELLEN_121_NISSAN_8_CYL = 85,
-
-	MAZDA_MIATA_NB2_36 = 86,
-
-	HELLEN_121_NISSAN_ALMERA_N16  = 87,
-
-	HELLEN_128_MERCEDES_6_CYL = 88,
-
-	HELLEN_128_MERCEDES_8_CYL = 89,
-
-	HONDA_K = 90,
-
-	HONDA_OBD2A = 91,
-
-	SIMULATOR_CONFIG = 92,
-
-	TEST_ISSUE_6451 = 93,
-
-  UNUSED94 = 94,
-
-	HELLEN_154_HYUNDAI_COUPE_BK2 = 95,
-
-    WASTEGATE_PROTEUS_TEST = 96,
-    UNUSED_97 = 97,
-    GM_SBC = 98,
-
-	/**
-	 * this configuration has as few pins configured as possible
-	 */
-	MINIMAL_PINS = 99,
-
-    // use this in case of emergency without github actions? :)
-	TEST_100 = 100,
-	TEST_101 = 101,
-	UNUSED102 = 102,
-
-	PROTEUS_NISSAN_VQ35 = 103,
-
-    // both Proteus and 4chan/8chan
-	HYUNDAI_PB = 104,
-  FERRARI_F136 = 105,
-};
-
-/**
  * https://rusefi.com//wiki/index.php?title=Manual:Debug_fields
  */
 typedef enum __attribute__ ((__packed__)) {
 	DBG_0 = 0,
-	DBG_TPS_ACCEL = 1,
+	DBG_1 = 1,
 	DBG_2 = 2,
 	DBG_STEPPER_IDLE_CONTROL = 3,
 	DBG_EL_ACCEL = 4,
@@ -260,7 +56,7 @@ typedef enum __attribute__ ((__packed__)) {
 	DBG_ION = 30,
 	DBG_TLE8888 = 31,
 	DBG_32 = 32,
-	DBG_DWELL_METRIC = 33,
+	DBG_33 = 33,
 	DBG_34 = 34,
 	DBG_35 = 35,
 	DBG_36 = 36,
@@ -333,7 +129,8 @@ enum class trigger_type_e : uint32_t {
 	// GM 24x with 5/10 degree gaps
 	TT_GM_24x_5 = 27,
 	TT_HONDA_CBR_600 = 28,
-	TT_MITSU_4G9x_CAM = 29,
+	TT_UNUSED29 = 29,
+	// todo: we syspect that this one is broken while TT_JEEP_EVD_36_2_2 is potentially better?
 	TT_CHRYSLER_NGC_36_2_2 = 30,
 	// skipped 3/1 with cam sensor for testing
 	TT_3_1_CAM = 31,
@@ -361,6 +158,7 @@ enum class trigger_type_e : uint32_t {
 	TT_VVT_MIATA_NB = 43,
 	TT_RENIX_44_2_2 = 44,
 	//* Same as TT_RENIX_44_2_2 but repeated three times, not two.
+  // todo: we suspect that TT_JEEPRENIX_66_2_2_2 is correct while this one here is broken VR polarity!
 	TT_RENIX_66_2_2_2 = 45,
 	// * Honda K crank shape
 	TT_HONDA_K_CRANK_12_1 = 46,
@@ -369,7 +167,7 @@ enum class trigger_type_e : uint32_t {
 	TT_SUBARU_SVX = 49,
 	TT_SUZUKI_K6A = 50,
 	// todo: remove this trigger once we have https://github.com/rusefi/rusefi/issues/2073
-	TT_SUBARU_7_WITHOUT_6 = 51,
+	TT_VVT_SUBARU_7_WITHOUT_6 = 51,
 	TT_NISSAN_MR18_CAM_VVT = 52,
 	// https://rusefi.com/forum/viewtopic.php?f=5&t=1912
 	TT_TRI_TACH = 53,
@@ -396,7 +194,9 @@ enum class trigger_type_e : uint32_t {
 	// 4G69 would use it with different cam
 	TT_36_2_1 = 70,
 	// Mitsubishi 3 cyl and 6 cyl
+	// 36-2-1-1
     TT_36_2_1_1 = 71,
+    // 3-0
   TT_3_TOOTH_CRANK = 72,
 	TT_VVT_TOYOTA_4_1 = 73,
 	// GM 24x with 3/12 degree gaps
@@ -420,26 +220,49 @@ enum class trigger_type_e : uint32_t {
 
 	TT_DEV = 83,
 
+	TT_NISSAN_HR = 84,
+
+	TT_ARCTIC_CAT = 85,
+
+	TT_NISSAN_HR_CAM_IN = 86,
+
+  TT_HONDA_J30A2_24_1_1 = 87,
+
+  TT_CUSTOM_1 = 88,
+  TT_CUSTOM_2 = 89,
+
+  // 53022243AF 6.2 2009-22 Dodge Chrysler Jeep RAM 5.7L 6.2L 6.4L OHV V8
+  TT_CHRYSLER_PHASER = 90,
+
+  TT_TOYOTA_3_TOOTH_UZ = 91,
+
+	// See also TT_CHRYSLER_NGC_36_2_2
+	TT_JEEP_EVD_36_2_2 = 92,
+
+	TT_JEEPRENIX_66_2_2_2 = 93,
+
+	// symmetrical crank
+	TT_SUBARU_7_6_CRANK = 94,
 	// do not forget to edit "#define trigger_type_e_enum" line in integration/rusefi_config.txt file to propogate new value to rusefi.ini TS project
 	// do not forget to invoke "gen_config.bat" once you make changes to integration/rusefi_config.txt
 	// todo: one day a hero would integrate some of these things into Makefile in order to reduce manual magic
 	//
 	// Another point: once you add a new trigger, run get_trigger_images.bat which would run rusefi_test.exe from unit_tests
 	//
-	TT_UNUSED = 84, // this is used if we want to iterate over all trigger types
+	TT_UNUSED = 95, // this is used if we want to iterate over all trigger types
 };
 
 typedef enum {
-    TS_14_0 = 0,
-    TS_14_1 = 1,
-	TS_GRAB_TPS_CLOSED = 2,
-	TS_GRAB_TPS_WOT = 3,
-    TS_14_4 = 4,
-    TS_14_5 = 5,
+	COMMAND_X14_UNUSED_0 = 0x00,
+	COMMAND_X14_UNUSED_1 = 0x01,
+	COMMAND_X14_UNUSED_2 = 0x02,
+	COMMAND_X14_UNUSED_3 = 0x03,
+	COMMAND_X14_UNUSED_4 = 0x04,
+	COMMAND_X14_UNUSED_5 = 0x05,
 	TS_GRAB_PEDAL_UP = 6,
 	TS_GRAB_PEDAL_WOT = 7,
 	TS_RESET_TLE8888 = 8,
-    TS_14_9 = 9,
+  TS_START_STOP_ENGINE = 0x09,
 	TS_WRITE_FLASH = 0x0A,
 	TS_ETB_RESET = 0x0B,
 	TS_ETB_START_AUTOTUNE = 0x0C,
@@ -450,8 +273,18 @@ typedef enum {
 	TS_ETB_AUTOCAL_1 = 0x11,
 	TS_WIDEBAND_UPDATE = 0x12,
 	TS_EXTERNAL_TRIGGER_STIMULATOR_ENABLE = 0x13,
-	TS_RESET_MC33810 = 0x14,
-	TS_BURN_WITHOUT_FLASH = 0x15,
+	TS_ETB_DISABLE_JAM_DETECT = 0x14,
+	COMMAND_X14_UNUSED_15 = 0x15,
+	TS_RESET_MC33810 = 0x16,
+	TS_SD_MOUNT_PC = 0x17,
+	TS_SD_MOUNT_ECU = 0x18,
+	TS_SD_UNMOUNT = 0x19,
+	TS_SD_FORMAT = 0x1A,
+	TS_SD_DELETE_REPORTS = 0x1B,
+	TS_ETB_AUTOCAL_0_FAST = 0x1C,
+	TS_ETB_AUTOCAL_1_FAST = 0x1D,
+	TS_EWG_AUTOCAL_0 = 0x1E,
+	TS_EWG_AUTOCAL_0_FAST = 0x1F,
 } ts_14_command;
 
 typedef enum {
@@ -485,10 +318,13 @@ typedef enum {
 	TS_UNUSED_26 = 26,
 	TS_UNUSED_27 = 27,
 	TS_UNUSED_28 = 28,
-	TS_UNUSED_29 = 29,
+	TS_BOARD_ACTION = 29,
 	TS_SET_ENGINE_TYPE = 30,
 	TS_SET_DEFAULT_ENGINE = 31,
 	TS_LUA_OUTPUT_CATEGORY = 32,
+	TS_WIDEBAND_SET_IDX_BY_ID = 33,
+	TS_WIDEBAND_PING_BY_ID = 34,
+	TS_WIDEBAND_FLASH_BY_ID = 35,
 } ts_command_e;
 
 typedef enum {
@@ -522,4 +358,11 @@ typedef enum {
 	BENCH_AUXOUT7,
 	HD_ACR,
 	HD_ACR2,
+	LTFT_RESET,
+	LTFT_APPLY_TO_VE,
+	LTFT_DEV_POKE,
+	LUA_COMMAND_1,
+	LUA_COMMAND_2,
+	LUA_COMMAND_3,
+	LUA_COMMAND_4,
 } bench_mode_e;

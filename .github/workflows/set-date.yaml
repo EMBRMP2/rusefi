@@ -18,7 +18,7 @@ jobs:
     if: ${{ github.repository == 'rusefi/rusefi' }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 2
 
@@ -43,11 +43,13 @@ jobs:
         git config --local user.name "GitHub set-date Action"
         git commit -m "Update date" -a 2>&1 | grep -E '(nothing to commit|changed)'
         git stash
-        git pull --rebase
+        echo Fetching only current branch to make things quicker
+        git fetch $(git rev-parse --symbolic-full-name --abbrev-ref @{upstream} | sed 's!/! !')
+        git rebase
 
     - name: Push changed date file
       if: ${{ env.skip != 'true' }}
       uses: ad-m/github-push-action@master
       with:
         github_token: ${{ github.token }}
-        branch: master
+        branch: ${{ github.ref }}

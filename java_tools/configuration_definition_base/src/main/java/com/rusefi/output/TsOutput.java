@@ -14,6 +14,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static com.rusefi.TokenUtils.tokenizeWithBraces;
+import static com.rusefi.TokenUtils.tokensToString;
 import static com.rusefi.ToolUtil.EOL;
 import static com.rusefi.output.JavaSensorsConsumer.quote;
 
@@ -27,6 +28,19 @@ public class TsOutput {
     private final boolean isConstantsSection;
     private final StringBuilder tsHeader = new StringBuilder();
     private final TreeSet<String> usedNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+    private final String metricUnitsConditionalStart = "#if USE_METRIC_UNITS" + EOL;
+    private final String metricUnitsConditionalElse = "#else" + EOL;
+    private final String metricUnitsConditionalEnd = "#endif" + EOL;
+    private final String temperatureCelsiusUnit = quote("C");
+    private final String temperatureFahrenheitUnit = quote("F");
+    private final String temperatureToFahrenheitScale = "{ 9 / 5 }";
+    private final String temperatureToFahrenheitTranslate = "17.77777";
+
+    private final String pressureMetricUnit = quote("kPa");
+    private final String pressureImperialUnit = quote("psi");
+    private final Double kpaToPsiValue = 0.145038;
+    private final String pressureToPsiScale = String.valueOf(kpaToPsiValue);
+    private final String pressureToPsiTranslate = "0";
 
     public TsOutput(boolean longForm) {
         this.isConstantsSection = longForm;
@@ -40,64 +54,11 @@ public class TsOutput {
         return settingContextHelp.toString();
     }
 
-    public int run(ReaderState state, ConfigStructure structure, int sensorTsPosition, String temporaryLineComment, String variableNameSuffix) {
+    public int run(ReaderState state, ConfigStructure structure, int structureStartingTsPosition, String temporaryLineComment, String variableNamePrefix) {
         FieldsStrategy strategy = new FieldsStrategy() {
-            @Override
-            public int writeOneField(FieldIterator it, String prefix, int tsPosition) {
-                ConfigField configField = it.cf;
-                ConfigField next = it.next;
-                int bitIndex = it.bitState.get();
-                String nameWithPrefix = prefix + configField.getName() + variableNameSuffix;
 
-                /**
-                 * in 'Constants' section we have conditional sections and this check is not smart enough to handle those right
-                 * A simple solution would be to allow only one variable per each conditional section - would be simpler not to check against previous field
-                 */
-                if (!usedNames.add(nameWithPrefix)
-                        && !isConstantsSection
-                        && !configField.getName().startsWith(ConfigStructureImpl.ALIGNMENT_FILL_AT)
-                        && !configField.getName().startsWith(ConfigStructure.UNUSED_ANYTHING_PREFIX)) {
-                    throw new IllegalStateException(nameWithPrefix + " already present: " + configField);
-                }
-
-                if (configField.getName().startsWith(ConfigStructureImpl.ALIGNMENT_FILL_AT)) {
-                    tsPosition += configField.getSize(next);
-                    return tsPosition;
-                }
-
-                if (configField.isDirective() && configField.getComment() != null) {
-                    tsHeader.append(configField.getComment());
-                    tsHeader.append(EOL);
-                    return tsPosition;
-                }
-
-                ConfigStructure cs = configField.getStructureType();
-                if (configField.getComment() != null && configField.getComment().trim().length() > 0 && cs == null) {
-                    String commentContent = configField.getCommentTemplated();
-                    commentContent = ConfigFieldImpl.unquote(commentContent);
-                    settingContextHelp.append(temporaryLineComment + "\t" + nameWithPrefix + " = " + quote(commentContent) + EOL);
-                }
-
-                if (cs != null) {
-                    String extraPrefix = cs.isWithPrefix() ? configField.getName() + "_" : "";
-                    return writeFields(cs.getTsFields(), prefix + extraPrefix, tsPosition);
-                }
-
-                if (configField.isBit()) {
-                    if (!configField.getName().startsWith(ConfigStructureImpl.UNUSED_BIT_PREFIX)) {
-                        tsHeader.append(temporaryLineComment + nameWithPrefix + " = bits, U32,");
-                        tsHeader.append(" " + tsPosition + ", [");
-                        tsHeader.append(bitIndex + ":" + bitIndex);
-                        tsHeader.append("]");
-                        if (isConstantsSection)
-                            tsHeader.append(", \"" + configField.getFalseName() + "\", \"" + configField.getTrueName() + "\"");
-                        tsHeader.append(EOL);
-                    }
-
-                    tsPosition += configField.getSize(next);
-                    return tsPosition;
-                }
-
+			int writeFieldJob(String nameWithPrefix, ConfigFieldImpl configField, ConfigField next, int tsPosition,
+					int bitIndex, String prefix, ConfigStructure cs) {
                 if (configField.getState().getTsCustomLine().containsKey(configField.getTypeName())) {
                     // todo: rename 'bits' to 'customLine' or something since _not_ bits for array?
                     String bits = configField.getState().getTsCustomLine().get(configField.getTypeName());
@@ -145,13 +106,152 @@ public class TsOutput {
                 tsHeader.append(EOL);
                 return tsPosition;
             }
-        };
-        sensorTsPosition = strategy.run(state, structure, sensorTsPosition);
+
+			@Override
+			public int writeOneField(FieldIterator it, String prefix, int tsPosition) {
+				ConfigFieldImpl configField = (ConfigFieldImpl) it.cf;
+				ConfigField next = it.next;
+				int bitIndex = it.bitState.get();
+				String nameWithPrefix = prefix + variableNamePrefix + configField.getName();
+				String originalUnits = configField.getUnits();
+				String originalTsInfo = configField.getTsInfo();
+                ConfigStructure cs = configField.getStructureType();
+
+                /**
+                 * in 'Constants' section we have conditional sections and this check is not smart enough to handle those right
+                 * A simple solution would be to allow only one variable per each conditional section - would be simpler not to check against previous field
+                 */
+                if (!usedNames.add(nameWithPrefix)
+                        && !isConstantsSection
+                        && !configField.isUnusedField()) {
+                    throw new IllegalStateException(nameWithPrefix + " already present: " + configField);
+                }
+
+                // note that we need to handle account for unused bits size below!
+                if (configField.getName().startsWith(ConfigStructureImpl.ALIGNMENT_FILL_AT)) {
+                    return it.adjustSize(tsPosition);
+                }
+
+                if (configField.isDirective() && configField.getComment() != null) {
+                    tsHeader.append(configField.getComment());
+                    tsHeader.append(EOL);
+                    return tsPosition;
+                }
+
+                if (configField.getComment() != null && configField.getComment().trim().length() > 0 && cs == null) {
+                    String commentContent = configField.getCommentTemplated();
+                    commentContent = ConfigFieldImpl.unquote(commentContent);
+                    settingContextHelp.append(temporaryLineComment + "\t" + nameWithPrefix + " = " + quote(commentContent) + EOL);
+                }
+
+                if (cs != null) {
+                    String extraPrefix = cs.isWithPrefix() ? configField.getName() + "_" : "";
+                    return writeFields(cs.getTsFields(), prefix + extraPrefix, tsPosition);
+                }
+
+                if (configField.isBit()) {
+                    if (!configField.getName().startsWith(ConfigStructureImpl.UNUSED_BIT_PREFIX)) {
+                        tsHeader.append(temporaryLineComment + nameWithPrefix + " = bits, U32,");
+                        tsHeader.append(" " + tsPosition + ", [");
+                        tsHeader.append(bitIndex + ":" + bitIndex);
+                        tsHeader.append("]");
+                        if (isConstantsSection)
+                            tsHeader.append(", \"" + configField.getFalseName() + "\", \"" + configField.getTrueName() + "\"");
+                        tsHeader.append(EOL);
+                    }
+
+                    return it.adjustSize(tsPosition);
+                }
+
+                 // if the units are SPECIAL_CASE_TEMPERATURE, we are going to deal with a temperature-based config
+                // so we need to edit the unit first on C degree, and then on F degree, also the TS conditional is added here
+                if (originalUnits.startsWith("SPECIAL_CASE_TEMPERATURE")) {
+                    // first the Celsius case, and save the index after writing the field
+                    configField.setTsInfo(formatTemperatureTsInfo(originalTsInfo, false));
+                    tsHeader.append(metricUnitsConditionalStart);
+                    int newIndex = writeFieldJob(nameWithPrefix, configField, next, tsPosition, bitIndex, nameWithPrefix, cs);
+                    tsHeader.append(metricUnitsConditionalElse);
+                    // now the fahrenheit case:
+                    configField.setTsInfo(formatTemperatureTsInfo(originalTsInfo, true));
+                    writeFieldJob(nameWithPrefix, configField, next, tsPosition, bitIndex, nameWithPrefix, cs);
+                    tsHeader.append(metricUnitsConditionalEnd);
+                    configField.setTsInfo(originalTsInfo);
+                    return newIndex;
+                }
+                // equal structure as temperature case, now with kPa and psi as units
+                if (originalUnits.startsWith("SPECIAL_CASE_PRESSURE")) {
+                    configField.setTsInfo(formatPressureTsInfo(originalTsInfo, false));
+                    tsHeader.append(metricUnitsConditionalStart);
+                    int newIndex = writeFieldJob(nameWithPrefix, configField, next, tsPosition, bitIndex, nameWithPrefix, cs);
+                    tsHeader.append(metricUnitsConditionalElse);
+                    // now the psi case:
+                    configField.setTsInfo(formatPressureTsInfo(originalTsInfo, true));
+                    writeFieldJob(nameWithPrefix, configField, next, tsPosition, bitIndex, nameWithPrefix, cs);
+                    tsHeader.append(metricUnitsConditionalEnd);
+                    configField.setTsInfo(originalTsInfo);
+                    return newIndex;
+                }
+
+				return writeFieldJob(nameWithPrefix, configField, next, tsPosition, bitIndex, nameWithPrefix, cs);
+			}
+		};
+        structureStartingTsPosition = strategy.run(state, structure, structureStartingTsPosition);
 
         if (state.isStackEmpty()) {
-            tsHeader.append("; total TS size = " + sensorTsPosition + EOL);
+            tsHeader.append("; total TS size = " + structureStartingTsPosition + EOL);
         }
-        return sensorTsPosition;
+        return structureStartingTsPosition;
+    }
+
+    private double celsiusToFahrenheit(double celsius){
+        return celsius * 1.8 + 32;
+    }
+
+    private double kPaToPsi(double kPa){
+        return kPa * kpaToPsiValue;
+    }
+
+    public String formatTemperatureTsInfo(String tsInfo, boolean isImperial){
+        if (tsInfo == null || tsInfo.trim().isEmpty()) {
+            // this case is handle by handleTsInfo, so we return a empty string
+            return "";
+        }
+        String[] fields = tokenizeWithBraces(tsInfo);
+
+         if (isImperial){
+            // override scale/translate & units, convert min-max
+            fields[0] = temperatureFahrenheitUnit;
+            fields[1] = temperatureToFahrenheitScale;
+            fields[2] = temperatureToFahrenheitTranslate;
+            fields[3] = String.valueOf( celsiusToFahrenheit( IniField.parseDouble(fields[3]) ) ); // min
+            fields[4] = String.valueOf( celsiusToFahrenheit( IniField.parseDouble(fields[4]) ) ); // max
+         } else {
+            // override units
+            fields[0] = temperatureCelsiusUnit;
+         }
+
+          return tokensToString(fields);
+    }
+
+    public String formatPressureTsInfo(String tsInfo, boolean isImperial) {
+        if (tsInfo == null || tsInfo.trim().isEmpty()) {
+            // this case is handle by handleTsInfo, so we return a empty string
+            return "";
+        }
+
+        String[] fields = tokenizeWithBraces(tsInfo);
+         if (isImperial){
+                    // override scale/translate & units, convert min-max
+                    fields[0] = pressureImperialUnit;
+                    fields[1] = pressureToPsiScale;
+                    fields[2] = pressureToPsiTranslate;
+                    fields[3] = String.valueOf( kPaToPsi( IniField.parseDouble(fields[3]) ) ); // min
+                    fields[4] = String.valueOf( kPaToPsi( IniField.parseDouble(fields[4]) ) ); // max
+        } else {
+            // override units
+            fields[0] = pressureMetricUnit;
+        }
+        return tokensToString(fields);
     }
 
     private String handleTsInfo(ConfigField configField, String tsInfo, int multiplierIndex) {
@@ -181,19 +281,13 @@ public class TsOutput {
                     fields[multiplierIndex] = " " + val;
                 }
             }
-            StringBuilder sb = new StringBuilder();
+
             if (!isConstantsSection) {
                 String[] subarray = new String[3];
                 System.arraycopy(fields, 0, subarray, 0, subarray.length);
                 fields = subarray;
             }
-            for (String f : fields) {
-                if (sb.length() > 0) {
-                    sb.append(",");
-                }
-                sb.append(f);
-            }
-            return sb.toString();
+            return tokensToString(fields);
         } catch (Throwable e) {
             throw new IllegalStateException("While parsing [" + tsInfo + "] of " + configField, e);
         }

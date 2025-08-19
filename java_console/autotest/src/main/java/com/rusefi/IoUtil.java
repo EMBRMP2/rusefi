@@ -1,7 +1,6 @@
 package com.rusefi;
 
 import com.devexperts.logging.Logging;
-import com.rusefi.config.generated.Fields;
 import com.rusefi.config.generated.Integration;
 import com.rusefi.core.EngineState;
 import com.rusefi.core.ISensorCentral;
@@ -118,7 +117,7 @@ public class IoUtil {
         if (!haveResponse)
             throw new IllegalStateException("No response from simulator");
         listener.remove();
-        FileLog.MAIN.logLine("Got first signal in " + (System.currentTimeMillis() - waitStart) + "ms");
+        AutotestLogging.INSTANCE.logLine("Got first signal in " + (System.currentTimeMillis() - waitStart) + "ms");
     }
 
     public static void connectToSimulator(LinkManager linkManager, boolean startProcess) throws InterruptedException {
@@ -153,13 +152,13 @@ public class IoUtil {
          * TCP connector is blocking
          */
         linkManager.startAndConnect("" + TcpConnector.DEFAULT_PORT, ConnectionStateListener.VOID);
-        linkManager.getEngineState().registerStringValueAction(Fields.PROTOCOL_VERSION_TAG, (EngineState.ValueCallback<String>) EngineState.ValueCallback.VOID);
+        linkManager.getEngineState().registerStringValueAction(Integration.PROTOCOL_VERSION_TAG, (EngineState.ValueCallback<String>) EngineState.ValueCallback.VOID);
         waitForFirstResponse();
     }
 
     @SuppressWarnings("UnusedDeclaration")
     public static void sleepSeconds(int seconds) {
-        FileLog.MAIN.logLine("Sleeping " + seconds + " seconds");
+        AutotestLogging.INSTANCE.logLine("Sleeping " + seconds + " seconds");
         try {
             Thread.sleep(seconds * 1000L);
         } catch (InterruptedException e) {
@@ -169,10 +168,9 @@ public class IoUtil {
 
     public static void realHardwareConnect(LinkManager linkManager, String port) {
         linkManager.getEngineState().registerStringValueAction(Integration.PROTOCOL_OUTPIN, (EngineState.ValueCallback<String>) EngineState.ValueCallback.VOID);
-        linkManager.getEngineState().registerStringValueAction(AverageAnglesUtil.KEY, (EngineState.ValueCallback<String>) EngineState.ValueCallback.VOID);
 
         try {
-            linkManager.connect(port).await(60, TimeUnit.SECONDS);
+            linkManager.connect(port, false).await(60, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             throw new IllegalStateException("Not connected in time");
         }

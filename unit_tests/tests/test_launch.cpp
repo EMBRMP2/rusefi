@@ -118,8 +118,7 @@ TEST(LaunchControl, SwitchInputCondition) {
 	engine->updateSwitchInputs();
 	EXPECT_FALSE(dut.isInsideSwitchCondition());
 
-	engineConfiguration->clutchDownPinMode = PI_PULLDOWN;
-	engineConfiguration->clutchDownPinInverted = true;
+	engineConfiguration->clutchDownPinMode = PI_INVERTED_PULLDOWN;
 	setMockState(engineConfiguration->clutchDownPin, false);
 	engine->updateSwitchInputs();
 	EXPECT_TRUE(dut.isInsideSwitchCondition());
@@ -165,9 +164,7 @@ static void setDefaultLaunchParameters() {
 	engineConfiguration->launchFuelAdderPercent = 10; // Extra fuel in % when launch are triggered
 //	engineConfiguration->launchBoostDuty = 70; // boost valve duty cycle at launch
 //	engineConfiguration->enableLaunchRetard = true;
-// dead code todo	engineConfiguration->enableLaunchBoost = true;
 	engineConfiguration->launchSmoothRetard = true; //interpolates the advance linear from launchrpm to fully retarded at launchtimingrpmrange
-	// dead code todo	engineConfiguration->antiLagRpmTreshold = 3000;
 }
 
 TEST(LaunchControl, CompleteRun) {

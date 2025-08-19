@@ -1,23 +1,26 @@
 package com.rusefi;
 
+import com.devexperts.logging.FileLogger;
 import com.devexperts.logging.Logging;
 import com.rusefi.autodetect.PortDetector;
 import com.rusefi.binaryprotocol.BinaryProtocolLogger;
 import com.rusefi.core.MessagesCentral;
+import com.rusefi.core.net.ConnectionAndMeta;
 import com.rusefi.io.CommandQueue;
 import com.rusefi.io.LinkManager;
 import com.rusefi.io.serial.BaudRateHolder;
 import com.rusefi.maintenance.StLinkFlasher;
+import com.rusefi.tools.TunerStudioHelper;
 import com.rusefi.ui.*;
 import com.rusefi.ui.console.MainFrame;
 import com.rusefi.ui.console.TabbedPanel;
 import com.rusefi.ui.engine.EngineSnifferPanel;
-import com.rusefi.ui.knock.KnockPane;
-import com.rusefi.ui.logview.LogViewer;
 import com.rusefi.ui.lua.LuaScriptPanel;
 import com.rusefi.ui.util.DefaultExceptionHandler;
 import com.rusefi.ui.util.JustOneInstance;
 import com.rusefi.core.ui.AutoupdateUtil;
+import com.rusefi.util.LazyFile;
+import com.rusefi.util.LazyFileImpl;
 
 
 import javax.swing.*;
@@ -25,6 +28,7 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,10 +45,12 @@ import static com.rusefi.ui.util.UiUtils.createOnTopParent;
 public class ConsoleUI {
     private static final Logging log = getLogging(ConsoleUI.class);
     private static final int DEFAULT_TAB_INDEX = 0;
+    private static final String WIKI_URL = "https://github.com/rusefi/rusefi/wiki/rusEFI-logs-folder";
 
     public static final String TAB_INDEX = "main_tab";
     protected static final String PORT_KEY = "port";
     protected static final String SPEED_KEY = "speed";
+    public static final String TITLE = "rusEFI";
     public static EngineSnifferPanel engineSnifferPanel;
 
     static Frame staticFrame;
@@ -89,8 +95,9 @@ public class ConsoleUI {
         if (!LinkManager.isLogViewerMode(port))
             engineSnifferPanel.setOutpinListener(uiContext.getLinkManager().getEngineState());
 
-        if (LinkManager.isLogViewerMode(port))
-            tabbedPane.addTab("Log Viewer", new LogViewer(uiContext, engineSnifferPanel));
+        // what is LogViewer? is this all dead?
+//        if (LinkManager.isLogViewerMode(port))
+//            tabbedPane.addTab("Log Viewer", new LogViewer(uiContext, engineSnifferPanel));
 
         uiContext.DetachedRepositoryINSTANCE.init(getConfig().getRoot().getChild("detached"));
         uiContext.DetachedRepositoryINSTANCE.load();
@@ -112,15 +119,7 @@ public class ConsoleUI {
 
         tabbedPaneAdd("Engine Sniffer", engineSnifferPanel.getPanel(), engineSnifferPanel.getTabSelectedListener());
 
-        if (!linkManager.isLogViewer()) {
-            SensorSnifferPane sensorSniffer = new SensorSnifferPane(uiContext, getConfig().getRoot().getChild("sensor_sniffer"));
-            tabbedPaneAdd("Sensor Sniffer", sensorSniffer.getPanel(), sensorSniffer.getTabSelectedListener());
-        }
 
-        if (!linkManager.isLogViewer()) {
-            KnockPane knockAnalyzer = new KnockPane(uiContext, getConfig().getRoot().getChild("knock_analyzer"));
-            tabbedPaneAdd("Knock analyzer", knockAnalyzer.getPanel(), knockAnalyzer.getTabSelectedListener());
-        }
 
 //        tabbedPane.addTab("LE controls", new FlexibleControls().getPanel());
 
@@ -133,21 +132,20 @@ public class ConsoleUI {
 //        tabbedPane.addTab("live map adjustment", new Live3DReport().getControl());
 //        tabbedPane.add("Wizards", new Wizard().createPane());
 
-        if (!linkManager.isLogViewer())
-            tabbedPane.addTab("Settings", tabbedPane.settingsTab.createPane());
+//        if (!linkManager.isLogViewer())
+//            tabbedPane.addTab("Settings", tabbedPane.settingsTab.createPane());
         if (!linkManager.isLogViewer()) {
+/*
+console live data tab is broken #8402
+
             tabbedPane.addTab("Live Data", LiveDataPane.createLazy(uiContext).getContent());
+ */
             tabbedPane.addTab("Sensors Live Data", new SensorsLiveDataPane(uiContext).getContent());
         }
 
         if (!linkManager.isLogViewer() && false) // todo: fix it & better name?
             tabbedPane.addTab("Logs Manager", tabbedPane.logsManager.getContent());
 
-
-        if (!linkManager.isLogViewer()) {
-            if (tabbedPane.paneSettings.showTriggerShapePane)
-                tabbedPane.addTab("Trigger Shape", new AverageAnglePanel(uiContext).getPanel());
-        }
 
         MessagesCentral.getInstance().postMessage(ConsoleUI.class, "COMPOSITE_OFF_RPM=" + BinaryProtocolLogger.COMPOSITE_OFF_RPM);
 
@@ -192,13 +190,26 @@ public class ConsoleUI {
         return port;
     }
 
+    private static void writeReadmeFile() {
+        LazyFile file = new LazyFileImpl(FileLogger.DIR + "README.html");
+        file.write("<center>" + "<a href='" + WIKI_URL + "'>More info online<br/><img src=https://raw.githubusercontent.com/wiki/rusefi/rusefi/logo.gif></a>");
+        try {
+            file.close();
+        } catch (IOException e) {
+            // ignoring this one
+        }
+    }
+
     static void startUi(String[] args) throws InterruptedException, InvocationTargetException {
-        FileLog.MAIN.start();
+        if (ConnectionAndMeta.saveReadmeHtmlToFile()) {
+            new Thread(ConsoleUI::writeReadmeFile).start();
+        }
+
         log.info("OS name: " + FileLog.getOsName());
         log.info("OS version: " + System.getProperty(FileLog.OS_VERSION));
 
         getConfig().load();
-        FileLog.suspendLogging = getConfig().getRoot().getBoolProperty(GaugesPanel.DISABLE_LOGS);
+        AutotestLogging.suspendLogging = getConfig().getRoot().getBoolProperty(GaugesPanel.DISABLE_LOGS);
         DefaultExceptionHandler.install();
 // not very useful?        VersionChecker.start();
         SwingUtilities.invokeAndWait(() -> awtCode(args));
@@ -215,11 +226,14 @@ public class ConsoleUI {
     private static void awtCode(String[] args) {
         if (JustOneInstance.isAlreadyRunning()) {
             int result = JOptionPane.showConfirmDialog(createOnTopParent(), "Looks like another instance is already running. Do you really want to start another instance?",
-                    "rusEfi", JOptionPane.YES_NO_OPTION);
-            if (result == JOptionPane.NO_OPTION)
+                TITLE, JOptionPane.YES_NO_OPTION);
+            if (result == JOptionPane.NO_OPTION) {
                 System.exit(-1);
+            }
         }
         JustOneInstance.onStart();
+        TunerStudioHelper.maybeCloseTs();
+
         try {
             boolean isPortDefined = args.length > 0;
             boolean isBaudRateDefined = args.length > 1;
@@ -242,7 +256,7 @@ public class ConsoleUI {
             } else {
                 for (String p : LinkManager.getCommPorts())
                     MessagesCentral.getInstance().postMessage(Launcher.class, "Available port: " + p);
-                new StartupFrame().showUi();
+                new StartupFrame(ConnectivityContext.INSTANCE).showUi();
             }
 
         } catch (Throwable e) {

@@ -20,6 +20,8 @@
 
 #include "pch.h"
 #include "mre_meta.h"
+#include "defaults.h"
+#include "board_overrides.h"
 
 static void setInjectorPins() {
 	engineConfiguration->injectionPins[0] = MRE_INJ_1;
@@ -86,21 +88,7 @@ static void setupTle8888() {
 }
 
 static void setupEtb() {
-	// TLE9201 driver
-	// This chip has three control pins:
-	// DIR - sets direction of the motor
-	// PWM - pwm control (enable high, coast low)
-	// DIS - disables motor (enable low)
-
-	// PWM pin
-	engineConfiguration->etbIo[0].controlPin = Gpio::C7;
-	// DIR pin
-	engineConfiguration->etbIo[0].directionPin1 = Gpio::A8;
-	// Disable pin
-	engineConfiguration->etbIo[0].disablePin = Gpio::C8;
-
-	// we only have pwm/dir, no dira/dirb
-	engineConfiguration->etb_use_two_wires = false;
+	setupTLE9201(/*PWM controlPin*/Gpio::C7, Gpio::A8, Gpio::C8);
 }
 
 static void setupDefaultSensorInputs() {
@@ -125,16 +113,13 @@ static void setupDefaultSensorInputs() {
 
 	engineConfiguration->iat.adcChannel = MRE_IN_IAT;
 
+#ifndef EFI_BOOTLOADER
 	setCommonNTCSensor(&engineConfiguration->auxTempSensor1, MRE_DEFAULT_AT_PULLUP);
 	setCommonNTCSensor(&engineConfiguration->auxTempSensor2, MRE_DEFAULT_AT_PULLUP);
-
-#if HW_CHECK_MODE
-	engineConfiguration->auxTempSensor1.adcChannel = EFI_ADC_2;
-	engineConfiguration->auxTempSensor2.adcChannel = EFI_ADC_3;
-#endif // HW_CHECK_MODE
+#endif // EFI_BOOTLOADER
 }
 
-void setBoardConfigOverrides() {
+static void microrusefi_boardConfigOverrides() {
 	setupVbatt();
 	setupTle8888();
 	setupEtb();
@@ -165,7 +150,7 @@ void setBoardConfigOverrides() {
  *
 
  */
-void setBoardDefaultConfiguration() {
+static void microrusefi_boardDefaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
 
@@ -242,4 +227,9 @@ Gpio* getBoardMetaOutputs() {
 
 int getBoardMetaDcOutputsCount() {
     return 1;
+}
+
+void setup_custom_board_overrides() {
+	custom_board_DefaultConfiguration = microrusefi_boardDefaultConfiguration;
+	custom_board_ConfigOverrides =  microrusefi_boardConfigOverrides;
 }

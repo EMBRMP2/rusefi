@@ -16,6 +16,7 @@
 #endif
 
 float getAnalogInputDividerCoefficient(adc_channel_e);
+float boardAdjustVoltage(float voltage, adc_channel_e hwChannel);
 
 inline bool isAdcChannelValid(adc_channel_e hwChannel) {
 	/* Compiler will optimize, keep following if as a reminder */
@@ -38,6 +39,7 @@ inline bool isAdcChannelOffChip(adc_channel_e hwChannel) {
 	return (isAdcChannelValid(hwChannel) && (hwChannel > EFI_ADC_ONCHIP_LAST));
 }
 
+int analogGetDiagnostic();
 
 #if !defined(GPT_FREQ_FAST) || !defined(GPT_PERIOD_FAST)
 
@@ -59,11 +61,11 @@ inline bool isAdcChannelOffChip(adc_channel_e hwChannel) {
 
 /*
  * We have 1 / (GPT_FREQ_FAST / GPT_PERIOD_FAST) to finish conversion = 100 uS
- * With ADC_SAMPLING_FAST = 28 ADC clock @ 21 MHz (F4) -> one channel conversion takes 1.33(3) uS
+ * With ADC_SAMPLING_FAST = 28 ADC clock @ 21 MHz (F4)
+ * One channel conversion takes 28 + 12 = 40 clocks
+ * One channel conversion takes 1 / 21`000`000 * 40 = 1.904 uS
  * Oversampling is ADC_BUF_DEPTH_FAST = 4
- * We can do up-to 100 / (1.33(3) * 4) = 18.75 channels conversions
- * So we can enable ALL channels for fast ADC.
- * This will increase bus load with more DMA transfers, but who cares?
+ * We can do up-to 100 / (1.904 * 4) = 13.125 channels conversions
  */
 
 #endif /* GPT_FREQ_FAST GPT_PERIOD_FAST */
@@ -75,6 +77,8 @@ enum class AdcChannelMode : char {
 	Slow,
 	Fast
 };
+
+void updateSlowAdc(efitick_t nowNt);
 
 AdcChannelMode getAdcMode(adc_channel_e hwChannel);
 void initAdcInputs();
@@ -89,9 +93,9 @@ float getMCUInternalTemperature(void);
 void addFastAdcChannel(const char *name, adc_channel_e hwChannel);
 void removeChannel(const char *name, adc_channel_e hwChannel);
 
-#define getAdcValue(msg, hwChannel) getInternalAdcValue(msg, hwChannel)
+#define adcGetRawValue(msg, hwChannel) getInternalAdcValue(msg, hwChannel)
 
-#define adcToVoltsDivided(adc, hwChannel) (adcToVolts(adc) * getAnalogInputDividerCoefficient(hwChannel))
+#define adcRawValueToScaledVoltage(adc, hwChannel) (adcRawValueToRawVoltage(adc) * getAnalogInputDividerCoefficient(hwChannel))
 
 // This callback is called by the ADC driver when a new fast ADC sample is ready
 void onFastAdcComplete(adcsample_t* samples);
@@ -112,6 +116,8 @@ static constexpr AdcToken invalidAdcToken = (AdcToken)(-1);
 
 AdcToken enableFastAdcChannel(const char* msg, adc_channel_e channel);
 adcsample_t getFastAdc(AdcToken token);
+const ADCConversionGroup* getKnockConversionGroup(uint8_t channelIdx);
+void onKnockSamplingComplete();
 #endif // HAL_USE_ADC
 
 void printFullAdcReport(void);

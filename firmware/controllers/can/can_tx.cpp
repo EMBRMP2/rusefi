@@ -26,28 +26,40 @@ CanWrite::CanWrite()
 {
 }
 
-PUBLIC_API_WEAK bool boardEnableSendWidebandInfo() { return true; }
+static CI roundTxPeriodToCycle(uint16_t period) {
+	if (period < 10) return CI::_5ms;
+	else if (period < 20) return CI::_10ms;
+	else if (period < 50) return CI::_20ms;
+	else if (period < 100) return CI::_50ms;
+	else if (period < 200) return CI::_100ms;
+	else if (period < 250) return CI::_200ms;
+	else if (period < 500) return CI::_250ms;
+	else if (period < 1000) return CI::_500ms;
+	else return CI::_1000ms;
+}
 
-extern bool withHwQcActivity;
+PUBLIC_API_WEAK bool boardEnableSendWidebandInfo() { return true; }
 
 static uint16_t m_cycleCount = 0;
 
-void resetCanWriteCycle() {
+/* public API for custom boards */ void resetCanWriteCycle() {
   m_cycleCount = 0;
 }
 
-void CanWrite::PeriodicTask(efitick_t nowNt) {
-	UNUSED(nowNt);
+// this is invoked at CAN_CYCLE_FREQ frequency
+void CanWrite::PeriodicTask(efitick_t) {
+	ScopePerf pc(PE::CanThreadTx);
 	CanCycle cycle(m_cycleCount);
 
 	//in case we have Verbose Can enabled, we should keep user configured period
-	if (engineConfiguration->enableVerboseCanTx && !engine->pauseCANdueToSerial) {
-		uint16_t cycleCountsPeriodMs = m_cycleCount * CAN_CYCLE_PERIOD;
-		if (0 != engineConfiguration->canSleepPeriodMs) {
-			if (cycleCountsPeriodMs % engineConfiguration->canSleepPeriodMs) {
+	if (engineConfiguration->enableVerboseCanTx) {
+	  // slow down verbose CAN while in serial CAN
+    int canSleepPeriodMs = (engine->pauseCANdueToSerial ? 5 : 1) * engineConfiguration->canSleepPeriodMs;
+
+		auto roundedInterval = roundTxPeriodToCycle(canSleepPeriodMs);
+		if (cycle.isInterval(roundedInterval)) {
 				void sendCanVerbose();
 				sendCanVerbose();
-			}
 		}
 	}
 
@@ -64,24 +76,29 @@ void CanWrite::PeriodicTask(efitick_t nowNt) {
 
 	updateDash(cycle);
 
-  if (engineConfiguration->enableExtendedCanBroadcast || withHwQcActivity) {
+  if (engineConfiguration->enableExtendedCanBroadcast || isHwQcMode()) {
 	  if (cycle.isInterval(CI::_100ms)) {
   		sendQcBenchEventCounters();
   		sendQcBenchRawAnalogValues();
+#ifdef HW_HELLEN_8CHAN
+  		sendQcBenchEventCounters(/*bus*/1);
+  		sendQcBenchRawAnalogValues(/*bus*/1);
+#endif
 	  }
 
 	  if (cycle.isInterval(CI::_250ms)) {
 		  sendQcBenchBoardStatus();
+#ifdef HW_HELLEN_8CHAN
+		  sendQcBenchBoardStatus(/*bus*/1);
+#endif
 		  sendQcBenchButtonCounters();
 		  sendQcBenchAuxDigitalCounters();
 	  }
 	}
 
-#if EFI_WIDEBAND_FIRMWARE_UPDATE
 	if (engineConfiguration->enableAemXSeries && cycle.isInterval(CI::_50ms) && boardEnableSendWidebandInfo()) {
 		sendWidebandInfo();
 	}
-#endif
 
 	m_cycleCount++;
 }

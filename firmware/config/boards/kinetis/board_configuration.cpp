@@ -8,6 +8,7 @@
  */
 
 #include "pch.h"
+#include "board_overrides.h"
 
 #if 0
 char __debugBuffer[80];
@@ -37,7 +38,7 @@ static void setSerialConfigurationOverrides() {
 	engineConfiguration->uartConsoleSerialSpeed = SERIAL_SPEED;
 }
 
-void setBoardOverrides() {
+static void kinetis_boardConfigOverrides() {
 	engineConfiguration->useNoiselessTriggerDecoder = true;
 
 	setAlgorithm(LM_SPEED_DENSITY);
@@ -54,7 +55,7 @@ void setBoardOverrides() {
 	engineConfiguration->displacement = 1.645;
 	engineConfiguration->injector.flow = 200;
 
-	engineConfiguration->cranking.baseFuel = 25;		// ???
+	setTable(config->crankingCycleBaseFuel, 25);		// ???
 	engineConfiguration->cranking.rpm = 600;
 
 	engineConfiguration->map.sensor.type = MT_MPX4250A;
@@ -121,4 +122,8 @@ void longjmp(jmp_buf /*env*/, int /*status*/) {
 int setjmp(jmp_buf /*env*/) {
 	// Fake return 0, not implemented
 	return 0;
+}
+
+void setup_custom_board_overrides() {
+	custom_board_ConfigOverrides =  kinetis_boardConfigOverrides;
 }

@@ -11,9 +11,7 @@
 #include "pch.h"
 #include "hellen_meta.h"
 #include "defaults.h"
-
-// mm176 matches mm144 in terms of LED pinout
-#include "hellen_leds_144.cpp"
+#include "board_overrides.h"
 
 static OutputPin alphaTachPullUp;
 static OutputPin alphaTempPullUp;
@@ -71,7 +69,7 @@ static void setupDefaultSensorInputs() {
 	engineConfiguration->iat.adcChannel = H144_IN_IAT;
 }
 
-void boardInitHardware() {
+static void alphax_8chan_reva_boardInitHardware() {
 	setHellenEnPin(Gpio::H144_OUT_IO3);
 
 	alphaTempPullUp.initPin("a-temp", Gpio::H144_OUT_IO4);
@@ -84,7 +82,6 @@ void boardInitHardware() {
 	alphaD3PullDown.initPin("a-d3", H_SPI3_MISO);
 	alphaD4PullDown.initPin("a-d4", H_SPI3_MOSI);
 	//alphaD5PullDown.initPin("a-d5", Gpio::H144_LS_8);
-	boardOnConfigurationChange(nullptr);
 }
 
 void boardOnConfigurationChange(engine_configuration_s * /*previousConfiguration*/) {
@@ -99,7 +96,7 @@ void boardOnConfigurationChange(engine_configuration_s * /*previousConfiguration
 	alphaD4PullDown.setValue(config->boardUseD4PullDown);
 }
 
-void setBoardConfigOverrides() {
+static void alphax_8chan_reva_boardConfigOverrides() {
 	setHellenVbatt();
 
 	setHellenSdCardSpi2();
@@ -107,6 +104,7 @@ void setBoardConfigOverrides() {
     setDefaultHellenAtPullUps();
 
 	setHellenCan();
+	setHellenCan2();
 }
 
 /**
@@ -116,7 +114,7 @@ void setBoardConfigOverrides() {
  *
 
  */
-void setBoardDefaultConfiguration() {
+static void alphax_8chan_reva_boardDefaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
 
@@ -168,4 +166,10 @@ int getBoardMetaOutputsCount() {
 
 Gpio* getBoardMetaOutputs() {
     return OUTPUTS;
+}
+
+void setup_custom_board_overrides() {
+	custom_board_InitHardware = alphax_8chan_reva_boardInitHardware;
+	custom_board_DefaultConfiguration = alphax_8chan_reva_boardDefaultConfiguration;
+	custom_board_ConfigOverrides = alphax_8chan_reva_boardConfigOverrides;
 }

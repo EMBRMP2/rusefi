@@ -14,11 +14,9 @@ static void doTest(const char* testFile, int expectedRpm) {
 
 	while (reader.haveMore()) {
 		reader.processLine(&eth);
-
-		engine->rpmCalculator.onSlowCallback();
 	}
 
-	ASSERT_EQ(0, eth.recentWarnings()->getCount())<< "warningCounter#vwRealCranking";
+	ASSERT_EQ(0u, eth.recentWarnings()->getCount())<< "warningCounter#vwRealCranking";
 	ASSERT_EQ(expectedRpm, round(Sensor::getOrZero(SensorType::Rpm)))<< reader.lineIndex();
 }
 

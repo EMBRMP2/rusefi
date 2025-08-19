@@ -20,11 +20,18 @@ US_TO_NT_MULTIPLIER = 100
 
 PROJECT_CPU=simulator
 
+# todo: reduce copy/paste between all three Makefiles!
 ifneq ($(BOARD_DIR),)
 ifneq ("$(wildcard ../firmware/$(BOARD_DIR)/default_tune.cpp)","")
   BOARDCPPSRC += ../firmware/$(BOARD_DIR)/default_tune.cpp
 endif
 endif
+
+# OS is a windows-specific environment variable
+ifneq ($(OS),Windows_NT)
+  OS = $(shell uname)
+endif
+$(info OS is [${OS}])
 
 include ../firmware/rusefi.mk
 include ../firmware/rusefi_rules.mk
@@ -54,9 +61,9 @@ ifeq ($(USE_OPT),)
   USE_OPT += -D US_TO_NT_MULTIPLIER=$(US_TO_NT_MULTIPLIER)
 
   ifeq ($(OS),Windows_NT)
-    USE_OPT += -DEFI_SIM_IS_WINDOWS=1
+    USE_OPT += -DEFI_SIM_IS_WINDOWS=1 -DIS_WINDOWS_COMPILER=1
   else
-    USE_OPT += -m32 -DEFI_SIM_IS_WINDOWS=0
+    USE_OPT += -m32 -DEFI_SIM_IS_WINDOWS=0 -DIS_WINDOWS_COMPILER=0
   endif
 endif
 
@@ -69,6 +76,8 @@ USE_OPT += -DHW_HELLEN_NB2=1
 USE_OPT += -DHW_HELLEN=1
 USE_OPT += -DHW_PROTEUS=1
 USE_OPT += -DHW_MICRO_RUSEFI=1
+
+USE_OPT += -DEFI_LUA_LOOKUP=1
 
 # See explanation in main firmware Makefile for these three defines
 USE_OPT += $(SIMULATOR_DEBUG_LEVEL_OPT) $(RUSEFI_OPT) -DEFI_UNIT_TEST=0 -DEFI_PROD_CODE=0 -DEFI_SIMULATOR=1
@@ -142,10 +151,7 @@ PROJECT_DIR = ../firmware
 
 # Imported source files and paths
 
-# Configure libfirmware Paths/Includes
-RUSEFI_LIB = $(PROJECT_DIR)/libfirmware
-include $(RUSEFI_LIB)/util/util.mk
-include $(RUSEFI_LIB)/pt2001/pt2001.mk
+include $(PROJECT_DIR)/common_libfirmware.mk
 
 # Licensing files.
 include $(CHIBIOS)/os/license/license.mk
@@ -170,7 +176,7 @@ endif
 include $(PROJECT_DIR)/console/binary/tunerstudio.mk
 include $(PROJECT_DIR)/console/console.mk
 include $(PROJECT_DIR)/common.mk
-
+include $(PROJECT_DIR)/controllers/modules/modules.mk
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -193,6 +199,7 @@ CPPSRC = $(ALLCPPSRC) \
   simulator/system/signal_executor_sleep.cpp \
   simulator/boards.cpp \
   $(TEST_SRC_CPP) \
+  $(MODULES_CPPSRC) \
   $(RUSEFI_LIB_CPP) \
   main.cpp
 
@@ -203,11 +210,16 @@ ASMSRC = $(PORTASM)
 ifneq ($(BOARD_DIR),)
   # used by custom board custom live data
   INCDIR += $(BOARD_DIR)/firmware
+  ifneq ("$(wildcard $(BOARD_DIR)/board_common.mk)","")
+    # part common between PROD, simulator and unit tests
+    include $(BOARD_DIR)/board_common.mk
+  endif
 endif
 
 INCDIR += . \
   $(PCH_DIR) \
   $(ALLINC) \
+  $(MODULES_INC) \
   $(CHIBIOS)/os/various/cpp_wrappers \
   $(PROJECT_DIR)/hw_layer/drivers/can \
   ${CHIBIOS}/os/various \
@@ -229,8 +241,6 @@ ASMXSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 ##############################################################################
 # Compiler settings
 #
-
-$(info OS is [${OS}])
 
 ifeq ($(OS),Windows_NT)
   # ChibiOS seem to require 32 bit compiler at least on Windows

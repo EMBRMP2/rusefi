@@ -7,7 +7,6 @@ import com.rusefi.Timeouts;
 import com.rusefi.binaryprotocol.BinaryProtocol;
 import com.rusefi.binaryprotocol.IncomingDataBuffer;
 import com.rusefi.binaryprotocol.IoHelper;
-import com.rusefi.config.generated.Fields;
 import com.rusefi.config.generated.Integration;
 import com.rusefi.io.IoStream;
 import com.rusefi.proxy.NetworkConnector;
@@ -45,7 +44,7 @@ public class BinaryProtocolProxy {
                 clientStream = new TcpIoStream("[[proxy]] ", clientSocket);
                 runProxy(targetEcuSocket, clientStream, clientApplicationActivityListener, USER_IO_TIMEOUT);
             } catch (IOException e) {
-                statusConsumer.append("ERROR BinaryProtocolProxy::run " + e, true, true);
+                statusConsumer.logLine("ERROR BinaryProtocolProxy::run " + e);
                 close(clientStream);
             }
         };
@@ -53,10 +52,10 @@ public class BinaryProtocolProxy {
     }
 
     public interface ClientApplicationActivityListener {
-        ClientApplicationActivityListener VOID = () -> {
+        ClientApplicationActivityListener VOID = (BinaryProtocolServer.Packet clientRequest) -> {
         };
 
-        void onActivity();
+        void onActivity(BinaryProtocolServer.Packet clientRequest);
     }
 
     public static void runProxy(IoStream targetEcu, IoStream clientStream, ClientApplicationActivityListener listener, int timeoutMs) throws IOException {
@@ -75,7 +74,7 @@ public class BinaryProtocolProxy {
             byte[] packet = clientRequest.getPacket();
             if (packet.length > 1 && packet[0] == Integration.TS_ONLINE_PROTOCOL && packet[1] == NetworkConnector.DISCONNECT)
                 throw new IOException("User requested disconnect");
-            listener.onActivity();
+            listener.onActivity(clientRequest);
 
             /**
              * Two reasons for synchronization:

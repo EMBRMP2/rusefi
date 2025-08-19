@@ -1,6 +1,12 @@
 name: Simulator
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  AUTOMATION_REF: ${{github.ref_name}}
 
 jobs:
   # This is just to ensure the simulator compiles on Linux
@@ -8,19 +14,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
 # todo: how to reduce code duplication of submodules list?
     - name: Checkout Submodules
       run: |
-        git submodule update --init --depth=1 firmware/ChibiOS
-        git submodule update --init --depth=1 firmware/ChibiOS-Contrib
-        git submodule update --init --depth=1 firmware/libfirmware
-        git submodule update --init --depth=1 firmware/ext/lua
-        git submodule update --init --depth=1 firmware/controllers/lua/luaaa
-        git submodule update --init --depth=1 firmware/controllers/can/wideband_firmware
-        git submodule update --init --depth=1 java_console/luaformatter
-        git submodule update --init --depth=1 java_console/peak-can-basic
+        misc/git_scripts/common_submodule_init.sh
 
     - name: Print GCC version
       working-directory: .
@@ -29,12 +28,13 @@ jobs:
     - name: Install multilib
       run: |
         sudo bash misc/actions/add-ubuntu-latest-apt-mirrors.sh
-        sudo apt-get install gcc-multilib g++-multilib mtools dosfstools zip
+        sudo bash misc/actions/ubuntu-install-tools.sh
 
     - uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
-        java-version: '11'
+        # using version 21 here just for fun. See build-tsplugin-body.yaml
+        java-version: '17'
 
     - name: Generate docs and enums
       working-directory: ./firmware/
@@ -42,7 +42,7 @@ jobs:
 
     - name: Gradle autotest java Using freshly generated java code
       working-directory: ./java_tools
-      run: ./gradlew :autotest:shadowJar
+      run: ./gradlew :autotest:shadowJar :tune-tools:shadowJar
 
     - name: Compile Linux Simulator
       working-directory: ./simulator/
@@ -61,13 +61,12 @@ jobs:
         git status
         ls -l simulator/generated/
 
-    - name: Gradle tune-tools
-      working-directory: ./java_tools
-      run: ./gradlew :tune-tools:shadowJar
-
     - name: Convert .bin from Linux Simulator into .xml
       working-directory: ./simulator/
-      run: ./write_tune.sh ../firmware/tunerstudio/generated/rusefi_f407-discovery.ini
+      run: |
+        export DEFAULT_TUNE_OUTPUT_FOLDER=../simulator/generated/
+        echo "DEFAULT_TUNE_OUTPUT_FOLDER=$DEFAULT_TUNE_OUTPUT_FOLDER"
+        ./write_tune.sh ../firmware/tunerstudio/generated/rusefi_f407-discovery.ini
 
     - name: Commit fresh generated default simulator tune
       if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master'}}
@@ -85,11 +84,13 @@ jobs:
           echo "default tune: looks like something has changed"
           exit 0
         else
-          echo "default tune: looks like something unexpected"
+          echo "default tune: looks like something unexpected: [$OUT]"
           exit 1
         fi
         git stash
-        git pull --rebase
+        echo Fetching only current branch to make things quicker
+        git fetch $(git rev-parse --symbolic-full-name --abbrev-ref @{upstream} | sed 's!/! !')
+        git rebase
 
     - name: Push fresh default tune
       if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && env.COMMIT == 'true'}}

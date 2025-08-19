@@ -1,106 +1,85 @@
 package com.rusefi.ui.basic;
 
-import com.rusefi.Launcher;
-import com.rusefi.SerialPortScanner;
-import com.rusefi.StartupFrame;
-import com.rusefi.autodetect.PortDetector;
-import com.rusefi.core.FindFileHelper;
+import com.rusefi.*;
+import com.rusefi.core.net.ConnectionAndMeta;
 import com.rusefi.core.ui.FrameHelper;
-import com.rusefi.maintenance.DfuFlasher;
-import com.rusefi.maintenance.ProgramSelector;
 import com.rusefi.maintenance.StatusAnimation;
-import com.rusefi.maintenance.UpdateStatusWindow;
-import com.rusefi.ui.LogoHelper;
+import com.rusefi.tools.TunerStudioHelper;
+import com.rusefi.ui.BasicLogoHelper;
 import com.rusefi.ui.util.DefaultExceptionHandler;
-import com.rusefi.ui.util.HorizontalLine;
 import com.rusefi.ui.util.UiUtils;
-import com.rusefi.ui.widgets.ToolButtons;
-import org.putgemin.VerticalFlowLayout;
+import com.rusefi.ui.widgets.StatusPanel;
 
 import javax.swing.*;
 
-import java.awt.Color;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import static com.rusefi.FileLog.isWindows;
+import java.lang.reflect.InvocationTargetException;
 
 /**
+ * java -jar rusefi_console.jar basic-ui
+ * java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -jar rusefi_console.jar basic-ui
+ *
  * Focuses on firmware updater
  * Much simpler than {@link com.rusefi.StartupFrame}
  */
 public class BasicStartupFrame {
-    private final FrameHelper frame;
+    private final String whiteLabel = ConnectionAndMeta.getWhiteLabel(ConnectionAndMeta.getProperties());
 
-    public static void main(String[] args) {
+    private final StatusPanel statusPanel = new StatusPanel();
+    private final BasicUpdaterPanel basicUpdaterPanel;
+    private final FrameHelper frame = FrameHelper.createFrame(
+        whiteLabel + " basic console " + Launcher.CONSOLE_VERSION
+    );
+
+    private final StatusAnimation status = new StatusAnimation(this::updateStatus, StartupFrame.SCANNING_PORTS);
+
+    public static void main(String[] args) throws InterruptedException, InvocationTargetException {
         runTool(null);
     }
 
-    public static void runTool(String[] args) {
+    public static void runTool(String[] args) throws InterruptedException, InvocationTargetException {
         DefaultExceptionHandler.install();
-        new BasicStartupFrame().runTool();
+        SwingUtilities.invokeAndWait(() -> new BasicStartupFrame(ConnectivityContext.INSTANCE));
     }
 
-    public BasicStartupFrame() {
-        String title = "rusEFI basic console " + Launcher.CONSOLE_VERSION;
-        frame = FrameHelper.createFrame(title);
-        JPanel panel = new JPanel(new VerticalFlowLayout());
-        if (isWindows()) {
-            panel.add(ToolButtons.createShowDeviceManagerButton());
-            panel.add(StartupFrame.binaryModificationControl());
+    public BasicStartupFrame(ConnectivityContext connectivityContext) {
+        final JPanel panel = new JPanel();
+        basicUpdaterPanel = new BasicUpdaterPanel(connectivityContext,
+            ConnectionAndMeta.isDefaultWhitelabel(whiteLabel),
+            statusPanel
+        );
+        panel.add(basicUpdaterPanel.getContent());
+        panel.add(statusPanel);
+        TunerStudioHelper.maybeCloseTs();
 
-            JButton update = ProgramSelector.createUpdateFirmwareButton();
-            boolean requireBlt = FindFileHelper.isObfuscated();
-            if (requireBlt) {
-                update.setEnabled(false);
+        connectivityContext.getSerialPortScanner().addListener(currentHardware -> SwingUtilities.invokeLater(() -> {
+            onHardwareUpdated(currentHardware);
+        }));
 
-                JLabel noPortsMessage = new JLabel();
-                noPortsMessage.setForeground(Color.red);
-                panel.add(noPortsMessage);
-
-                StatusAnimation status = new StatusAnimation(noPortsMessage::setText, StartupFrame.SCANNING_PORTS);
-
-                SerialPortScanner.INSTANCE.addListener(currentHardware -> SwingUtilities.invokeLater(() -> {
-                    status.stop();
-                    frame.getFrame().pack();
-
-                    List<SerialPortScanner.PortResult> ecuPorts =  currentHardware.getKnownPorts().stream().filter(portResult -> portResult.type == SerialPortScanner.SerialPortType.EcuWithOpenblt).collect(Collectors.toList());
-
-                    List<SerialPortScanner.PortResult> bootloaderPorts =  currentHardware.getKnownPorts().stream().filter(portResult -> portResult.type == SerialPortScanner.SerialPortType.OpenBlt).collect(Collectors.toList());
-
-
-                    if (!ecuPorts.isEmpty()) {
-                        noPortsMessage.setVisible(false);
-                        update.setEnabled(true);
-                        update.setText("Auto Update Firmware");
-                        update.addActionListener(e -> ProgramSelector.executeJob(update, ProgramSelector.OPENBLT_AUTO, ecuPorts.get(0)));
-                    } else if (!bootloaderPorts.isEmpty()) {
-                        noPortsMessage.setVisible(false);
-                        update.setEnabled(true);
-                        update.setText("Blt Update Firmware");
-                        update.addActionListener(e -> ProgramSelector.executeJob(update, ProgramSelector.OPENBLT_MANUAL, bootloaderPorts.get(0)));
-                    } else {
-                        noPortsMessage.setText("ECU not found");
-                    }
-                }));
-            } else {
-                update.addActionListener(e -> DfuFlasher.doAutoDfu(update, PortDetector.AUTO, new UpdateStatusWindow("Update")));
-            }
-            panel.add(update);
-        } else {
-            panel.add(new JLabel("Sorry only works on Windows"));
-        }
-
-        panel.add(new HorizontalLine());
-        JLabel logoLabel = LogoHelper.createLogoLabel();
-        if (logoLabel != null)
-            panel.add(logoLabel);
-        panel.add(LogoHelper.createUrlLabel());
-
+        BasicLogoHelper.setGenericFrameIcon(frame.getFrame());
         frame.showFrame(panel, false);
         UiUtils.centerWindow(frame.getFrame());
+        packFrame();
     }
 
-    private void runTool() {
+    private void packFrame() {
+        frame.getFrame().pack();
+    }
+
+    private void updateStatus(final String niceStatus) {
+        basicUpdaterPanel.updateStatus(niceStatus);
+
+        // I'm not sure why it works, but it looks like the following frame packing helps to avoid displaying of logo on
+        // the right side of frame
+        packFrame();
+    }
+
+    public void onHardwareUpdated(final AvailableHardware currentHardware) {
+        status.stop();
+
+        basicUpdaterPanel.onHardwareUpdated(currentHardware);
+
+        // I'm not sure if the following frame packing is really necessary, but I'm adding it just in case if frame was
+        // not packed in updateStatus method
+        packFrame();
     }
 }

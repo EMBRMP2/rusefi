@@ -49,11 +49,22 @@ pins:
     ts_name: ___ Idle Output
     color: yellow
 
+  - pin: 7A
+    function: CAN High
+    color: green
+    type: can
+
+  - pin: 8A
+    function: CAN Low
+    color: blue
+    type: can
+
   - pin: 9A
     meta: MM100_IN_VBATT
     class: analog_inputs
     function: ECU power supply
     ts_name: ___ Battery Sense
+    color: red
     type: 12v
 
   - pin: 10A
@@ -88,6 +99,24 @@ pins:
     type: ls
     ts_name: ___ Tach Output
     color: blue
+
+  - pin: 15A
+    function: knock
+
+  - pin: 16A
+    id: [MM100_IN_D4, MM100_IN_D4]
+    class: [event_inputs, switch_inputs]
+    function: 16 Hall4 (not while descrete VR)
+
+  - pin: 17A
+    id: [MM100_IN_D3, MM100_IN_D3]
+    class: [event_inputs, switch_inputs]
+    function: 17 Hall3 (not while descrete VR)
+
+  - pin: 16A17A
+    meta: MM100_IN_CAM
+    class: event_inputs
+    function: VR Discrete Positive
 
   - pin: 18A
     meta: MM100_IN_TPS_ANALOG
@@ -129,30 +158,79 @@ pins:
     type: av
     color: yellow
 
+  - pin: 22A
+    meta: MM100_IN_AUX1_ANALOG
+    class: analog_inputs
+    function: AUX analog input 1
+    ts_name: ___ - AIN1
+    type: av
 
   - pin: 23A
     function: Sensor +5v Power Feed
     type: 5v
     color: orange
 
+  - pin: 24A
+    id: [MM100_IN_D2, MM100_IN_D2]
+    class: [event_inputs, switch_inputs]
+    function: 24 Hall2 (not while VR max9924)
+
+  - pin: 25A
+    id: [MM100_IN_D1, MM100_IN_D1]
+    class: [event_inputs, switch_inputs]
+    function: 25 Hall1 (not while VR max9924)
+
+  - pin: 24A25A
+    meta: MM100_IN_CRANK
+    class: event_inputs
+    function: VR max9924 Positive
 
   - pin: 26A
     function: Power Ground
     type: gnd
     color: black
+
   - pin: 27A
-    function: Power Ground
+    function: Analog Ground
     type: gnd
     color: black
 
-
   - pin: 28A
-    id: TLE9104_1_OUT_3
-    function: Fan Relay
-    class: outputs
-    type: ls
-    ts_name: ___ Fan Relay
-    color: blue
+    meta: MM100_IN_AUX3_ANALOG
+    class: analog_inputs
+    function: AUX analog input 2
+    ts_name: ___ - AIN2
+    type: av
+
+  - pin: 29A
+    function: WBO Heater Negative (pin 3)
+    color: white
+    type: wbo
+
+  - pin: 30A
+    function: WBO Vs/Ip (Vm) (pin 2)
+    type: wbo
+    color: yellow
+
+  - pin: 31A
+    function: WBO Ip (pin 1)
+    type: wbo
+    color: red
+
+  - pin: 32A
+    function: WBO CalR (pin 5)
+    type: wbo
+    color: green
+
+  - pin: 33A
+    function: WBO Vs (Un) (pin 6)
+    type: wbo
+    color: black
+
+  - pin: 34A
+    function: WBO Heater Positive (pin 4)
+    type: wbo
+    color: grey
 
 info:
   cid: main

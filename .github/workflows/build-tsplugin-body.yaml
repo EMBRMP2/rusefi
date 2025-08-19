@@ -2,14 +2,15 @@ name: TS Plugin
 
 on:
   workflow_dispatch:
-# not really needed in 2024 [push,pull_request]
+  push:
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Checkout Submodules
         run: |
@@ -18,7 +19,8 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '11'
+          # As of 2025 rusEFI TS plugin is useful again: it provides a knock spectrogram! TS uses java 8 [tag:java8]
+          java-version: '17'
 
       - name: Test Compiler
         run: javac -version

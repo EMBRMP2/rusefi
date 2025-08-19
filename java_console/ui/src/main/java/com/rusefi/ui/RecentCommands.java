@@ -1,10 +1,8 @@
 package com.rusefi.ui;
 
 import com.devexperts.logging.Logging;
-import com.rusefi.AverageAnglesUtil;
 import com.rusefi.config.generated.Integration;
 import com.rusefi.core.ui.AutoupdateUtil;
-import com.rusefi.config.generated.Fields;
 import com.rusefi.core.MessagesCentral;
 import com.rusefi.io.CommandQueue;
 import com.rusefi.ui.util.UiUtils;
@@ -148,8 +146,7 @@ public class RecentCommands {
             public void run() {
                 content.removeAll();
 
-                if (uiContext.getLinkManager().isLogViewer())
-                    content.add(createButton(uiContext));
+
 
                 JButton reset = new JButton(AutoupdateUtil.loadIcon("undo.jpg"));
                 reset.setContentAreaFilled(false);
@@ -171,7 +168,7 @@ public class RecentCommands {
                         content.add(createButton(uiContext, reentrant, entry.command));
                     }
                 }
-                UiUtils.trueLayout(content.getParent());
+                AutoupdateUtil.trueLayout(content.getParent());
             }
         });
         getConfig().getRoot().setProperty(KEY, pack());
@@ -263,24 +260,5 @@ public class RecentCommands {
     }
 
 
-    public static JButton createButton(UIContext uiContext) {
-        JButton button = new JButton("Read trigger log");
-        button.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                JFileChooser fc = UiUtils.getFileChooser(new FileNameExtensionFilter("CSV files", "csv"));
-                if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
-                    String fileName = fc.getSelectedFile().getAbsolutePath();
-                    String report;
-                    try {
-                        report = AverageAnglesUtil.runUtil(fileName);
-                    } catch (IOException e) {
-                        throw new IllegalStateException(e);
-                    }
-                    MessagesCentral.getInstance().postMessage(AverageAnglesUtil.class, report);
-                }
-            }
-        });
-        return button;
-    }
+
 }

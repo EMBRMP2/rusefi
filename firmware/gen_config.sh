@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "This script reads rusefi_config.txt and produces firmware persistent configuration headers"
-echo "The storage section of rusefi.ini is updated as well"
+echo "The storage section of rusefi_xxx.ini is updated as well"
 
 rm -f gen_config.log
 rm -f gen_config_board.log
@@ -22,7 +22,7 @@ genConfig ()
 		bash gen_config_board.sh $BOARD_DIR $SHORT_BOARD_NAME
 		[ $? -eq 0 ] || { echo "ERROR generating configs for $1"; exit 1; }
 		bash bin/gen_image_board.sh $BOARD_DIR $SHORT_BOARD_NAME
-		[ $? -eq 0 ] || { echo "ERROR generating images for $1"; exit 1; }		
+		[ $? -eq 0 ] || { echo "ERROR generating images for $1"; exit 1; }
 	fi
 }
 

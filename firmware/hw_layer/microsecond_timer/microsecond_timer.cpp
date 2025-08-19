@@ -17,7 +17,7 @@
 
 #if EFI_PROD_CODE
 
-#include "periodic_task.h"
+#include "periodic_thread_controller.h"
 
 // Just in case we have a mechanism to validate that hardware timer is clocked right and all the
 // conversions between wall clock and hardware frequencies are done right
@@ -107,16 +107,17 @@ void portMicrosecondTimerCallback() {
 	}
 }
 
-class MicrosecondTimerWatchdogController : public PeriodicTimerController {
-	void PeriodicTask() override {
-		efitick_t nowNt = getTimeNowNt();
-
-		// 2 seconds of inactivity would not look right
-		efiAssertVoid(ObdCode::CUSTOM_TIMER_WATCHDOG, nowNt < lastSetTimerTimeNt + 2 * CORE_CLOCK, "Watchdog: no events for 2 seconds!");
+struct MicrosecondTimerWatchdogController : public PeriodicController<256> {
+	MicrosecondTimerWatchdogController()
+		: PeriodicController("MstWatchdog", NORMALPRIO, 2)
+	{
 	}
 
-	int getPeriodMs() override {
-		return 500;
+	void PeriodicTask(efitick_t nowNt) override {
+		// 2 seconds of inactivity would not look right
+		if (nowNt > lastSetTimerTimeNt + MS2NT(2000)) {
+			firmwareError(ObdCode::RUNTIME_CRITICAL_TIMER_WATCHDOG, "Watchdog: no events for 2 seconds!");
+		}
 	}
 };
 
@@ -124,19 +125,19 @@ static MicrosecondTimerWatchdogController watchdogControllerInstance;
 
 static scheduling_s watchDogBuddy;
 
-static void watchDogBuddyCallback(void*) {
+static void watchDogBuddyCallback() {
 	/**
 	 * the purpose of this periodic activity is to make watchdogControllerInstance
 	 * watchdog happy by ensuring that we have scheduler activity even in case of very broken configuration
 	 * without any PWM or input pins
 	 */
-	engine->executor.scheduleByTimestampNt("watch", &watchDogBuddy, getTimeNowNt() + MS2NT(1000), watchDogBuddyCallback);
+	engine->scheduler.schedule("watch", &watchDogBuddy, getTimeNowNt() + MS2NT(1000), action_s::make<watchDogBuddyCallback>());
 }
 
 static volatile bool testSchedulingHappened = false;
 static Timer testScheduling;
 
-static void timerValidationCallback(void*) {
+static void timerValidationCallback() {
 	testSchedulingHappened = true;
 	efitimems_t actualTimeSinceSchedulingMs = 1e3 * testScheduling.getElapsedSeconds();
 
@@ -156,11 +157,11 @@ static void validateHardwareTimer() {
 	testScheduling.reset();
 
 	// to save RAM let's use 'watchDogBuddy' here once before we enable watchdog
-	engine->executor.scheduleByTimestampNt(
+	engine->scheduler.schedule(
 			"hw-validate",
 			&watchDogBuddy,
 			getTimeNowNt() + MS2NT(TEST_CALLBACK_DELAY_MS),
-			timerValidationCallback);
+			action_s::make<timerValidationCallback>());
 
 	chThdSleepMilliseconds(TEST_CALLBACK_DELAY_MS + 2);
 	if (!testSchedulingHappened) {
@@ -177,7 +178,7 @@ void initMicrosecondTimer() {
 
 	validateHardwareTimer();
 
-	watchDogBuddyCallback(NULL);
+	watchDogBuddyCallback();
 #if EFI_EMULATE_POSITION_SENSORS
 	watchdogControllerInstance.start();
 #endif /* EFI_EMULATE_POSITION_SENSORS */

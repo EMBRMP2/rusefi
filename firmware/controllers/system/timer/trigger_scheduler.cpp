@@ -16,7 +16,7 @@ bool TriggerScheduler::assertNotInList(AngleBasedEvent *head, AngleBasedEvent *e
 			/**
 			 * for example, this might happen in case of sudden RPM change if event
 			 * was not scheduled by angle but was scheduled by time. In case of scheduling
-			 * by time with slow RPM the whole next fast revolution might be within the wait 
+			 * by time with slow RPM the whole next fast revolution might be within the wait
 			 */
 			warning(ObdCode::CUSTOM_RE_ADDING_INTO_EXECUTION_QUEUE, "re-adding element into event_queue");
 			return true;
@@ -26,7 +26,7 @@ bool TriggerScheduler::assertNotInList(AngleBasedEvent *head, AngleBasedEvent *e
 	return false;
 }
 
-void TriggerScheduler::schedule(const char *msg, AngleBasedEvent* event, angle_t angle, action_s action) {
+void TriggerScheduler::schedule(const char *msg, AngleBasedEvent* event, angle_t angle, action_s const& action) {
 	event->setAngle(angle);
 
 	schedule(msg, event, action);
@@ -64,7 +64,7 @@ bool TriggerScheduler::scheduleOrQueue(const char *msg, AngleBasedEvent *event,
 	}
 }
 
-void TriggerScheduler::schedule(const char *msg, AngleBasedEvent* event, action_s action) {
+void TriggerScheduler::schedule(const char *msg, AngleBasedEvent* event, action_s const& action) {
 	if (event->getAngle() < 0) {
 	    // at the moment we expect API consumer to wrap angle. shall we do the wrapping in the enginePhase setter?
 	    // i.e. what is the best level to take care of the range constraint?
@@ -87,10 +87,10 @@ void TriggerScheduler::schedule(const char *msg, AngleBasedEvent* event, action_
 	}
 }
 
-void TriggerScheduler::scheduleEventsUntilNextTriggerTooth(int rpm,
+void TriggerScheduler::scheduleEventsUntilNextTriggerTooth(float rpm,
 							   efitick_t edgeTimestamp, float currentPhase, float nextPhase) {
 
-	if (!isValidRpm(rpm)) {
+	if (rpm == 0) {
 		 // this might happen for instance in case of a single trigger event after a pause
 		return;
 	}
@@ -129,7 +129,7 @@ void TriggerScheduler::scheduleEventsUntilNextTriggerTooth(int rpm,
 			// In case this event was scheduled by overdwell protection, cancel it so
 			// we can re-schedule at the correct time
 			// [tag:overdwell]
-			engine->executor.cancel(sDown);
+			engine->scheduler.cancel(sDown);
 
 			scheduleByAngle(
 				sDown,

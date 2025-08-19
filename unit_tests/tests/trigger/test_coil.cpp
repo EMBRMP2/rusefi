@@ -6,9 +6,7 @@
 
 using ::testing::_;
 
-extern WarningCodeState unitTestWarningCodeState;
-
-// Magic below is the simpliest way to schedule overdwell sparkDown that I found in
+// Magic below is the simplest way to schedule overdwell sparkDown that I found in
 // testAssertWeAreNotMissingASpark299.
 //
 // eth.smartFireFall(20);
@@ -21,24 +19,24 @@ static void prepareToScheduleOverdwellSparkDown(EngineTestHelper& eth) {
 	engineConfiguration->isIgnitionEnabled = true;
 	engineConfiguration->isInjectionEnabled = false;
 
-	ASSERT_EQ( 0,  unitTestWarningCodeState.recentWarnings.getCount()) << "warningCounter#0";
+	ASSERT_EQ( 0u,  getRecentWarnings()->getCount()) << "warningCounter#0";
 
 	eth.smartFireRise(20);
-	ASSERT_EQ( 0,  engine->triggerCentral.triggerState.currentCycle.current_index) << "ci#0";
+	ASSERT_EQ( 0u,  engine->triggerCentral.triggerState.currentCycle.current_index) << "ci#0";
 
 	eth.smartFireFall(20);
-	ASSERT_EQ( 1,  engine->triggerCentral.triggerState.currentCycle.current_index) << "ci#1";
+	ASSERT_EQ( 1u,  engine->triggerCentral.triggerState.currentCycle.current_index) << "ci#1";
 
 	eth.smartFireRise(20);
-	ASSERT_EQ( 0,  engine->triggerCentral.triggerState.currentCycle.current_index) << "ci#2";
+	ASSERT_EQ( 0u,  engine->triggerCentral.triggerState.currentCycle.current_index) << "ci#2";
 
 	eth.smartFireFall(20);
-	ASSERT_EQ( 1,  engine->triggerCentral.triggerState.currentCycle.current_index) << "ci#3";
+	ASSERT_EQ( 1u,  engine->triggerCentral.triggerState.currentCycle.current_index) << "ci#3";
 
 	eth.smartFireRise(20);
 
 	eth.smartFireFall(20);
-	ASSERT_EQ( 1,  eth.engine.triggerCentral.triggerState.currentCycle.current_index) << "ci#5";
+	ASSERT_EQ( 1u,  eth.engine.triggerCentral.triggerState.currentCycle.current_index) << "ci#5";
 
 	ASSERT_EQ(3000, Sensor::getOrZero(SensorType::Rpm));
 
@@ -50,6 +48,8 @@ static void prepareToScheduleOverdwellSparkDown(EngineTestHelper& eth) {
 }
 
 TEST(coil, testOverdwellProtection) {
+	extern bool unitTestTaskPrecisionHack;
+	unitTestTaskPrecisionHack = true;
 	printf("*************************************************** testOverdwellProtection\r\n");
 
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
@@ -69,7 +69,7 @@ TEST(coil, testOverdwellProtection) {
 	ASSERT_STREQ("Coil 1", testOutputName.c_str()) << "Unexpected test output name";
 
 	std::optional<efitick_t> turnSparkPinHighStartChargingTimestamp;
-	std::optional<int> testSparkCounter;
+	std::optional<uint32_t> testSparkCounter;
 	engine->onScheduleTurnSparkPinHighStartCharging =
 		[&](const IgnitionEvent& event, efitick_t, angle_t, efitick_t chargeTime) -> void {
 			if (testOutputName == event.outputs[0]->getName()) {

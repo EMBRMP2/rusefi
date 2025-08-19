@@ -13,8 +13,9 @@
 
 #define NO_PIN_PERIOD 500
 
-using vvt_map_t = Map3D<SCRIPT_TABLE_8, SCRIPT_TABLE_8, int8_t, uint16_t, uint16_t>;
+using vvt_map_t = Map3D<VVT_TABLE_SIZE, VVT_TABLE_SIZE, int8_t, uint16_t, uint16_t>;
 
+// todo: rename to intakeVvtTable?
 static vvt_map_t vvtTable1{"vvt1"};
 static vvt_map_t vvtTable2{"vvt2"};
 
@@ -39,6 +40,12 @@ void VvtController::onFastCallback() {
 		return;
 	}
 
+	m_isRpmHighEnough = Sensor::getOrZero(SensorType::Rpm) > engineConfiguration->vvtControlMinRpm;
+	m_isCltWarmEnough = Sensor::getOrZero(SensorType::Clt) > engineConfiguration->vvtControlMinClt;
+
+	auto nowNt = getTimeNowNt();
+	m_engineRunningLongEnough = engine->rpmCalculator.getSecondsSinceEngineStart(nowNt) > engineConfiguration->vvtActivationDelayMs / MS_PER_SECOND;
+
 	update();
 }
 
@@ -57,10 +64,13 @@ expected<angle_t> VvtController::observePlant() {
 }
 
 expected<angle_t> VvtController::getSetpoint() {
-	int rpm = Sensor::getOrZero(SensorType::Rpm);
-	bool enabled = rpm > engineConfiguration->vvtControlMinRpm
-			&& engine->rpmCalculator.getSecondsSinceEngineStart(getTimeNowNt()) > engineConfiguration->vvtActivationDelayMs / MS_PER_SECOND
-			 ;
+	float rpm = Sensor::getOrZero(SensorType::Rpm);
+	bool enabled = m_engineRunningLongEnough &&
+#if EFI_PROD_CODE || EFI_UNIT_TEST
+// simulator functional test does not have CLT or flag?
+                 		m_isCltWarmEnough &&
+#endif
+                 		m_isRpmHighEnough;
 	if (!enabled) {
 		return unexpected;
     }
@@ -140,7 +150,7 @@ static const char *vvtOutputNames[CAM_INPUTS_COUNT] = {
  };
 
 static OutputPin vvtPins[CAM_INPUTS_COUNT];
-static SimplePwm vvtPwms[CAM_INPUTS_COUNT];
+static SimplePwm vvtPwms[CAM_INPUTS_COUNT] = { "VVT1", "VVT2", "VVT3", "VVT4" };
 
 OutputPin* getVvtOutputPin(int index) {
     return &vvtPins[index];
@@ -160,7 +170,7 @@ static void turnVvtPidOn(int index) {
 	}
 
 	startSimplePwmExt(&vvtPwms[index], vvtOutputNames[index],
-			&engine->executor,
+			&engine->scheduler,
 			engineConfiguration->vvtPins[index],
 			getVvtOutputPin(index),
 			engineConfiguration->vvtOutputFrequency, 0.1,
@@ -180,9 +190,6 @@ void stopVvtControlPins() {
 }
 
 void initVvtActuators() {
-	if (engineConfiguration->vvtControlMinRpm < engineConfiguration->cranking.rpm) {
-		engineConfiguration->vvtControlMinRpm = engineConfiguration->cranking.rpm;
-	}
 
 	vvtTable1.initTable(config->vvtTable1, config->vvtTable1RpmBins, config->vvtTable1LoadBins);
 	vvtTable2.initTable(config->vvtTable2, config->vvtTable2RpmBins, config->vvtTable2LoadBins);

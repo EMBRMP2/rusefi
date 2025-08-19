@@ -2,6 +2,8 @@
 ! These commands are used by TunerStudio and the rusEFI console
 ! 0x4F ochGetCommand
 #define TS_OUTPUT_COMMAND 'O'
+! getCommand
+#define TS_OUTPUT_ALL_COMMAND 'A'
 ! 0x53 queryCommand - this one is about detailed signature
 #define TS_HELLO_COMMAND 'S'
 ! todo: replace all usages of TS_HELLO_COMMAND with TS_QUERY_COMMAND
@@ -12,9 +14,6 @@
 ! 0x6B 107
 #define TS_CRC_CHECK_COMMAND 'k'
 
-
-! 0x50 80
-#define TS_PAGE_COMMAND 'P'
 ! 0x46
 #define TS_COMMAND_F 'F'
 #define TS_GET_PROTOCOL_VERSION_COMMAND_F 'F'
@@ -27,7 +26,7 @@
 
 ! 0x42 burnCommand
 #define TS_BURN_COMMAND 'B'
-! 0x77
+! 0x5A custom rusEFI command
 #define TS_IO_TEST_COMMAND 'Z'
 
 #define TS_RESPONSE_OK 0
@@ -36,6 +35,11 @@
 ! Engine Sniffer time stamp unit, in microseconds
 #define ENGINE_SNIFFER_UNIT_US 10
 
+#define REBOOT_COMMAND 0xbb
+
+#define SIMULATOR_TUNE_BIN_FILE_NAME_PREFIX "generated/simulator_tune_image"
+#define SIMULATOR_TUNE_BIN_FILE_NAME_SUFFIX ".bin"
+#define SIMULATOR_TUNE_BIN_FILE_NAME "generated/simulator_tune_image.bin"
 
 #define TS_COMPOSITE_ENABLE 1
 #define TS_COMPOSITE_DISABLE 2
@@ -65,7 +69,7 @@
 #define TS_GET_OUTPUTS_SIZE '4'
 #define TS_GET_COMPOSITE_BUFFER_DONE_DIFFERENTLY '8'
 #define TS_GET_SCATTERED_GET_COMMAND '9'
-
+#define TS_SCATTER_OFFSETS_COUNT 128
 #define TS_QUERY_BOOTLOADER 'L'
 
 #define TS_QUERY_BOOTLOADER_NONE 0
@@ -75,11 +79,6 @@
 #define TS_PERF_TRACE_BEGIN '_'
 #define TS_PERF_TRACE_GET_BUFFER 'b'
 
-! knock analyzer
-#define TS_KNOCK_SPECTROGRAM_ENABLE 'm'
-#define TS_KNOCK_SPECTROGRAM_DISABLE 'n'
-! 0x57 pageValueWrite
-#define TS_SINGLE_WRITE_COMMAND 'W'
 ! 0x43 pageChunkWrite
 #define TS_CHUNK_WRITE_COMMAND 'C'
 
@@ -145,9 +144,7 @@
 
 
 #define PROTOCOL_OUTPIN "outpin"
-#define PROTOCOL_ANALOG_CHART "analog_chart"
 #define PROTOCOL_ENGINE_SNIFFER "wave_chart"
-#define PROTOCOL_KNOCK_SPECTROGRAMM "knock_spectrogram"
 #define PROTOCOL_VERSION_TAG "rusEfiVersion"
 #define PROTOCOL_TEST_RESPONSE_TAG "ts_p_alive"
 #define PROTOCOL_SIGNATURE_PREFIX "rusEFI "
@@ -162,19 +159,14 @@
 #define PROTOCOL_CRANK1 "t1"
 #define PROTOCOL_CRANK2 "t2"
 
-#define PROTOCOL_VVT1_NAME "VVT1"
-#define PROTOCOL_VVT2_NAME "VVT2"
-#define PROTOCOL_VVT3_NAME "VVT3"
-#define PROTOCOL_VVT4_NAME "VVT4"
-#define PROTOCOL_HIP_NAME "HIP"
-#define PROTOCOL_TACH_NAME "tach"
-#define PROTOCOL_HPFP_NAME "hpfp"
-#define PROTOCOL_ACR_NAME "acr"
+#define CRITICAL_PREFIX "CRITICAL"
+#define COMPOSITE_PACKET_SIZE 5
+#define CONSOLE_DATA_PROTOCOL_TAG " @"
+#define LOG_DELIMITER "`"
 
-#define PROTOCOL_WA_CHANNEL_1 "input1"
-#define PROTOCOL_WA_CHANNEL_2 "input2"
-#define PROTOCOL_WA_CHANNEL_3 "input3"
-#define PROTOCOL_WA_CHANNEL_4 "input4"
+#define PROTOCOL_COIL_SHORT_PREFIX "c"
+#define PROTOCOL_INJ_SHORT_PREFIX "i"
+#define PROTOCOL_INJ_STAGE2_SHORT_PREFIX "j"
 
 #define MLQ_HEADER_SIZE 24
 #define MLQ_FIELD_HEADER_SIZE 89

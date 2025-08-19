@@ -87,8 +87,16 @@ static void prepareCylinderIgnitionSchedule(angle_t dwellAngleDuration, floatms_
 	event->sparkDwell = sparkDwell;
 
 	auto ignitionMode = getCurrentIgnitionMode();
+
+	// On an odd cylinder (or odd fire) wasted spark engine, map outputs as if in sequential.
+	// During actual scheduling, the events just get scheduled every 360 deg instead
+	// of every 720 deg.
+	if (ignitionMode == IM_WASTED_SPARK && engine->engineState.useOddFireWastedSpark) {
+		ignitionMode = IM_INDIVIDUAL_COILS;
+	}
+
 	const int index = getIgnitionPinForIndex(event->cylinderIndex, ignitionMode);
-	const int coilIndex = ID2INDEX(getFiringOrderCylinderId(index));
+	const int coilIndex = getCylinderNumberAtIndex(index);
 	angle_t finalIgnitionTiming =	getEngineState()->timingAdvance[coilIndex];
 	// Stash which cylinder we're scheduling so that knock sensing knows which
 	// cylinder just fired
@@ -132,7 +140,7 @@ static void prepareCylinderIgnitionSchedule(angle_t dwellAngleDuration, floatms_
 	bool isTwoWireWasted = engineConfiguration->twoWireBatchIgnition || (engineConfiguration->ignitionMode == IM_INDIVIDUAL_COILS);
 	if (ignitionMode == IM_WASTED_SPARK && isTwoWireWasted) {
 		int secondIndex = index + engineConfiguration->cylindersCount / 2;
-		int secondCoilIndex = ID2INDEX(getFiringOrderCylinderId(secondIndex));
+		int secondCoilIndex = getCylinderNumberAtIndex(secondIndex);
 		secondOutput = &enginePins.coils[secondCoilIndex];
 		assertPinAssigned(secondOutput);
 	} else {
@@ -202,7 +210,7 @@ void fireSparkAndPrepareNextSchedule(IgnitionEvent *event) {
 	efitick_t nowNt = getTimeNowNt();
 
 #if EFI_TOOTH_LOGGER
-	LogTriggerCoilState(nowNt, false);
+	LogTriggerCoilState(nowNt, false, event->coilIndex);
 #endif // EFI_TOOTH_LOGGER
 
 	float actualDwellMs = event->actualDwellTimer.getElapsedSeconds(nowNt) * 1e3;
@@ -214,32 +222,10 @@ void fireSparkAndPrepareNextSchedule(IgnitionEvent *event) {
     engine->outputChannels.sadDwellRatioCounter++;
 	}
 
-#if !EFI_UNIT_TEST
-if (engineConfiguration->debugMode == DBG_DWELL_METRIC) {
-#if EFI_TUNER_STUDIO
-	// todo: smarted solution for index to field mapping
-	switch (event->cylinderIndex) {
-	case 0:
-		engine->outputChannels.debugFloatField1 = ratio;
-		break;
-	case 1:
-		engine->outputChannels.debugFloatField2 = ratio;
-		break;
-	case 2:
-		engine->outputChannels.debugFloatField3 = ratio;
-		break;
-	case 3:
-		engine->outputChannels.debugFloatField4 = ratio;
-		break;
-	}
-#endif
-
-	}
-#endif /* EFI_UNIT_TEST */
 	// now that we've just fired a coil let's prepare the new schedule for the next engine revolution
 
 	angle_t dwellAngleDuration = engine->ignitionState.dwellDurationAngle;
-	floatms_t sparkDwell = engine->ignitionState.sparkDwell;
+	floatms_t sparkDwell = engine->ignitionState.getDwell();
 	if (std::isnan(dwellAngleDuration) || std::isnan(sparkDwell)) {
 		// we are here if engine has just stopped
 		return;
@@ -256,8 +242,8 @@ if (engineConfiguration->debugMode == DBG_DWELL_METRIC) {
 #endif /* SPARK_EXTREME_LOGGING */
 
 		// We can schedule both of these right away, since we're going for "asap" not "particular angle"
-		engine->executor.scheduleByTimestampNt("dwell", &event->dwellStartTimer, nextDwellStart, { &turnSparkPinHighStartCharging, event });
-		engine->executor.scheduleByTimestampNt("firing", &event->sparkEvent.eventScheduling, nextFiring, { fireSparkAndPrepareNextSchedule, event });
+		engine->scheduler.schedule("dwell", &event->dwellStartTimer, nextDwellStart, action_s::make<turnSparkPinHighStartCharging>( event ));
+		engine->scheduler.schedule("firing", &event->sparkEvent.eventScheduling, nextFiring, action_s::make<fireSparkAndPrepareNextSchedule>( event ));
 	} else {
 		if (engineConfiguration->enableTrailingSparks) {
 #if SPARK_EXTREME_LOGGING
@@ -266,8 +252,8 @@ if (engineConfiguration->debugMode == DBG_DWELL_METRIC) {
 
 			// Trailing sparks are enabled - schedule an event for the corresponding trailing coil
 			scheduleByAngle(
-				&event->trailingSparkFire, nowNt, engine->engineState.trailingSparkAngle,
-				{ &fireTrailingSpark, &enginePins.trailingCoils[event->coilIndex] }
+				&event->trailingSparkFire, nowNt, engine->ignitionState.trailingSparkAngle,
+				action_s::make<fireTrailingSpark>( &enginePins.trailingCoils[event->coilIndex] )
 			);
 		}
 
@@ -275,7 +261,7 @@ if (engineConfiguration->debugMode == DBG_DWELL_METRIC) {
 		prepareCylinderIgnitionSchedule(dwellAngleDuration, sparkDwell, event);
 	}
 
-	engine->onSparkFireKnockSense(event->coilIndex, nowNt);
+	engine->onSparkFireKnockSense(event->cylinderIndex, nowNt);
 }
 
 static bool startDwellByTurningSparkPinHigh(IgnitionEvent *event, IgnitionOutputPin *output) {
@@ -350,7 +336,7 @@ void turnSparkPinHighStartCharging(IgnitionEvent *event) {
 #endif
 
 #if EFI_TOOTH_LOGGER
-  	LogTriggerCoilState(nowNt, true);
+  	LogTriggerCoilState(nowNt, true, event->coilIndex);
 #endif // EFI_TOOTH_LOGGER
   }
 
@@ -359,33 +345,17 @@ void turnSparkPinHighStartCharging(IgnitionEvent *event) {
 		IgnitionOutputPin *output = &enginePins.trailingCoils[event->coilIndex];
 		// Trailing sparks are enabled - schedule an event for the corresponding trailing coil
 		scheduleByAngle(
-			&event->trailingSparkCharge, nowNt, engine->engineState.trailingSparkAngle,
-			{ &chargeTrailingSpark, output }
+			&event->trailingSparkCharge, nowNt, engine->ignitionState.trailingSparkAngle,
+			action_s::make<chargeTrailingSpark>( output )
 		);
 	}
 }
 
-#if EFI_PROD_CODE
-  #define ENABLE_OVERDWELL_PROTECTION (true)
-#else
-  #define ENABLE_OVERDWELL_PROTECTION (engine->enableOverdwellProtection)
-#endif
 
 static void scheduleSparkEvent(bool limitedSpark, IgnitionEvent *event,
-		int rpm, efitick_t edgeTimestamp, float currentPhase, float nextPhase) {
+		float rpm, float dwellMs, float dwellAngle, float sparkAngle, efitick_t edgeTimestamp, float currentPhase, float nextPhase) {
 
-	angle_t sparkAngle = event->sparkAngle;
-	const floatms_t dwellMs = engine->ignitionState.sparkDwell;
-	if (std::isnan(dwellMs) || dwellMs <= 0) {
-		warning(ObdCode::CUSTOM_DWELL, "invalid dwell to handle: %.2f at %d", dwellMs, rpm);
-		return;
-	}
-	if (std::isnan(sparkAngle)) {
-		warning(ObdCode::CUSTOM_ADVANCE_SPARK, "NaN advance");
-		return;
-	}
-
-	float angleOffset = event->dwellAngle - currentPhase;
+	float angleOffset = dwellAngle - currentPhase;
 	if (angleOffset < 0) {
 		angleOffset += engine->engineState.engineCycle;
 	}
@@ -414,7 +384,7 @@ static void scheduleSparkEvent(bool limitedSpark, IgnitionEvent *event,
 		 * This way we make sure that coil dwell started while spark was enabled would fire and not burn
 		 * the coil.
 		 */
-		chargeTime = scheduleByAngle(&event->dwellStartTimer, edgeTimestamp, angleOffset, { &turnSparkPinHighStartCharging, event });
+		chargeTime = scheduleByAngle(&event->dwellStartTimer, edgeTimestamp, angleOffset, action_s::make<turnSparkPinHighStartCharging>( event ));
 
 #if EFI_UNIT_TEST
 		engine->onScheduleTurnSparkPinHighStartCharging(*event, edgeTimestamp, angleOffset, chargeTime);
@@ -442,7 +412,7 @@ static void scheduleSparkEvent(bool limitedSpark, IgnitionEvent *event,
 	bool isTimeScheduled = engine->module<TriggerScheduler>()->scheduleOrQueue(
 			"spark",
 		&event->sparkEvent, edgeTimestamp, sparkAngle,
-		{ fireSparkAndPrepareNextSchedule, event },
+		action_s::make<fireSparkAndPrepareNextSchedule>( event ),
 		currentPhase, nextPhase);
 
 	if (isTimeScheduled) {
@@ -456,7 +426,7 @@ static void scheduleSparkEvent(bool limitedSpark, IgnitionEvent *event,
 		efiPrintf("to queue sparkDown revolution=%d [%s] for id=%d angle=%.1f", getRevolutionCounter(), event->getOutputForLoggins()->getName(), event->sparkCounter, sparkAngle);
 #endif /* SPARK_EXTREME_LOGGING */
 
-		if (!limitedSpark && ENABLE_OVERDWELL_PROTECTION) {
+		if (!limitedSpark) {
 			// auto fire spark at 1.5x nominal dwell
 			efitick_t fireTime = sumTickAndFloat(chargeTime, MSF2NT(1.5f * dwellMs));
 
@@ -464,12 +434,12 @@ static void scheduleSparkEvent(bool limitedSpark, IgnitionEvent *event,
 		efiPrintf("scheduling overdwell sparkDown revolution=%d [%s] for id=%d for %d ticks", getRevolutionCounter(), event->getOutputForLoggins()->getName(), event->sparkCounter, fireTime);
 #endif /* SPARK_EXTREME_LOGGING */
 
-      /**
-       * todo: can we please comprehend/document how this even works? we seem to be reusing 'sparkEvent.scheduling' instance
-       * and it looks like current (smart?) re-queuing is effectively cancelling out the overdwell? is that the way this was intended to work?
-       * [tag:overdwell]
-       */
-			engine->executor.scheduleByTimestampNt("overdwell", &event->sparkEvent.eventScheduling, fireTime, { overFireSparkAndPrepareNextSchedule, event });
+			/**
+			* todo: can we please comprehend/document how this even works? we seem to be reusing 'sparkEvent.scheduling' instance
+			* and it looks like current (smart?) re-queuing is effectively cancelling out the overdwell? is that the way this was intended to work?
+			* [tag:overdwell]
+			*/
+			engine->scheduler.schedule("overdwell", &event->sparkEvent.eventScheduling, fireTime, action_s::make<overFireSparkAndPrepareNextSchedule>( event ));
 
 #if EFI_UNIT_TEST
 			engine->onScheduleOverFireSparkAndPrepareNextSchedule(*event, fireTime);
@@ -492,7 +462,7 @@ static void scheduleSparkEvent(bool limitedSpark, IgnitionEvent *event,
 void initializeIgnitionActions() {
 	IgnitionEventList *list = &engine->ignitionEvents;
 	angle_t dwellAngle = engine->ignitionState.dwellDurationAngle;
-	floatms_t sparkDwell = engine->ignitionState.sparkDwell;
+	floatms_t sparkDwell = engine->ignitionState.getDwell();
 	if (std::isnan(engine->engineState.timingAdvance[0]) || std::isnan(dwellAngle)) {
 		// error should already be reported
 		// need to invalidate previous ignition schedule
@@ -532,11 +502,10 @@ static void prepareIgnitionSchedule() {
 	initializeIgnitionActions();
 }
 
-void onTriggerEventSparkLogic(int rpm, efitick_t edgeTimestamp, float currentPhase, float nextPhase) {
+void onTriggerEventSparkLogic(float rpm, efitick_t edgeTimestamp, float currentPhase, float nextPhase) {
 	ScopePerf perf(PE::OnTriggerEventSparkLogic);
 
-	if (!isValidRpm(rpm) || !engineConfiguration->isIgnitionEnabled) {
-		 // this might happen for instance in case of a single trigger event after a pause
+	if (!engineConfiguration->isIgnitionEnabled) {
 		return;
 	}
 
@@ -545,6 +514,12 @@ void onTriggerEventSparkLogic(int rpm, efitick_t edgeTimestamp, float currentPha
 	// todo: eliminate state copy logic by giving limpManager it's owm limp_manager.txt and leveraging LiveData
 	engine->outputChannels.sparkCutReason = (int8_t)limitedSparkState.reason;
 	bool limitedSpark = !limitedSparkState.value;
+
+	const floatms_t dwellMs = engine->ignitionState.getDwell();
+	if (std::isnan(dwellMs) || dwellMs <= 0) {
+		warning(ObdCode::CUSTOM_DWELL, "invalid dwell to handle: %.2f", dwellMs);
+		return;
+	}
 
 	if (!engine->ignitionEvents.isReady) {
 		prepareIgnitionSchedule();
@@ -557,12 +532,48 @@ void onTriggerEventSparkLogic(int rpm, efitick_t edgeTimestamp, float currentPha
 	 */
 
 
-//	scheduleSimpleMsg(&logger, "eventId spark ", eventIndex);
+	// Only apply odd cylinder count wasted logic if:
+	// - odd cyl count
+	// - current mode is wasted spark
+	// - four stroke
+	bool enableOddCylinderWastedSpark =
+		engine->engineState.useOddFireWastedSpark
+		&& getCurrentIgnitionMode() == IM_WASTED_SPARK;
+
 	if (engine->ignitionEvents.isReady) {
 		for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
 			IgnitionEvent *event = &engine->ignitionEvents.elements[i];
 
-			if (!isPhaseInRange(event->dwellAngle, currentPhase, nextPhase)) {
+			angle_t dwellAngle = event->dwellAngle;
+
+			angle_t sparkAngle = event->sparkAngle;
+			if (std::isnan(sparkAngle)) {
+				warning(ObdCode::CUSTOM_ADVANCE_SPARK, "NaN advance");
+				continue;
+			}
+
+			bool isOddCylWastedEvent = false;
+			if (enableOddCylinderWastedSpark) {
+				auto dwellAngleWastedEvent = dwellAngle + 360;
+				if (dwellAngleWastedEvent > 720) {
+					dwellAngleWastedEvent -= 720;
+				}
+
+				// Check whether this event hits 360 degrees out from now (ie, wasted spark),
+				// and if so, twiddle the dwell and spark angles so it happens now instead
+				isOddCylWastedEvent = isPhaseInRange(dwellAngleWastedEvent, currentPhase, nextPhase);
+
+				if (isOddCylWastedEvent) {
+					dwellAngle = dwellAngleWastedEvent;
+
+					sparkAngle += 360;
+					if (sparkAngle > 720) {
+						sparkAngle -= 720;
+					}
+				}
+			}
+
+			if (!isOddCylWastedEvent && !isPhaseInRange(dwellAngle, currentPhase, nextPhase)) {
 				continue;
 			}
 
@@ -599,7 +610,7 @@ void onTriggerEventSparkLogic(int rpm, efitick_t edgeTimestamp, float currentPha
 */
 #endif // EFI_ANTILAG_SYSTEM
 
-			scheduleSparkEvent(limitedSpark, event, rpm, edgeTimestamp, currentPhase, nextPhase);
+			scheduleSparkEvent(limitedSpark, event, rpm, dwellMs, dwellAngle, sparkAngle, edgeTimestamp, currentPhase, nextPhase);
 		}
 	}
 }
@@ -627,8 +638,8 @@ int getNumberOfSparks(ignition_mode_e mode) {
 /**
  * @see getInjectorDutyCycle
  */
-percent_t getCoilDutyCycle(int rpm) {
-	floatms_t totalPerCycle = engine->ignitionState.sparkDwell * getNumberOfSparks(getCurrentIgnitionMode());
+percent_t getCoilDutyCycle(float rpm) {
+	floatms_t totalPerCycle = engine->ignitionState.getDwell() * getNumberOfSparks(getCurrentIgnitionMode());
 	floatms_t engineCycleDuration = getCrankshaftRevolutionTimeMs(rpm) * (getEngineRotationState()->getOperationMode() == TWO_STROKE ? 1 : 2);
 	return 100 * totalPerCycle / engineCycleDuration;
 }

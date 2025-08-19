@@ -2,12 +2,11 @@ package com.rusefi.autodetect;
 
 import com.devexperts.logging.Logging;
 import com.rusefi.binaryprotocol.IncomingDataBuffer;
-import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.Integration;
 import com.rusefi.core.net.ConnectionAndMeta;
 import com.rusefi.io.IoStream;
 import com.rusefi.io.commands.HelloCommand;
 import com.rusefi.io.serial.BufferedSerialIoStream;
-import com.rusefi.io.serial.SerialIoStream;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -15,16 +14,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
-import static com.rusefi.binaryprotocol.IoHelper.checkResponseCode;
+import static com.rusefi.io.commands.HelloCommand.getStringResponse;
 
 public class SerialAutoChecker {
     private final static Logging log = Logging.getLogging(SerialAutoChecker.class);
-    private final PortDetector.DetectorMode mode;
     private final String serialPort;
     private final CountDownLatch portFound;
 
-    public SerialAutoChecker(PortDetector.DetectorMode mode, String serialPort, CountDownLatch portFound) {
-        this.mode = mode;
+    public SerialAutoChecker(String serialPort, CountDownLatch portFound) {
         this.serialPort = serialPort;
         this.portFound = portFound;
     }
@@ -45,11 +42,8 @@ public class SerialAutoChecker {
         IncomingDataBuffer incomingData = stream.getDataBuffer();
         try {
             HelloCommand.send(stream);
-            byte[] response = incomingData.getPacket("auto detect");
-            if (!checkResponseCode(response))
-                return null;
-            String signature = new String(response, 1, response.length - 1);
-            if (!isSignatureWithValidPrefix(signature)) {
+            final String signature = getStringResponse("auto detect", incomingData);
+            if ((signature == null) || !isSignatureWithValidPrefix(signature)) {
                 return null;
             }
             log.info("Got signature=" + signature + " from " + stream);
@@ -63,16 +57,16 @@ public class SerialAutoChecker {
     }
 
     private static boolean isSignatureWithValidPrefix(String signature) {
-        if (signature.startsWith(Fields.PROTOCOL_SIGNATURE_PREFIX))
+        if (signature.startsWith(Integration.PROTOCOL_SIGNATURE_PREFIX))
             return true;
         String signatureWhiteLabel = ConnectionAndMeta.getSignatureWhiteLabel();
         return signatureWhiteLabel != null && signature.startsWith(signatureWhiteLabel + " ");
     }
 
-    public void openAndCheckResponse(PortDetector.DetectorMode mode, AtomicReference<AutoDetectResult> result, Function<CallbackContext, Void> callback) {
+    public void openAndCheckResponse(AtomicReference<AutoDetectResult> result, Function<CallbackContext, Void> callback) {
         String signature;
         // java 101: just a reminder that try-with syntax would take care of closing stream and that's important here!
-        try (IoStream stream = getStreamByMode(mode)) {
+        try (IoStream stream = getStreamByMode()) {
             signature = checkResponse(stream, callback);
         }
         if (signature != null) {
@@ -87,12 +81,8 @@ public class SerialAutoChecker {
     }
 
     @Nullable
-    private IoStream getStreamByMode(PortDetector.DetectorMode mode) {
-        if (mode == PortDetector.DetectorMode.DETECT_ELM327) {
-            return SerialIoStream.openPort(serialPort);
-        } else {
-            return BufferedSerialIoStream.openPort(serialPort);
-        }
+    private IoStream getStreamByMode() {
+        return BufferedSerialIoStream.openPort(serialPort);
     }
 
     public static class CallbackContext {

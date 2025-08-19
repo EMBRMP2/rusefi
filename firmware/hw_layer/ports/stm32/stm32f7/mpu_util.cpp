@@ -10,8 +10,12 @@
 #include "flash_int.h"
 
 static bool isDualBank() {
+#ifdef FLASH_OPTCR_nDBANK
 	// cleared bit indicates dual bank
 	return (FLASH->OPTCR & FLASH_OPTCR_nDBANK) == 0;
+#else
+	return 0;
+#endif
 }
 
 static uint16_t flashSize() {
@@ -50,7 +54,7 @@ static DeviceType determineDevice() {
 	return DeviceType::Unknown;
 }
 
-bool allowFlashWhileRunning() {
+bool mcuCanFlashWhileRunning() {
 	// Allow flash-while-running if dual bank mode is enabled, and we're a 2MB device (ie, no code located in second bank)
 	return determineDevice() == DeviceType::DualBank2MB;
 }
@@ -95,10 +99,17 @@ uintptr_t getFlashAddrFirstCopy() {
 			return 0x080C0000;
 		case DeviceType::DualBank2MB: /* falls thru */
 		case DeviceType::SingleBank2MB:
+#ifdef EFI_FLASH_USE_1500_OF_2MB
+			// Right after the first 1.5 megabytes
+			// Sector 20 for dual bank
+			// Sector 10 for single bank
+			return 0x08180000;
+#else
 			// Start of the second megabyte
 			// Sector 12 for dual bank
 			// Sector 8 for single bank
 			return 0x08100000;
+#endif // EFI_FLASH_USE_1500_OF_2MB
 		default:
 			return 0;
 	}
@@ -110,11 +121,21 @@ uintptr_t getFlashAddrSecondCopy() {
 			// Sector 19, last 128K sector, 128K after the first copy
 			return 0x080E0000;
 		case DeviceType::DualBank2MB:
+#ifdef EFI_FLASH_USE_1500_OF_2MB
+			// Sector 21, 128K after the first copy
+			return 0x081A0000;
+#else
 			// Sector 14, 32K after the first copy
 			return 0x08108000;
+#endif // EFI_FLASH_USE_1500_OF_2MB
 		case DeviceType::SingleBank2MB:
+#ifdef EFI_FLASH_USE_1500_OF_2MB
+			// Sector 11, 256K after the first copy
+			return 0x081C0000;
+#else
 			// Sector 9, 256K after the first copy
 			return 0x08140000;
+#endif // EFI_FLASH_USE_1500_OF_2MB
 		case DeviceType::SingleBank1MB:
 			// We can't fit a second copy in this config, fall thru to failure case
 		default:

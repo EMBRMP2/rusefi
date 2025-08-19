@@ -23,15 +23,11 @@
 #include "efi_scaled_channel.h"
 #endif
 
-#define DEFAULT_FUEL_LOAD_COUNT 16
-#define DEFAULT_FUEL_RPM_COUNT 16
-#define DEFAULT_IGN_LOAD_COUNT 16
-#define DEFAULT_IGN_RPM_COUNT 16
-
 #define TWO_STROKE_CYCLE_DURATION 360
 #define FOUR_STROKE_CYCLE_DURATION 720
 
 // gasoline E0
+// todo: some usages should be migrated to getStoichiometricRatio()
 #define STOICH_RATIO 14.7f
 #define CONST_PI 3.14159265358979323846
 
@@ -46,15 +42,15 @@ using efitimems_t = uint32_t;
 using efidur_t = efitick_t;
 
 // date-time struct a la ctime struct tm
-typedef struct {
-	uint32_t year = 0;
-	uint8_t month;
-	uint8_t day;
-	uint8_t hour;
-	uint8_t minute;
-	uint8_t second;
+struct efidatetime_t {
+	uint32_t year{};
+	uint8_t month{};
+	uint8_t day{};
+	uint8_t hour{};
+	uint8_t minute{};
+	uint8_t second{};
 	// uint16_t millisecond;
-} efidatetime_t;
+};
 
 using angle_t = float;
 

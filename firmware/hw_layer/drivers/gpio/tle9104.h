@@ -5,6 +5,8 @@
 #include "efifeatures.h"
 #include <hal.h>
 
+#define TLE9204_OUT_COUNT 4
+
 struct tle9104_config {
 #if HAL_USE_SPI
 	SPIDriver	*spi_bus;
@@ -14,12 +16,13 @@ struct tle9104_config {
 	struct {
 		ioportid_t		port;
 		uint_fast8_t	pad;
-	} direct_io[4];
+	} direct_io[TLE9204_OUT_COUNT];
 
 	Gpio resn;
 	Gpio en;
 };
 
+void initAll9104(const tle9104_config *configs);
 int tle9104_add(Gpio base, int index, const tle9104_config* cfg);
 
 // This example config worked on the bench!

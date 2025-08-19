@@ -8,6 +8,7 @@
 
 #include "pch.h"
 #include "proteus_meta.h"
+#include "board_overrides.h"
 
 static const brain_pin_e injPins[] = {
     Gpio::PROTEUS_LS_1,
@@ -102,15 +103,9 @@ static void setupEtb() {
 
 static void setupDefaultSensorInputs() {
 	// trigger inputs
-#if VR_HW_CHECK_MODE
-	// set_trigger_input_pin 0 PE7
-	engineConfiguration->triggerInputPins[0] = PROTEUS_VR_1;
-	engineConfiguration->camInputs[0] = PROTEUS_VR_2;
-#else
 	// Digital channel 1 as default - others not set
 	engineConfiguration->triggerInputPins[0] = PROTEUS_DIGITAL_1;
 	engineConfiguration->camInputs[0] = Gpio::Unassigned;
-#endif
 
 	engineConfiguration->triggerInputPins[1] = Gpio::Unassigned;
 
@@ -140,7 +135,7 @@ static void setupSdCard() {
 	engineConfiguration->spi5mosiPin = Gpio::F9;
 }
 
-void setBoardConfigOverrides() {
+static void proteus_boardConfigOverrides() {
 	setupSdCard();
 	setupVbatt();
 
@@ -149,11 +144,8 @@ void setBoardConfigOverrides() {
 
 	engineConfiguration->canTxPin = Gpio::D1;
 	engineConfiguration->canRxPin = Gpio::D0;
-
-#if defined(STM32F4) || defined(STM32F7)
 	engineConfiguration->can2RxPin = Gpio::B12;
 	engineConfiguration->can2TxPin = Gpio::B13;
-#endif
 
 	engineConfiguration->lps25BaroSensorScl = Gpio::B10;
 	engineConfiguration->lps25BaroSensorSda = Gpio::B11;
@@ -166,7 +158,7 @@ void setBoardConfigOverrides() {
  *
 
  */
-void setBoardDefaultConfiguration() {
+static void proteus_boardDefaultConfiguration() {
 	setInjectorPins();
 	setIgnitionPins();
 	setupEtb();
@@ -238,6 +230,15 @@ static Gpio PROTEUS_M73_OUTPUTS[] = {
     //Gpio::PROTEUS_LS_16, // main relay
 };
 
+static Gpio PROTEUS_SUBARU_OUTPUTS[] = {
+    Gpio::PROTEUS_LS_1, // inj 1
+    Gpio::PROTEUS_LS_2, // inj 2
+    Gpio::PROTEUS_LS_3, // inj 3
+    Gpio::PROTEUS_LS_4, // inj 4
+    Gpio::PROTEUS_LS_12, // main relay
+    Gpio::PROTEUS_LS_14, // starter
+};
+
 static Gpio PROTEUS_CANAM_OUTPUTS[] = {
     Gpio::PROTEUS_LS_1, // inj 1
     Gpio::PROTEUS_LS_2, // inj 2
@@ -261,6 +262,9 @@ static Gpio PROTEUS_HARLEY_OUTPUTS[] = {
 };
 
 int getBoardMetaLowSideOutputsCount() {
+    if (engineConfiguration->engineType == engine_type_e::SUBARU_2011) {
+        return getBoardMetaOutputsCount();
+    }
     if (engineConfiguration->engineType == engine_type_e::MAVERICK_X3) {
         return getBoardMetaOutputsCount();
     }
@@ -312,6 +316,9 @@ Gpio::PROTEUS_LS_16,
 };
 
 int getBoardMetaOutputsCount() {
+    if (engineConfiguration->engineType == engine_type_e::SUBARU_2011) {
+        return efi::size(PROTEUS_SUBARU_OUTPUTS);
+    }
     if (engineConfiguration->engineType == engine_type_e::MAVERICK_X3) {
         return efi::size(PROTEUS_CANAM_OUTPUTS);
     }
@@ -336,6 +343,7 @@ int getBoardMetaDcOutputsCount() {
     }
     if (engineConfiguration->engineType == engine_type_e::ME17_9_MISC ||
         engineConfiguration->engineType == engine_type_e::HARLEY ||
+        engineConfiguration->engineType == engine_type_e::SUBARU_2011 ||
         engineConfiguration->engineType == engine_type_e::MAVERICK_X3
         ) {
         return 1;
@@ -345,6 +353,9 @@ int getBoardMetaDcOutputsCount() {
 }
 
 Gpio* getBoardMetaOutputs() {
+    if (engineConfiguration->engineType == engine_type_e::SUBARU_2011) {
+        return PROTEUS_SUBARU_OUTPUTS;
+    }
     if (engineConfiguration->engineType == engine_type_e::MAVERICK_X3) {
         return PROTEUS_CANAM_OUTPUTS;
     }
@@ -363,3 +374,8 @@ Gpio* getBoardMetaOutputs() {
     return PROTEUS_OUTPUTS;
 }
 #endif // HW_PROTEUS
+
+void setup_custom_board_overrides() {
+	custom_board_DefaultConfiguration = proteus_boardDefaultConfiguration;
+	custom_board_ConfigOverrides =  proteus_boardConfigOverrides;
+}

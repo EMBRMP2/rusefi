@@ -1,7 +1,23 @@
 #include "pch.h"
 
 bool isIgnVoltage() {
-  return Sensor::getOrZero(SensorType::BatteryVoltage) > 5;
+#if EFI_PROD_CODE
+	// Digital pin has priority over analog inputs
+	if (isBrainPinValid(engineConfiguration->ignitionKeyDigitalPin)) {
+		return efiReadPin(engineConfiguration->ignitionKeyDigitalPin, engineConfiguration->ignitionKeyDigitalPinMode);
+	}
+#endif
+
+	float ignVoltage = 0;
+	if (Sensor::hasSensor(SensorType::IgnKeyVoltage)) {
+		// If we have separate ignition sensing input
+		ignVoltage = Sensor::getOrZero(SensorType::IgnKeyVoltage);
+	} else {
+		// No, we assume that ignition is ON while we are powered with resonable voltage
+		ignVoltage = Sensor::getOrZero(SensorType::BatteryVoltage);
+	}
+
+	return (ignVoltage > 6.0f);
 }
 
 void IgnitionController::onSlowCallback() {
@@ -20,7 +36,7 @@ void IgnitionController::onSlowCallback() {
 
 	// Ignore low voltage transients - we may see this at the start of cranking
 	// and we don't want to
-	if (!hasIgnVoltage && !m_timeSinceIgnVoltage.hasElapsedSec(0.2f)) {
+	if (!hasIgnVoltage && secondsSinceIgnVoltage() < 0.2f) {
 		return;
 	}
 

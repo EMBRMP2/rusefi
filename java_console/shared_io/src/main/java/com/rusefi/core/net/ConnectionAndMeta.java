@@ -1,5 +1,7 @@
 package com.rusefi.core.net;
 
+import org.jetbrains.annotations.NotNull;
+
 import javax.net.ssl.*;
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -8,22 +10,26 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import com.devexperts.logging.Logging;
 
 public class ConnectionAndMeta {
     public static final String BASE_URL_RELEASE = "https://github.com/rusefi/rusefi/releases/latest/download/";
-    private static final String DEFAULT_WHITE_LABEL = "rusefi";
+    public static final String DEFAULT_WHITE_LABEL = "rusefi";
     public static final String AUTOUPDATE = "/autoupdate/";
 
     private static final int BUFFER_SIZE = 32 * 1024;
+    private volatile static Properties properties; // sad: we do not completely understand #6777 but caching should not hurt
     public static final int CENTUM = 100;
     public static final String IO_PROPERTIES = "/shared_io.properties";
     private final String zipFileName;
     private HttpsURLConnection httpConnection;
     private long completeFileSize;
     private long lastModified;
+
+    private static final Logging log = Logging.getLogging(ConnectionAndMeta.class);
 
     public ConnectionAndMeta(String zipFileName) {
         this.zipFileName = zipFileName;
@@ -35,9 +41,20 @@ public class ConnectionAndMeta {
         return result;
     }
 
-    public static String getWhiteLabel() {
-        return Optional.ofNullable(getProperties().getProperty("white_label")).map(String::trim)
-            .orElse(DEFAULT_WHITE_LABEL);
+    public static String getWhiteLabel(Properties properties) {
+        return getStringProperty(properties, "white_label", DEFAULT_WHITE_LABEL);
+    }
+
+    public static String getRusEfiConsoleJarName() {
+        String defaultValue = JarFileUtil.getJarFileNamePrefix() + "_console.jar";
+        // why would we need this configurable? if we need it for development under IDE it should probably be done differently?
+        //return getStringProperty(getProperties(), "console_jar", defaultValue);
+        return defaultValue;
+    }
+
+    private static @NotNull String getStringProperty(Properties properties, String key, String defaultValue) {
+        return Optional.ofNullable(properties.getProperty(key)).map(String::trim)
+            .orElse(defaultValue);
     }
 
     public static String getSignatureWhiteLabel() {
@@ -46,24 +63,35 @@ public class ConnectionAndMeta {
         return signatureWhiteLabel;
     }
 
-    public static boolean usePCAN() {
-        return getBoolead("show_pcan");
+    public static boolean showUpdateCalibrations() {
+        return getBoolean("show_update_calibrations");
     }
 
-    public static boolean useSimulator() {
-        return getBoolead("show_simulator");
+    public static boolean getBoolean(String propertyName) {
+        return getBoolean(propertyName, getProperties());
     }
 
-    private static boolean getBoolead(String propertyName) {
-        String flag = getProperties().getProperty(propertyName);
-        return Boolean.TRUE.toString().equals(flag);
+    public static boolean getBoolean(String propertyName, Properties properties) {
+        String flag = properties.getProperty(propertyName);
+        return Boolean.TRUE.toString().equalsIgnoreCase(flag);
     }
 
-    private static Properties getProperties() throws RuntimeException {
+    public synchronized static Properties getProperties() throws RuntimeException {
+        if (properties == null) {
+            properties = getPropertiesForReal();
+        }
+        return properties;
+    }
+
+    private static Properties getPropertiesForReal() throws RuntimeException {
         Properties props = new Properties();
         try {
             InputStream stream = ConnectionAndMeta.class.getResourceAsStream(IO_PROPERTIES);
-            Objects.requireNonNull(stream, "Error reading " + IO_PROPERTIES);
+            if (stream == null) {
+                if (new File(".").getCanonicalPath().contains("!\\"))
+                    throw new IllegalArgumentException("Use folder names without exclamation marks at the end");
+                throw new NullPointerException("Error opening resource stream " + IO_PROPERTIES);
+            }
             props.load(stream);
             return props;
         } catch (IOException e) {
@@ -105,6 +133,30 @@ public class ConnectionAndMeta {
         bout.close();
         in.close();
         new File(localTargetFileName).setLastModified(connectionAndMeta.getLastModified());
+    }
+
+    public static boolean isDefaultWhitelabel(String whiteLabel) {
+        return DEFAULT_WHITE_LABEL.equals(whiteLabel);
+    }
+
+    public static boolean saveSettingsToFile() {
+        return getBoolean("binary_config_image");
+    }
+
+    public static boolean saveReadmeHtmlToFile() {
+        return Boolean.TRUE.toString().equalsIgnoreCase(getStringProperty(getProperties(), "write_readme_html", "false"));
+    }
+
+    public static boolean startConsoleInAutoupdateProcess() {
+        return false;
+    }
+
+    public static Set<String> getNonMigratableIniFields() {
+        final String nonMergeableIniFields = getStringProperty(getProperties(), "non_migratable_ini_fields", "");
+        return Arrays.stream(nonMergeableIniFields.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .collect(Collectors.toSet());
     }
 
     public HttpURLConnection getHttpConnection() {

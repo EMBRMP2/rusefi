@@ -8,6 +8,7 @@
 
 #include "pch.h"
 #include "board_id.h"
+#include "boards_id.h"
 #include "boards_dictionary.h"
 
 
@@ -32,6 +33,32 @@ board_id_t getBoardId() {
     if (engineConfiguration->engineType == engine_type_e::GM_SBC) {
         // a way to test harness patch cord
         return STATIC_BOARD_ID_PROTEUS_SBC;
+    }
+    if (engineConfiguration->engineType == engine_type_e::SUBARU_2011) {
+        // a way to test harness patch cord
+        return STATIC_BOARD_ID_PROTEUS_SUBARU_2011;
+    }
+#endif
+
+#if HW_HELLEN_8CHAN
+    if (engineConfiguration->engineType == engine_type_e::GM_SBC) {
+        // a way to test harness patch cord
+        return STATIC_BOARD_ID_PLATINUM_SBC;
+    }
+    if (engineConfiguration->engineType == engine_type_e::GM_SBC_GEN4) {
+        // a way to test harness patch cord
+        return STATIC_BOARD_ID_PLATINUM_GM_GEN4;
+    }
+    if (engineConfiguration->engineType == engine_type_e::GM_SBC_GEN5) {
+        // a way to test harness patch cord
+        return STATIC_BOARD_ID_8CHAN_E92;
+    }
+#endif
+
+#if HW_HELLEN_UAEFI121
+    if (engineConfiguration->engineType == engine_type_e::GM_SBC) {
+        // a way to test harness patch cord
+        return STATIC_BOARD_ID_UAEFU121_SBC;
     }
 #endif
 

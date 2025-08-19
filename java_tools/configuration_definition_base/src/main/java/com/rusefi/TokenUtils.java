@@ -40,6 +40,17 @@ public class TokenUtils {
             }
             tokens.add(currentToken.toString());
         }
-        return tokens.toArray(String[]::new);
+        return tokens.toArray(new String[0]);
+    }
+
+    public static String tokensToString(String[] tokens){
+        StringBuilder sb = new StringBuilder();
+        for (String f : tokens) {
+            if (sb.length() > 0) {
+                sb.append(",");
+            }
+            sb.append(f);
+        }
+        return sb.toString();
     }
 }

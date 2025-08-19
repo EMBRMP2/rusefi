@@ -7,6 +7,7 @@ import com.rusefi.tune.xml.Constant;
 
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
+import java.util.Objects;
 
 import static com.rusefi.config.FieldType.*;
 
@@ -58,6 +59,7 @@ public class ScalarIniField extends IniField {
 
     @Override
     public void setValue(ConfigurationImage image, Constant constant) {
+        Objects.requireNonNull(image, "image for setter");
         Field f = new Field(getName(), getOffset(), getType());
         ByteBuffer wrapped = image.getByteBuffer(getOffset(), type.getStorageSize());
         setValue(wrapped, type, constant.getValue(), f.getBitOffset(), multiplier);
@@ -70,11 +72,11 @@ public class ScalarIniField extends IniField {
 //            int packed = wrapped.getInt();
 //            value = (packed >> bitOffset) & 1;
         } else if (type == INT8 || type == UINT8) {
-            wrapped.put((byte) v);
+            wrapped.put((byte) Math.round(v));
         } else if (type == INT) {
-            wrapped.putInt((int) v);
+            wrapped.putInt((int) Math.round(v));
         } else if (type == INT16 || type == UINT16) {
-            wrapped.putShort((short) v);
+            wrapped.putShort((short) Math.round(v));
         } else {
             wrapped.putFloat((float) v);
         }

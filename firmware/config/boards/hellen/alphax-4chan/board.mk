@@ -2,12 +2,9 @@
 
 # Target ECU board design
 BOARDCPPSRC = $(BOARD_DIR)/board_configuration.cpp
-DDEFS += -DEFI_MAIN_RELAY_CONTROL=TRUE
+
 
 # Add them all together
-
-# 37K would not fit
-DDEFS += -DLUA_USER_HEAP=32000
 
 # pretty temporary?
 DDEFS += -DDISABLE_PIN_STATE_VALIDATION=TRUE
@@ -20,8 +17,6 @@ DDEFS += -DBOOT_BACKDOOR_ENTRY_TIMEOUT_MS=0
 
 DDEFS += -DEFI_LOGIC_ANALYZER=FALSE
 DDEFS += -DEFI_MALFUNCTION_INDICATOR=FALSE
-
-ONBOARD_MEMS_TYPE=LIS2DH12
 
 include $(BOARDS_DIR)/hellen/hellen-common-mega144.mk
 

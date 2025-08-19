@@ -18,7 +18,7 @@ void initPrimaryPins();
 void initMiscOutputPins();
 
 #if EFI_GPIO_HARDWARE
-void turnAllPinsOff(void);
+void turnAllPinsOff();
 #else /* EFI_GPIO_HARDWARE */
 #define turnAllPinsOff() {}
 #endif /* EFI_GPIO_HARDWARE */
@@ -89,6 +89,7 @@ public:
 	// see acRelayPin
 	RegisteredOutputPin acRelay;
 	RegisteredOutputPin fuelPumpRelay;
+	RegisteredOutputPin nitrousRelay;
 #if EFI_HD_ACR
 	RegisteredNamedOutputPin harleyAcr;
 	RegisteredOutputPin harleyAcr2;
@@ -132,6 +133,10 @@ public:
 	OutputPin tcuTccPwmSolenoid;
 	OutputPin tcuPcSolenoid;
 	OutputPin tcu32Solenoid;
+
+#ifdef EFI_UNIT_TEST
+	void resetForUnitTest();
+#endif
 
 private:
 	void startInjectionPins();

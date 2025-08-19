@@ -4,21 +4,21 @@
 
 #if EFI_UNIT_TEST
 
-/*static*/ AdcSubscriptionEntry * AdcSubscription::SubscribeSensor(FunctionalSensor&, adc_channel_e, float, float) {
+/*static*/ AdcSubscriptionEntry * AdcSubscription::SubscribeSensor(FunctionalSensorBase&, adc_channel_e, float, float) {
   return nullptr;
 }
 
-/*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensor&) {
+/*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensorBase&) {
 }
 
-/*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensor&, adc_channel_e) {
+/*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensorBase&, adc_channel_e) {
 }
 
 #else
 
 static AdcSubscriptionEntry s_entries[16];
 
-static AdcSubscriptionEntry* findEntry(FunctionalSensor* sensor) {
+static AdcSubscriptionEntry* findEntry(FunctionalSensorBase* sensor) {
 	for (size_t i = 0; i < efi::size(s_entries); i++) {
 		if (s_entries[i].Sensor == sensor) {
 			return &s_entries[i];
@@ -33,7 +33,7 @@ static AdcSubscriptionEntry* findEntry() {
 	return findEntry(nullptr);
 }
 
-/*static*/ AdcSubscriptionEntry* AdcSubscription::SubscribeSensor(FunctionalSensor &sensor,
+/*static*/ AdcSubscriptionEntry* AdcSubscription::SubscribeSensor(FunctionalSensorBase &sensor,
 									  adc_channel_e channel,
 									  float lowpassCutoff,
 									  float voltsPerAdcVolt /*= 0.0f*/) {
@@ -74,7 +74,7 @@ TODO: this code is similar to initIfValid, what is the plan? shall we extract he
 	brain_pin_e pin = getAdcChannelBrainPin(name, channel);
 	if (pin != Gpio::Invalid) {
 		// todo: external muxes for internal ADC #3350
-		/* reuqest pin only for first muxed channel */
+		/* reuqest pin only for parent */
 		if (!adcIsMuxedInput(channel)) {
 			efiSetPadMode(name, pin, PAL_MODE_INPUT_ANALOG);
 		} else {
@@ -90,6 +90,7 @@ TODO: this code is similar to initIfValid, what is the plan? shall we extract he
 	// Populate the entry
 	entry->VoltsPerAdcVolt = voltsPerAdcVolt;
 	entry->Channel = channel;
+	// TODO: main_loop use hzForPeriod(ADC_UPDATE_RATE) here
 	entry->Filter.configureLowpass(SLOW_ADC_RATE, lowpassCutoff);
 	entry->HasUpdated = false;
 
@@ -98,7 +99,7 @@ TODO: this code is similar to initIfValid, what is the plan? shall we extract he
 	return entry;
 }
 
-/*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensor& sensor) {
+/*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensorBase& sensor) {
 	auto entry = findEntry(&sensor);
 
 	if (!entry) {
@@ -120,7 +121,7 @@ TODO: this code is similar to initIfValid, what is the plan? shall we extract he
 	entry->Channel = EFI_ADC_NONE;
 }
 
-/*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensor& sensor, adc_channel_e channel) {
+/*static*/ void AdcSubscription::UnsubscribeSensor(FunctionalSensorBase& sensor, adc_channel_e channel) {
 	// Find the old sensor
 	auto entry = findEntry(&sensor);
 
@@ -148,7 +149,7 @@ void AdcSubscription::UpdateSubscribers(efitick_t nowNt) {
 			continue;
 		}
 
-		float mcuVolts = getVoltage("sensor", entry.Channel);
+		float mcuVolts = adcGetRawVoltage("sensor", entry.Channel);
 		entry.sensorVolts = mcuVolts * entry.VoltsPerAdcVolt;
 
 		// On the very first update, preload the filter as if we've been
@@ -176,7 +177,7 @@ void AdcSubscription::PrintInfo() {
 		}
 
 		const auto name = entry.Sensor->getSensorName();
-		float mcuVolts = getVoltage("sensor", entry.Channel);
+		float mcuVolts = adcGetRawVoltage("sensor", entry.Channel);
 		float sensorVolts = mcuVolts * entry.VoltsPerAdcVolt;
 		auto channel = entry.Channel;
 

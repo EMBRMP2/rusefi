@@ -151,6 +151,11 @@ bool adcIsMuxedInput(adc_channel_e hwChannel) {
     return false;
 }
 
+adc_channel_e adcMuxedGetParent(adc_channel_e hwChannel)
+{
+    return hwChannel;
+}
+
 int getAdcInternalChannel(ADC_TypeDef *adc, adc_channel_e hwChannel) {
 	(void)adc;
 
@@ -169,7 +174,7 @@ int getAdcChannelPin(adc_channel_e hwChannel) {
 
 #endif /* HAL_USE_ADC */
 
-EXTERNC int getRemainingStack(thread_t *otp) {
+int getRemainingStack(thread_t *otp) {
     // todo: would stm32 code actually work here since similar Cortex?
     return 888888;
 }

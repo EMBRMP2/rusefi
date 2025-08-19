@@ -53,13 +53,12 @@
 /*
  * Memory attributes settings.
  */
+#ifndef STM32_NOCACHE_ENABLE
+#define STM32_NOCACHE_ENABLE                TRUE
+#endif
 #define STM32_NOCACHE_MPU_REGION            MPU_REGION_6
-#ifndef STM32_NOCACHE_SRAM1_SRAM2
-#define STM32_NOCACHE_SRAM1_SRAM2           FALSE
-#endif // STM32_NOCACHE_SRAM1_SRAM2
-#ifndef STM32_NOCACHE_SRAM3
-#define STM32_NOCACHE_SRAM3                 TRUE
-#endif // STM32_NOCACHE_SRAM3
+#define STM32_NOCACHE_RBAR                  0x30040000U
+#define STM32_NOCACHE_RASR                  MPU_RASR_SIZE_16K
 
 /*
  * PWR system settings.
@@ -115,7 +114,7 @@
 #define STM32_PLL2_FRACN_VALUE              0
 #define STM32_PLL2_DIVP_VALUE               10
 #define STM32_PLL2_DIVQ_VALUE               12
-#define STM32_PLL2_DIVR_VALUE               2
+#define STM32_PLL2_DIVR_VALUE               20
 #define STM32_PLL3_ENABLED                  TRUE
 #define STM32_PLL3_P_ENABLED                TRUE
 #define STM32_PLL3_Q_ENABLED                TRUE
@@ -155,7 +154,7 @@
 #define STM32_STOPWUCK                      0
 #define STM32_RTCPRE_VALUE                  8
 #define STM32_CKPERSEL                      STM32_CKPERSEL_HSE_CK
-#define STM32_SDMMCSEL                      STM32_SDMMCSEL_PLL1_Q_CK
+#define STM32_SDMMCSEL                      STM32_SDMMCSEL_PLL2_R_CK
 #define STM32_QSPISEL                       STM32_QSPISEL_HCLK
 #define STM32_FMCSEL                        STM32_QSPISEL_HCLK
 #define STM32_SWPSEL                        STM32_SWPSEL_PCLK1
@@ -254,7 +253,11 @@
 #define STM32_ADC_DUAL_MODE                 FALSE
 #define STM32_ADC_COMPACT_SAMPLES           FALSE
 #define STM32_ADC_USE_ADC12                 TRUE
+
+#ifndef STM32_ADC_USE_ADC3
 #define STM32_ADC_USE_ADC3                  FALSE
+#endif /* STM32_ADC_USE_ADC3 */
+
 #define STM32_ADC_ADC12_DMA_STREAM          STM32_DMA_STREAM_ID_ANY
 #define STM32_ADC_ADC3_BDMA_STREAM          STM32_BDMA_STREAM_ID_ANY
 #define STM32_ADC_ADC12_DMA_PRIORITY        2
@@ -357,7 +360,6 @@
 /*
  * PWM driver system settings.
  */
-#define STM32_PWM_USE_ADVANCED              FALSE
 #define STM32_PWM_USE_TIM1                  FALSE
 #define STM32_PWM_USE_TIM2                  FALSE
 

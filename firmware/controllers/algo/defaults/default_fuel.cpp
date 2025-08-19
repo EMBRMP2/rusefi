@@ -3,35 +3,33 @@
 #include "defaults.h"
 #include "table_helper.h"
 #include "mazda_miata_vvt.h"
+#include "engine_configuration_defaults.h"
 
 static void setBosch02880155868(injector_s& cfg) {
-	// http://www.boschdealer.com/specsheets/0280155868cs.jpg
-	cfg.battLagCorrBins[0] = 6;
-	cfg.battLagCorr[0] = 3.371;
+	// http://www.boschdealer.com/specsheets/0280155868cs.jpg (use web.archive.org)
+#if (VBAT_INJECTOR_CURVE_PRESSURE_SIZE == 2) && (VBAT_INJECTOR_CURVE_SIZE == 8)
+    // see https://github.com/rusefi/rusefi/issues/7521 for adding more values
+	copyTable(cfg.battLagCorrTable, engine_configuration_defaults::INJECTOR_BATT_LAG_CURR);
+#endif
 
-	cfg.battLagCorrBins[1] = 8;
-	cfg.battLagCorr[1] = 1.974;
+#if (VBAT_INJECTOR_CURVE_SIZE == 8)
+    static const float vBattBins[8] = { 6.0, 8.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0 };
+	copyArray(cfg.battLagCorrBattBins, vBattBins);
+#else
+  setLinearCurve(cfg.battLagCorrBattBins, 6, 15, 0.1);
+#endif
 
-	cfg.battLagCorrBins[2] = 10;
-	cfg.battLagCorr[2] = 1.383;
+#if (VBAT_INJECTOR_CURVE_PRESSURE_SIZE == 2)
+	static const float pressureBins[2] = { 206.843, 413.685 };
+	copyArray(cfg.battLagCorrPressBins,pressureBins);
+#else
+  setLinearCurve(cfg.battLagCorrPressBins, 300, 400, 1);
+#endif
 
-	cfg.battLagCorrBins[3] = 11;
-	cfg.battLagCorr[3] = 1.194;
-
-	cfg.battLagCorrBins[4] = 12;
-	cfg.battLagCorr[4] = 1.04;
-
-	cfg.battLagCorrBins[5] = 13;
-	cfg.battLagCorr[5] = 0.914;
-
-	cfg.battLagCorrBins[6] = 14;
-	cfg.battLagCorr[6] = 0.797;
-
-	cfg.battLagCorrBins[7] = 15;
-	cfg.battLagCorr[7] = 0.726;
 }
 
 static void setDefaultWarmupFuelEnrichment() {
+#if CLT_CURVE_SIZE == 16
 	static const float bins[] =
 	{
 		-40,
@@ -75,11 +73,12 @@ static void setDefaultWarmupFuelEnrichment() {
 	};
 
 	copyArray(config->cltFuelCorr, values);
+#endif // CLT_CURVE_SIZE
 }
 
 static void setDefaultVETable() {
 	setRpmTableBin(config->veRpmBins);
-#if (IGN_LOAD_COUNT == DEFAULT_IGN_LOAD_COUNT) && (IGN_RPM_COUNT == DEFAULT_IGN_RPM_COUNT)
+#if (VE_LOAD_COUNT == 16) && (VE_RPM_COUNT == 16)
 	static const float hardCodedveTable[16][16] = {
 {49.300,	49.300,	49.400,	49.600,	50.200,	51.400,	52.600,	53.800,	54.400,	54.600,	54.400,	53.700,	52.800,	51.800,	50.900,	50.000,	},
 {49.600,	50.500,	51.500,	54.100,	57.500,	60.700,	62.900,	64.400,	65.000,	65.000,	64.500,	63.500,	62.300,	61.100,	60.000,	58.800,	},
@@ -106,6 +105,8 @@ static void setDefaultVETable() {
 	setRpmTableBin(config->baroCorrRpmBins);
 	setLinearCurve(config->baroCorrPressureBins, 75, 105, 1);
 
+	setLinearCurve(config->tmfRatioBins, 0.5, 1.5, 0.1);
+
 	// Default baro table is all 1.0, we can't recommend a reasonable default here
 	setTable(config->baroCorrTable, 1);
 
@@ -122,6 +123,14 @@ static void setDefaultVETable() {
 	for (size_t i = 0; i < efi::size(config->veBlends); i++) {
 		auto& blend = config->veBlends[i];
 		setLinearCurve(blend.loadBins, 0, 100, 10);
+		setLinearCurve(blend.rpmBins, 0, 7000);
+
+		setLinearCurve(blend.blendBins, 0, 100);
+		setLinearCurve(blend.blendValues, 0, 100);
+	}
+
+	for (size_t i = 0; i < efi::size(config->targetAfrBlends); i++) {
+		auto& blend = config->targetAfrBlends[i];
 		setLinearCurve(blend.rpmBins, 0, 7000);
 
 		setLinearCurve(blend.blendBins, 0, 100);
@@ -146,6 +155,9 @@ static void setDefaultStftSettings() {
 
 	// Default to proportional mode (for wideband sensors)
 	engineConfiguration->stftIgnoreErrorMagnitude = false;
+
+	// Also used in lambda monitor
+	engineConfiguration->noFuelTrimAfterDfcoTime = 5;
 
 	// 60 second startup delay - some O2 sensors are slow to warm up.
 	cfg.startupDelay = 60;
@@ -172,8 +184,26 @@ static void setDefaultStftSettings() {
 
 		/// Allow +-5%
 		cfg.cellCfgs[i].maxAdd = 5;
-		cfg.cellCfgs[i].maxRemove = -5;
+		cfg.cellCfgs[i].maxRemove = 5;
 	}
+}
+
+static void setDefaultLtftSettings() {
+	auto& cfg = engineConfiguration->ltft;
+
+	// Default to allow learning, but do not apply learned corrections
+	cfg.enabled = true;
+	cfg.correctionEnabled = false;
+
+	// Default to very slow learning
+	cfg.timeConstant = 3000;
+
+	// 0.5% deadband
+	cfg.deadband = 0.5f;
+
+	// Allow +-12.5%
+	cfg.maxAdd = 12.5;
+	cfg.maxRemove = 12.5;
 }
 
 static const uint8_t tpsTpsTable[TPS_TPS_ACCEL_TABLE][TPS_TPS_ACCEL_TABLE] = {
@@ -195,28 +225,18 @@ static void setMazdaMiataNbTpsTps() {
 }
 
 static void setDefaultLambdaTable() {
-#if (FUEL_LOAD_COUNT == DEFAULT_FUEL_LOAD_COUNT)
-	static constexpr float mapBins[] = {
-		30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 150, 175, 200, 225, 250
-	};
-	copyArray(config->lambdaLoadBins, mapBins);
-#endif
-
 	setRpmTableBin(config->lambdaRpmBins);
 
-	static constexpr float rowValues[] = {
-		1,		1,		1,		1,		// 30, 40, 50, 60 kpa
-		1,		0.95,	0.92,	0.90,	// 70, 80, 90, 100 kpa
-		0.89,	0.88,	0.86,	0.84,	// 110, 120, 130, 150 kpa
-		0.8,	0.77,	0.75,	0.73,	// 175, 200, 225, 250 kpa
-	};
+#if (FUEL_LOAD_COUNT == 16) && (FUEL_RPM_COUNT == 16)
+	copyArray(config->lambdaLoadBins, engine_configuration_defaults::DEFAULT_LAMBDA_LOAD_BINS);
 
 	// Set each row to the corresponding value from rowValues
 	for (size_t i = 0; i < efi::size(config->lambdaTable); i++) {
 		for (size_t j = 0; j < efi::size(config->lambdaTable[i]); j++) {
-			config->lambdaTable[i][j] = rowValues[i];
+			config->lambdaTable[i][j] = engine_configuration_defaults::DEFAULT_LAMBDA_TABLE_ROW[i];
 		}
 	}
+#endif
 }
 
 void setGdiWallWetting() {
@@ -256,6 +276,14 @@ void setDefaultWallWetting() {
 		0.21, 0.40, 0.60, 0.79, 0.85, 0.90, 0.95, 1.00
 	};
 	copyArray(config->wwBetaMapValues, betaMap);
+}
+
+static void setDefaultWboSettings() {
+	for (size_t i = 0; i < CAN_WBO_COUNT; i++) {
+		engineConfiguration->canWbo[i].type = RUSEFI;
+		engineConfiguration->canWbo[i].reId = static_cast<can_wbo_re_id_e>(i);
+		engineConfiguration->canWbo[i].aemId = static_cast<can_wbo_aem_id_e>(i);
+	}
 }
 
 static void setDefaultLambdaProtection() {
@@ -338,6 +366,7 @@ void setDefaultFuel() {
 
 	// Closed loop fuel correction
 	setDefaultStftSettings();
+	setDefaultLtftSettings();
 
 	// Decel fuel cut
 	setDefaultFuelCutParameters();
@@ -351,6 +380,8 @@ void setDefaultFuel() {
 
 	// Some reasonable reference pressure that many vehicles use
 	engineConfiguration->fuelReferencePressure = 300;
+
+	setDefaultWboSettings();
 
 	// Lambda protection defaults
 	setDefaultLambdaProtection();

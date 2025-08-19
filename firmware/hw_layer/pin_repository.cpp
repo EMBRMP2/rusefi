@@ -11,12 +11,14 @@
 
 #include "pch.h"
 
+PinRepository pinRepository CCM_OPTIONAL;
+
 static size_t getBrainPinTotalNum() {
 	return BRAIN_PIN_TOTAL_PINS;
 }
 
 const char* & getBrainUsedPin(size_t index) {
-	return engine->pinRepository.getBrainUsedPin(index);
+	return pinRepository.getBrainUsedPin(index);
 }
 
 /* Common for firmware and unit tests */
@@ -50,14 +52,14 @@ int brainPin_to_index(Gpio brainPin) {
 
 bool brain_pin_markUsed(Gpio brainPin, const char *msg) {
 #ifndef EFI_BOOTLOADER
-	efiPrintf("pin_markUsed: %s on %s", msg, hwPortname(brainPin));
+//	efiPrintf("pin_markUsed: %s on %s", msg, hwPortname(brainPin));
 #endif
 
 	int index = brainPin_to_index(brainPin);
 	if (index < 0)
 		return true;
 
-	if (engine->pinRepository.getBrainUsedPin(index) != nullptr) {
+	if (pinRepository.getBrainUsedPin(index) != nullptr) {
 		// hwPortname and share a buffer behind the scenes, even while they probably never use it for different
 		// values here let's have an explicit second buffer to make this more reliable
 		char physicalPinName[32];
@@ -80,7 +82,7 @@ bool brain_pin_markUsed(Gpio brainPin, const char *msg) {
 
 void brain_pin_markUnused(brain_pin_e brainPin) {
 #ifndef EFI_BOOTLOADER
-	efiPrintf("pin_markUnused: %s", hwPortname(brainPin));
+//	efiPrintf("pin_markUnused: %s", hwPortname(brainPin));
 #endif
 	int index = brainPin_to_index(brainPin);
 	if (index < 0)
@@ -142,14 +144,14 @@ static void reportPins() {
 		const char *pin_user = getBrainUsedPin(i);
 
 		/* show used pins */
-		if (pin_user != NULL) {
+		if (pin_user) {
 			static char pin_state[64];
 			brain_pin_e brainPin = index_to_brainPin(i);
 			int pin = getBrainPinIndex(brainPin);
 			ioportid_t port = getBrainPinPort(brainPin);
 			debugBrainPin(pin_state, sizeof(pin_state), brainPin);
 
-            const char *boardPinName = getBoardSpecificPinName(brainPin);
+			const char *boardPinName = getBoardSpecificPinName(brainPin);
 			efiPrintf("pin %s%d (%s): %s %s", portname(port), pin, boardPinName, pin_user, pin_state);
 			totalPinsUsed++;
 		}
@@ -167,19 +169,19 @@ static void reportPins() {
 			pinDiag2string(pin_error, sizeof(pin_error), pin_diag);
 
 			/* here show all pins, unused too */
-			if (pin_name != NULL) {
+			if (pin_name) {
 				// this probably uses a lot of output buffer!
 				efiPrintf("ext %s: %s diagnostic: %s",
 					pin_name, pin_user ? pin_user : "free", pin_error);
 			} else {
 				const char *chip_name = gpiochips_getChipName(brainPin);
 				/* if chip exist */
-				if (chip_name != NULL) {
+				if (chip_name) {
 					efiPrintf("ext %s.%d: %s diagnostic: %s",
 						chip_name, gpiochips_getPinOffset(brainPin), pin_user ? pin_user : "free", pin_error);
 				}
 			}
-			if (pin_user != NULL) {
+			if (pin_user) {
 				totalPinsUsed++;
 			}
 		}
@@ -194,9 +196,9 @@ __attribute__((weak)) const char * getBoardSpecificPinName(brain_pin_e /*brainPi
 	return nullptr;
 }
 
-static const char *hwOnChipPhysicalPinName(ioportid_t hwPort, int hwPin) {
+const char *hwOnChipPhysicalPinName(ioportid_t hwPort, int hwPin) {
   portNameStream.eos = 0; // reset
-	if (hwPort == GPIO_NULL) {
+	if (!hwPort) {
 		return "NONE";
 	}
 	chprintf((BaseSequentialStream *) &portNameStream, "%s%d", portname(hwPort), hwPin);
@@ -281,7 +283,7 @@ bool brain_pin_is_ext(brain_pin_e brainPin)
 bool gpio_pin_markUsed(ioportid_t port, ioportmask_t pin, const char *msg) {
 	int index = getPortPinIndex(port, pin);
 #ifndef EFI_BOOTLOADER
-	efiPrintf("pin_markUsed: %s on %s", msg, hwOnChipPhysicalPinName(port, pin));
+//	efiPrintf("pin_markUsed: %s on %s", msg, hwOnChipPhysicalPinName(port, pin));
 #endif
 
 	if (getBrainUsedPin(index) != NULL) {

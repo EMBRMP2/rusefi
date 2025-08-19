@@ -1,5 +1,6 @@
 package com.rusefi;
 
+import com.devexperts.logging.FileLogger;
 import com.devexperts.logging.Logging;
 import com.rusefi.core.rusEFIVersion;
 import com.rusefi.tools.ConsoleTools;
@@ -17,6 +18,7 @@ import static com.devexperts.logging.Logging.getLogging;
  * 12/25/12
  * Andrey Belomutskiy, (c) 2013-2020
  *
+ * @see Autoupdate#COM_RUSEFI_LAUNCHER which invokes this class via reflection!
  * @see StartupFrame
  * @see EngineSnifferPanel
  */
@@ -30,6 +32,7 @@ public class Launcher implements rusEFIVersion {
      * @see StartupFrame if no parameters specified
      */
     public static void main(final String[] args) throws Exception {
+        FileLogger.init();
         log.info("rusEFI UI console " + CONSOLE_VERSION);
         log.info("Compiled " + new Date(rusEFIVersion.classBuildTimeMillis()));
         log.info("\n\n");

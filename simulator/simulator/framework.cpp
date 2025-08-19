@@ -18,7 +18,7 @@ uint32_t getTimeNowLowerNt(void) {
 CANDriver* detectCanDevice(brain_pin_e pinRx, brain_pin_e pinTx);
 #endif // HAL_USE_CAN
 
-bool allowFlashWhileRunning() { return true; }
+bool mcuCanFlashWhileRunning() { return true; }
 //void causeHardFault() { }
 
 
@@ -36,7 +36,7 @@ const char *getMCUResetCause(Reset_Cause_t) {
 void startWatchdog(int) { }
 
 // Can be called for debug reasons to test the watchdog
-void setWatchdogResetPeriod(int resetMs) { }
+void setWatchdogResetPeriod(int /*resetMs*/) { }
 
 // A reset is done only if enough time has passed since the last reset.
 void tryResetWatchdog() { }

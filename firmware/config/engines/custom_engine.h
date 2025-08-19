@@ -10,26 +10,18 @@
 #include "engine_configuration.h"
 void setFrankensoConfiguration();
 void setDiscoveryPdm();
-void setFrankensoBoardTestConfiguration();
 void setDiscovery33810Test();
-void setDiscoveryTLE9104Test();
 void setEtbTestConfiguration();
 void setL9779TestConfiguration();
 
 void setEepromTestConfiguration();
 
-void mreBoardNewTest();
 void mreSecondaryCan();
 void mreBCM();
 void setBodyControlUnit();
 
 void fuelBenchMode();
 
-/**
- * PROTEUS_QC_TEST_BOARD
- * set engine_type 42
- */
-void proteusBoardTest();
 void proteusLuaDemo();
 void proteusStimQc();
 void proteusDcWastegateTest();
@@ -42,5 +34,4 @@ void setVrThresholdTest();
 
 void detectBoardType();
 
-void alphax4chanStimQc();
 void testEngine6451();

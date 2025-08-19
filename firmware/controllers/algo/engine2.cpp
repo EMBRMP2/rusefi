@@ -81,9 +81,6 @@ EngineState::EngineState() {
 	timeSinceLastTChargeK.reset(getTimeNowNt());
 }
 
-void EngineState::updateSlowSensors() {
-}
-
 void EngineState::updateSparkSkip() {
 #if EFI_LAUNCH_CONTROL
 		engine->softSparkLimiter.updateTargetSkipRatio(luaSoftSparkSkip, tractionControlSparkSkip);
@@ -94,7 +91,7 @@ void EngineState::updateSparkSkip() {
 			 * We are applying launch controller spark skip ratio only for hard skip limiter (see
 			 * https://github.com/rusefi/rusefi/issues/6566#issuecomment-2153149902).
 			 */
-			engine->launchController.getSparkSkipRatio()
+			engine->launchController.getSparkSkipRatio() + engine->shiftTorqueReductionController.getSparkSkipRatio()
 		);
 #endif // EFI_LAUNCH_CONTROL
 }
@@ -108,19 +105,22 @@ void EngineState::periodicFastCallback() {
 	if (!engine->slowCallBackWasInvoked) {
 		warning(ObdCode::CUSTOM_SLOW_NOT_INVOKED, "Slow not invoked yet");
 	}
-	efitick_t nowNt = getTimeNowNt();
 
-	if (engine->rpmCalculator.isCranking()) {
+	efitick_t nowNt = getTimeNowNt();
+	bool isCranking = engine->rpmCalculator.isCranking();
+	float rpm = Sensor::getOrZero(SensorType::Rpm);
+
+	if (isCranking) {
 		crankingTimer.reset(nowNt);
 	}
 
 	engine->fuelComputer.running.timeSinceCrankingInSecs = crankingTimer.getElapsedSeconds(nowNt);
 
+#if EFI_AUX_VALVES
 	recalculateAuxValveTiming();
+#endif //EFI_AUX_VALVES
 
-	int rpm = Sensor::getOrZero(SensorType::Rpm);
-	engine->ignitionState.sparkDwell = engine->ignitionState.getSparkDwell(rpm);
-	engine->ignitionState.dwellDurationAngle = std::isnan(rpm) ? NAN :  engine->ignitionState.sparkDwell / getOneDegreeTimeMs(rpm);
+	engine->ignitionState.updateDwell(rpm, isCranking);
 
 	// todo: move this into slow callback, no reason for IAT corr to be here
 	engine->fuelComputer.running.intakeTemperatureCoefficient = getIatFuelCorrection();
@@ -131,20 +131,7 @@ void EngineState::periodicFastCallback() {
 	// should be called before getInjectionMass() and getLimitingTimingRetard()
 	getLimpManager()->updateRevLimit(rpm);
 
-	// post-cranking fuel enrichment.
-	float m_postCrankingFactor = interpolate3d(
-		engineConfiguration->postCrankingFactor,
-		engineConfiguration->postCrankingCLTBins, Sensor::getOrZero(SensorType::Clt),
-		engineConfiguration->postCrankingDurationBins, engine->rpmCalculator.getRevolutionCounterSinceStart()
-	);
-	// for compatibility reasons, apply only if the factor is greater than unity (only allow adding fuel)
-	// if the engine run time is past the last bin, disable ASE in case the table is filled with values more than 1.0, helps with compatibility
-	if ((m_postCrankingFactor < 1.0f) || (engine->rpmCalculator.getRevolutionCounterSinceStart() > engineConfiguration->postCrankingDurationBins[efi::size(engineConfiguration->postCrankingDurationBins)-1])) {
-		m_postCrankingFactor = 1.0f;
-	}
-	engine->fuelComputer.running.postCrankingFuelCorrection = m_postCrankingFactor;
-
-	engine->ignitionState.cltTimingCorrection = getCltTimingCorrection();
+	engine->fuelComputer.running.postCrankingFuelCorrection = getPostCrankingFuelCorrection();
 
 	baroCorrection = getBaroCorrection();
 
@@ -152,7 +139,13 @@ void EngineState::periodicFastCallback() {
 	updateTChargeK(rpm, tps.value_or(0));
 
 	float untrimmedInjectionMass = getInjectionMass(rpm) * engine->engineState.lua.fuelMult + engine->engineState.lua.fuelAdd;
-	auto clResult = fuelClosedLoopCorrection();
+	float fuelLoad = getFuelingLoad();
+
+	auto clResult = engine->module<ShortTermFuelTrim>()->getCorrection(rpm, fuelLoad);
+
+	engine->module<LongTermFuelTrim>()->learn(clResult, rpm, fuelLoad);
+
+	auto ltftResult = engine->module<LongTermFuelTrim>()->getTrims(rpm, fuelLoad);
 
 	injectionStage2Fraction = getStage2InjectionFraction(rpm, engine->fuelComputer.afrTableYAxis);
 	float stage2InjectionMass = untrimmedInjectionMass * injectionStage2Fraction;
@@ -165,49 +158,57 @@ void EngineState::periodicFastCallback() {
 		? engine->module<InjectorModelSecondary>()->getInjectionDuration(stage2InjectionMass)
 		: 0;
 
-	float fuelLoad = getFuelingLoad();
 	injectionOffset = getInjectionOffset(rpm, fuelLoad);
 	engine->lambdaMonitor.update(rpm, fuelLoad);
 
 #if EFI_LAUNCH_CONTROL
 	engine->launchController.update();
+	engine->shiftTorqueReductionController.update();
 #endif //EFI_LAUNCH_CONTROL
 
 	float l_ignitionLoad = getIgnitionLoad();
-	float baseAdvance = getWrappedAdvance(rpm, l_ignitionLoad);
-	float correctedIgnitionAdvance = baseAdvance
+	engine->ignitionState.updateAdvanceCorrections(l_ignitionLoad);
+	float baseAdvance = engine->ignitionState.getWrappedAdvance(rpm, l_ignitionLoad);
+	float corrections = engineConfiguration->timingMode == TM_DYNAMIC ?
 			// Pull any extra timing for knock retard
 			- engine->module<KnockController>()->getKnockRetard()
 			// Degrees of timing REMOVED from actual timing during soft RPM limit window
-			- getLimpManager()->getLimitingTimingRetard();
+			- getLimpManager()->getLimitingTimingRetard() :
+			0;
+	float correctedIgnitionAdvance = baseAdvance + corrections;
 	// these fields are scaled_channel so let's only use for observability, with a local variables holding value while it matters locally
 	engine->ignitionState.baseIgnitionAdvance = MAKE_HUMAN_READABLE_ADVANCE(baseAdvance);
 	engine->ignitionState.correctedIgnitionAdvance = MAKE_HUMAN_READABLE_ADVANCE(correctedIgnitionAdvance);
 
-
 	// compute per-bank fueling
-	for (size_t i = 0; i < STFT_BANK_COUNT; i++) {
-		float corr = clResult.banks[i];
-		// todo: move to engine_state.txt and get rid of fuelPidCorrection in output_channels.txt?
-		engine->engineState.stftCorrection[i] = corr;
+	for (size_t bankIndex = 0; bankIndex < FT_BANK_COUNT; bankIndex++) {
+		engine->engineState.stftCorrection[bankIndex] = clResult.banks[bankIndex];
 	}
 
 	// Now apply that to per-cylinder fueling and timing
-	for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
-		uint8_t bankIndex = engineConfiguration->cylinderBankSelect[i];
-		auto bankTrim = engine->engineState.stftCorrection[bankIndex];
-		auto cylinderTrim = getCylinderFuelTrim(i, rpm, fuelLoad);
+	for (size_t cylinderIndex = 0; cylinderIndex < engineConfiguration->cylindersCount; cylinderIndex++) {
+		uint8_t bankIndex = engineConfiguration->cylinderBankSelect[cylinderIndex];
+		/* TODO: add LTFT trims when ready */
+		auto bankTrim = clResult.banks[bankIndex] * ltftResult.banks[bankIndex];
+		auto cylinderTrim = getCylinderFuelTrim(cylinderIndex, rpm, fuelLoad);
+		auto knockTrim = engine->module<KnockController>()->getFuelTrimMultiplier();
 
 		// Apply both per-bank and per-cylinder trims
-		engine->engineState.injectionMass[i] = untrimmedInjectionMass * bankTrim * cylinderTrim;
+		engine->engineState.injectionMass[cylinderIndex] = untrimmedInjectionMass * bankTrim * cylinderTrim * knockTrim;
 
-		timingAdvance[i] = correctedIgnitionAdvance + getCylinderIgnitionTrim(i, rpm, l_ignitionLoad);
+		angle_t cylinderIgnitionAdvance = correctedIgnitionAdvance
+									+ getCylinderIgnitionTrim(cylinderIndex, rpm, l_ignitionLoad)
+									// spark hardware latency correction, for implementation details see:
+									// https://github.com/rusefi/rusefi/issues/6832:
+									+ engine->ignitionState.getSparkHardwareLatencyCorrection();
+		wrapAngle(cylinderIgnitionAdvance, "EngineState::periodicFastCallback", ObdCode::CUSTOM_ERR_ADCANCE_CALC_ANGLE);
+		// todo: is it OK to apply cylinder trim with FIXED timing?
+		timingAdvance[cylinderIndex] = cylinderIgnitionAdvance;
 	}
 
 	shouldUpdateInjectionTiming = getInjectorDutyCycle(rpm) < 90;
 
-	// TODO: calculate me from a table!
-	trailingSparkAngle = engineConfiguration->trailingSparkAngle;
+	engine->ignitionState.trailingSparkAngle = engine->ignitionState.getTrailingSparkAngle(rpm, l_ignitionLoad);
 
 	multispark.count = getMultiSparkCount(rpm);
 
@@ -218,7 +219,7 @@ void EngineState::periodicFastCallback() {
 }
 
 #if EFI_ENGINE_CONTROL
-void EngineState::updateTChargeK(int rpm, float tps) {
+void EngineState::updateTChargeK(float rpm, float tps) {
 	float newTCharge = engine->fuelComputer.getTCharge(rpm, tps);
 	if (!std::isnan(newTCharge)) {
 		// control the rate of change or just fill with the initial value

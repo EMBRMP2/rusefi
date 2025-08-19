@@ -27,7 +27,7 @@ public class TableData implements CannableEntity {
 
     @Nullable
     public static TableData readTable(String msqFileName, String tableName, IniFileModel model) throws IOException {
-        IniField iniField = model.allIniFields.get(tableName);
+        IniField iniField = model.getAllIniFields().get(tableName);
         if (!(iniField instanceof ArrayIniField)) {
             // this could happen if older tune is not compatible with newer .ini
             return null;
@@ -109,12 +109,13 @@ public class TableData implements CannableEntity {
     @Override
     public String getCsourceMethod(String reference, String methodNamePrefix, String name) {
         String scale = "";
+/*
         if (tableName.equals("lambdaTable"))
             scale = ", 1.0 / 14.7";
-
+*/
         return "static void " + getCannedMethod(methodNamePrefix) + " {\n"
             + "\t" + getCsourceCode() +
-            "\tcopyTable(" + reference + tableName + ", " + getCannedName() + scale + ");\n" +
+            "\tcopyTable(" + reference + name + ", " + getCannedName() + scale + ");\n" +
             "}\n\n";
     }
 

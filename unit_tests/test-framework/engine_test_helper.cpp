@@ -14,17 +14,22 @@
 #include "advance_map.h"
 #include "tooth_logger.h"
 #include "logicdata.h"
+#include "unit_test_logger.h"
 #include "hardware.h"
+// https://stackoverflow.com/questions/23427804/cant-find-mkdir-function-in-dirent-h-for-windows
+#include <sys/types.h>
+#include <sys/stat.h>
 
 bool unitTestBusyWaitHack;
+bool unitTestTaskPrecisionHack;
 
 #if EFI_ENGINE_SNIFFER
 #include "engine_sniffer.h"
 extern WaveChart waveChart;
 #endif /* EFI_ENGINE_SNIFFER */
 
-extern WarningCodeState unitTestWarningCodeState;
 extern engine_configuration_s & activeConfiguration;
+extern PinRepository pinRepository;
 extern bool printTriggerDebug;
 extern bool printTriggerTrace;
 extern bool printFuelDebug;
@@ -65,17 +70,47 @@ EngineTestHelper::EngineTestHelper(engine_type_e engineType, const std::unordere
 }
 
 warningBuffer_t *EngineTestHelper::recentWarnings() {
-	return &unitTestWarningCodeState.recentWarnings;
+	return getRecentWarnings();
 }
 
 int EngineTestHelper::getWarningCounter() {
-	return unitTestWarningCodeState.warningCounter;
+	return engine.engineState.warnings.warningCounter;
 }
+
+FILE *jsonTrace = nullptr;
 
 EngineTestHelper::EngineTestHelper(engine_type_e engineType, configuration_callback_t configurationCallback, const std::unordered_map<SensorType, float>& sensorValues) :
 	EngineTestHelperBase(&engine, &persistentConfig.engineConfiguration, &persistentConfig)
 {
-	memset(&persistentConfig, 0, sizeof(persistentConfig));
+	persistentConfig = decltype(persistentConfig){};
+	pinRepository = decltype(pinRepository){};
+
+	auto testInfo = ::testing::UnitTest::GetInstance()->current_test_info();
+	extern bool hasInitGtest;
+	if (hasInitGtest) {
+		#if IS_WINDOWS_COMPILER
+		  mkdir(TEST_RESULTS_DIR);
+		#else
+		  mkdir(TEST_RESULTS_DIR, 0777);
+		#endif
+		createUnitTestLog();
+
+		std::stringstream filePath;
+		filePath << TEST_RESULTS_DIR << "/unittest_" << testInfo->test_case_name() << "_" << testInfo->name() << "_trace.json";
+		// fun fact: ASAN says not to extract 'fileName' into a variable, we must be doing something a bit not right?
+		jsonTrace = fopen(filePath.str().c_str(), "wb");
+		if (jsonTrace == nullptr) {
+			//    		criticalError("Error creating file [%s]", filePath.str().c_str());
+			// TOOD handle config tests
+			printf("Error creating file [%s]\n", filePath.str().c_str());
+		} else {
+			fprintf(jsonTrace, "{\"traceEvents\": [\n");
+			fprintf(jsonTrace, "{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":-16,\"tid\":0,\"args\":{\"name\":\"Main\"}}\n");
+		}
+    } else {
+		// todo: document why this branch even exists
+		jsonTrace = nullptr;
+	}
 
 	Sensor::setMockValue(SensorType::Clt, 70);
 	Sensor::setMockValue(SensorType::Iat, 30);
@@ -84,9 +119,7 @@ EngineTestHelper::EngineTestHelper(engine_type_e engineType, configuration_callb
 		Sensor::setMockValue(s, v);
 	}
 
-	unitTestWarningCodeState.clear();
-
-	memset(&activeConfiguration, 0, sizeof(activeConfiguration));
+	activeConfiguration = engine_configuration_s{};
 
 	enginePins.reset();
 	enginePins.unregisterPins();
@@ -117,7 +150,7 @@ EngineTestHelper::EngineTestHelper(engine_type_e engineType, configuration_callb
 	commonInitEngineController();
 
 	// this is needed to have valid CLT and IAT.
-//todo: reuse 	initPeriodicEvents() method
+	//todo: reuse 	initPeriodicEvents() method
 	engine.periodicSlowCallback();
 
 	extern bool hasInitGtest;
@@ -135,30 +168,83 @@ EngineTestHelper::EngineTestHelper(engine_type_e engineType, configuration_callb
 	rememberCurrentConfiguration();
 }
 
+static void writeEventsToFile(const char *fileName,
+		const std::vector<CompositeEvent> &events) {
+	FILE *ptr = fopen(fileName, "wb");
+	size_t count = events.size();
+
+	// todo: move magic keywords to something.txt and reuse magic constants from C and java, once we have java converter
+	fprintf(ptr, "count,%d\n", count);
+
+#define numChannels 6 // todo: clean-up
+
+	for (size_t i = 0; i < count; i++) {
+		const CompositeEvent *event = &events[i];
+
+		uint32_t ts = event->timestamp;
+		fprintf(ptr, "timestamp,%d\n", ts);
+
+		for (int ch = 0; ch < numChannels; ch++) {
+			int chState = getChannelState(ch, event);
+			fprintf(ptr, "state,%d,%d\n", ch, chState);
+
+		}
+
+	}
+
+
+	fclose(ptr);
+}
+
 EngineTestHelper::~EngineTestHelper() {
 	// Write history to file
 	extern bool hasInitGtest;
+	auto testInfo = ::testing::UnitTest::GetInstance()->current_test_info();
 	if (hasInitGtest) {
     	std::stringstream filePath;
-    	filePath << "unittest_" << ::testing::UnitTest::GetInstance()->current_test_info()->name() << ".logicdata";
-	    writeEvents(filePath.str().c_str());
+    	filePath << TEST_RESULTS_DIR << "/unittest_" << testInfo->test_case_name() << "_" << testInfo->name() << ".logicdata";
+	    writeEventsLogicData(filePath.str().c_str());
+	}
+	if (hasInitGtest) {
+    	std::stringstream filePath;
+    	filePath << TEST_RESULTS_DIR << "/unittest_" << testInfo->test_case_name() << "_" << testInfo->name() << ".events.txt";
+	    writeEvents2(filePath.str().c_str());
 	}
 
+  if (jsonTrace != nullptr) {
+   	fprintf(jsonTrace, "]}\n");
+    fclose(jsonTrace);
+    jsonTrace = nullptr;
+  }
+  closeUnitTestLog();
+
 	// Cleanup
+  	// reset pin config state, will trigger isPinConfigurationChanged
+	enginePins.resetForUnitTest();
 	enginePins.reset();
 	enginePins.unregisterPins();
 	Sensor::resetRegistry();
 	memset(mockPinStates, 0, sizeof(mockPinStates));
 }
 
-void EngineTestHelper::writeEvents(const char *fileName) {
+void EngineTestHelper::writeEventsLogicData(const char *fileName) {
 	const auto& events = getCompositeEvents();
 	if (events.size() < 2) {
 		printf("Not enough data for %s\n", fileName);
 		return;
 	}
 	printf("Writing %d records to %s\n", events.size(), fileName);
-	writeFile(fileName, events);
+	writeLogicDataFile(fileName, events);
+}
+
+void EngineTestHelper::writeEvents2(const char *fileName) {
+	const auto& events = getCompositeEvents();
+	if (events.size() < 2) {
+		printf("Not enough data for %s\n", fileName);
+		return;
+	}
+	printf("Writing %d records to %s\n", events.size(), fileName);
+	writeEventsToFile(fileName, events);
 }
 
 /**
@@ -224,12 +310,12 @@ void EngineTestHelper::smartFireTriggerEvents2(int count, float durationMs) {
 }
 
 void EngineTestHelper::clearQueue() {
-	engine.executor.executeAll(99999999); // this is needed to clear 'isScheduled' flag
-	ASSERT_EQ( 0,  engine.executor.size()) << "Failed to clearQueue";
+	engine.scheduler.executeAll(99999999); // this is needed to clear 'isScheduled' flag
+	ASSERT_EQ( 0,  engine.scheduler.size()) << "Failed to clearQueue";
 }
 
 int EngineTestHelper::executeActions() {
-	return engine.executor.executeAll(getTimeNowUs());
+	return engine.scheduler.executeAll(getTimeNowUs());
 }
 
 void EngineTestHelper::moveTimeForwardMs(float deltaTimeMs) {
@@ -265,7 +351,7 @@ void EngineTestHelper::setTimeAndInvokeEventsUs(int targetTimeUs) {
 	int counter = 0;
 	while (true) {
 	  criticalAssertVoid(counter++ < 100'000, "EngineTestHelper: failing to setTimeAndInvokeEventsUs");
-		scheduling_s* nextScheduledEvent = engine.executor.getHead();
+		scheduling_s* nextScheduledEvent = engine.scheduler.getHead();
 		if (nextScheduledEvent == nullptr) {
 			// nothing pending - we are done here
 			break;
@@ -276,7 +362,12 @@ void EngineTestHelper::setTimeAndInvokeEventsUs(int targetTimeUs) {
 			break;
 		}
 		setTimeNowUs(nextEventTime);
-		engine.executor.executeAll(getTimeNowUs());
+		extern bool unitTestTaskPrecisionHack;
+		if (unitTestTaskPrecisionHack) {
+			engine.scheduler.executeAll(getTimeNowUs());
+		} else {
+			engine.scheduler.executeAll(getTimeNowNt());
+		}
 	}
 
 	setTimeNowUs(targetTimeUs);
@@ -288,21 +379,27 @@ void EngineTestHelper::fireTriggerEvents(int count) {
 
 void EngineTestHelper::assertInjectorUpEvent(const char *msg, int eventIndex, efitimeus_t momentUs, long injectorIndex) {
 	InjectionEvent *event = &engine.injectionEvents.elements[injectorIndex];
-	assertEvent(msg, eventIndex, (void*)turnInjectionPinHigh, momentUs, event);
+	auto const expected_action{ action_s::make<turnInjectionPinHigh>(uintptr_t{}) };
+	assertEvent(msg, eventIndex, expected_action, momentUs, event);
 }
 
 void EngineTestHelper::assertInjectorDownEvent(const char *msg, int eventIndex, efitimeus_t momentUs, long injectorIndex) {
 	InjectionEvent *event = &engine.injectionEvents.elements[injectorIndex];
-	assertEvent(msg, eventIndex, (void*)turnInjectionPinLow, momentUs, event);
+	auto const expected_action{ action_s::make<turnInjectionPinLow>((InjectionEvent*){}) };
+	assertEvent(msg, eventIndex, expected_action, momentUs, event);
 }
 
-scheduling_s * EngineTestHelper::assertEvent5(const char *msg, int index, void *callback, efitimeus_t expectedTimestamp) {
-	TestExecutor *executor = &engine.executor;
+scheduling_s * EngineTestHelper::assertEvent5(const char *msg, int index, action_s const& action_expected, efitimeus_t expectedTimestamp) {
+	TestExecutor *executor = &engine.scheduler;
 	EXPECT_TRUE(executor->size() > index) << msg << " valid index";
 	scheduling_s *event = executor->getForUnitTest(index);
-	assertEqualsM4(msg, " callback up/down", (void*)event->action.getCallback() == (void*) callback, 1);
+	assert(event != nullptr);
+
+	auto const& action_scheduled{ event->action };
+
+	EXPECT_EQ(action_scheduled.getCallback(), action_expected.getCallback()) << msg << " callback up/down";
 	efitimeus_t start = getTimeNowUs();
-	assertEqualsM2(msg, expectedTimestamp, event->getMomentUs() - start, /*3us precision to address rounding etc*/3);
+	EXPECT_NEAR(expectedTimestamp, event->getMomentUs() - start,/*3us precision to address rounding etc*/3) << msg;
 	return event;
 }
 
@@ -312,35 +409,89 @@ angle_t EngineTestHelper::timeToAngle(float timeMs) {
 
 const AngleBasedEvent * EngineTestHelper::assertTriggerEvent(const char *msg,
 		int index, AngleBasedEvent *expected,
-		void *callback,
+		action_s const& action_expected,
 		angle_t enginePhase) {
 	auto event = engine.module<TriggerScheduler>()->getElementAtIndexForUnitTest(index);
 
-	if (callback) {
-		assertEqualsM4(msg, " callback up/down", (void*)event->action.getCallback() == (void*) callback, 1);
+	if (action_expected) {
+		auto const& action_scheduled{ event->action };
+		EXPECT_EQ(action_scheduled.getCallback(), action_expected.getCallback()) << " callback up/down";
 	}
 
-	assertEqualsM4(msg, " angle", enginePhase, event->getAngle());
+	EXPECT_NEAR(enginePhase, event->getAngle(), EPS4D) << " angle";
 	return event;
 }
 
-scheduling_s * EngineTestHelper::assertScheduling(const char *msg, int index, scheduling_s *expected, void *callback, efitimeus_t expectedTimestamp) {
-	scheduling_s * actual = assertEvent5(msg, index, callback, expectedTimestamp);
+scheduling_s * EngineTestHelper::assertScheduling(const char *msg, int index, scheduling_s *expected, action_s const& action, efitimeus_t expectedTimestamp) {
+	scheduling_s * actual = assertEvent5(msg, index, action, expectedTimestamp);
 	return actual;
 }
 
-void EngineTestHelper::assertEvent(const char *msg, int index, void *callback, efitimeus_t momentUs, InjectionEvent *expectedEvent) {
-	scheduling_s *event = assertEvent5(msg, index, callback, momentUs);
+void EngineTestHelper::assertEvent(const char *msg, int index, action_s const& action, efitimeus_t momentUs, InjectionEvent *expectedEvent) {
+	scheduling_s *event = assertEvent5(msg, index, action, momentUs);
 
-	InjectionEvent *actualEvent = (InjectionEvent *)event->action.getArgument();
+	auto const actualEvent{ event->action.getArgument<InjectionEvent*>() };
 
-	assertEqualsLM(msg, (uintptr_t)expectedEvent->outputs[0], (uintptr_t)actualEvent->outputs[0]);
+	ASSERT_EQ(expectedEvent->outputs[0], actualEvent->outputs[0]) << msg;
 // but this would not work	assertEqualsLM(msg, expectedPair, (long)eventPair);
 }
 
+bool EngineTestHelper::assertEventExistsAtEnginePhase(const char *msg, action_s const& action_expected, angle_t expectedEventEnginePhase){
+	TestExecutor *executor = &engine.scheduler;
+
+	//std::cout << "executor->size():              " << executor->size() << std::endl;
+	//std::cout << "expected_action.getCallback():  0x" << std::hex << reinterpret_cast<size_t>(action_expected.getCallback()) << "; name: " << action_expected.getCallbackName() << std::endl;
+
+	for (int i = 0; i < executor->size(); i++) {
+		auto event = executor->getForUnitTest(i);
+		assert(event != nullptr);
+
+		auto const action_scheduled{ event->action };
+
+		// Uncomment next to see what was stored in executor queue
+		// std::cout << "action_scheduled.getCallback(): 0x" << std::hex << reinterpret_cast<size_t>(action_scheduled.getCallback()) << "; name: " << action_scheduled.getCallbackName() << std::endl;
+
+		if(action_scheduled.getCallback() == action_expected.getCallback()) {
+			efitimeus_t start = getTimeNowUs();
+			efitimeus_t expectedTimestamp = angleToTimeUs(expectedEventEnginePhase);
+			// after #7245 we can increase the resolution of this test for expect 0.5 or less
+			EXPECT_NEAR( expectedTimestamp, event->getMomentUs() - start, angleToTimeUs( 1 ) )
+                            << "Expected angle: " << expectedEventEnginePhase << " but got " << (event->getMomentUs() - start) / engine.rpmCalculator.oneDegreeUs << " -- "
+                            << msg;
+			return true;
+		}
+	}
+	return false;
+}
+
+void EngineTestHelper::spin60_2UntilDeg(struct testSpinEngineUntilData& spinInfo, int targetRpm, float targetDegree) {
+  	volatile float tick_per_deg = 6000 * 60 / 360 / (float)targetRpm;
+	constexpr float tooth_per_deg = 360 / 60;
+
+	size_t targetTooth = (targetDegree - spinInfo.currentDegree) / tooth_per_deg;
+
+	for (size_t i = 0; i < targetTooth; i++) {
+		if (spinInfo.currentTooth < 30 || spinInfo.currentTooth > 31) {
+			smartFireTriggerEvents2(1 /* count */, tick_per_deg /*ms*/);
+		}
+
+		if (spinInfo.currentTooth == 30) {
+			// now fire missed tooth rise/fall
+    		fireRise(tick_per_deg * 5 /*ms*/);
+    		fireFall(tick_per_deg);
+    		executeActions();
+		}
+
+		if (spinInfo.currentTooth > 58) {
+            spinInfo.currentTooth = 0;
+		}
+
+		spinInfo.currentTooth++;
+	}
+}
 
 void EngineTestHelper::applyTriggerWaveform() {
-	engine.updateTriggerWaveform();
+	engine.updateTriggerConfiguration();
 
 	incrementGlobalConfigurationVersion("helper");
 }
@@ -360,7 +511,7 @@ void setupSimpleTestEngineWithMaf(EngineTestHelper *eth, injection_mode_e inject
 	engineConfiguration->crankingInjectionMode = IM_SIMULTANEOUS;
 
 	setArrayValues(config->cltFuelCorrBins, 1.0f);
-	setArrayValues(engineConfiguration->injector.battLagCorr, 0.0f);
+	setFlatInjectorLag(0.0);
 	// this is needed to update injectorLag
 	engine->updateSlowSensors();
 
@@ -383,4 +534,8 @@ void setupSimpleTestEngineWithMafAndTT_ONE_trigger(EngineTestHelper *eth, inject
 void setVerboseTrigger(bool isEnabled) {
 	printTriggerDebug = isEnabled;
 	printTriggerTrace = isEnabled;
+}
+
+warningBuffer_t * getRecentWarnings() {
+  return &engine->engineState.warnings.recentWarnings;
 }

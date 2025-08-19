@@ -3,23 +3,24 @@ package com.rusefi.ts_plugin;
 import com.efiAnalytics.plugin.ecu.ControllerAccess;
 import com.efiAnalytics.plugin.ecu.ControllerException;
 import com.efiAnalytics.plugin.ecu.ControllerParameterChangeListener;
-import com.opensr5.ini.IniFileModel;
+import com.opensr5.ini.IniFileModelImpl;
 import com.opensr5.ini.field.IniField;
 import com.rusefi.NamedThreadFactory;
 import com.rusefi.TsTuneReader;
-import com.rusefi.config.generated.Fields;
+import com.rusefi.config.generated.VariableRegistryValues;
 import com.rusefi.tools.online.Online;
 import com.rusefi.tools.online.UploadResult;
 import com.rusefi.ts_plugin.util.ManifestHelper;
 import com.rusefi.tune.xml.Msq;
 import com.rusefi.ui.AuthTokenPanel;
 import com.rusefi.ui.util.URLLabel;
-import org.apache.http.concurrent.FutureCallback;
+import org.apache.hc.core5.concurrent.FutureCallback;
 import org.putgemin.VerticalFlowLayout;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.io.FileNotFoundException;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ThreadFactory;
@@ -176,12 +177,17 @@ public class TuneUploadTab {
     }
 
     private void subscribeToUpdates(String configurationName, ControllerAccess controllerAccess) {
-        IniFileModel model = new IniFileModel().readIniFile(TsTuneReader.getProjectModeFileName(configurationName));
-        Map<String, IniField> allIniFields = model.allIniFields;
-        if (model.allIniFields == null)
+        IniFileModelImpl model = null;
+        try {
+            model = IniFileModelImpl.readIniFile(TsTuneReader.getProjectModeFileName(configurationName));
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        Map<String, IniField> allIniFields = model.getAllIniFields();
+        if (model.getAllIniFields() == null)
             return;
         for (Map.Entry<String, IniField> field : allIniFields.entrySet()) {
-            boolean isOnlineTuneField = field.getValue().getOffset() >= Fields.engine_configuration_s_size;
+            boolean isOnlineTuneField = field.getValue().getOffset() >= VariableRegistryValues.engine_configuration_s_size;
             if (!isOnlineTuneField) {
                 try {
                     controllerAccess.getControllerParameterServer().subscribe(configurationName, field.getKey(), listener);

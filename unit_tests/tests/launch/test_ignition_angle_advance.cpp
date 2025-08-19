@@ -41,7 +41,7 @@ namespace {
             const std::optional<bool> launchControlEnabled,
             const std::optional<bool> ignitionRetardEnable,
             const std::optional<bool> smoothRetardMode,
-            const bool satifySwitchSpeedThresholdAndTpsConditions
+            const bool satisfySwitchSpeedThresholdAndTpsConditions
         );
     };
 
@@ -49,7 +49,7 @@ namespace {
         const std::optional<bool> launchControlEnabled,
         const std::optional<bool> ignitionRetardEnable,
         const std::optional<bool> smoothRetardMode,
-        const bool satifySwitchSpeedThresholdAndTpsConditions
+        const bool satisfySwitchSpeedThresholdAndTpsConditions
     ) {
         setLaunchControlEnabled(launchControlEnabled);
 
@@ -63,7 +63,7 @@ namespace {
 
         setEnableIgnitionCut(true);
 
-        setSatisfyActivationSwithSpeedAndTpsConditions(satifySwitchSpeedThresholdAndTpsConditions);
+        setSatisfyActivationSwitchSpeedAndTpsConditions(satisfySwitchSpeedThresholdAndTpsConditions);
     }
 
     struct IgnitionAngleAdvanceTestData {
@@ -73,6 +73,7 @@ namespace {
         const float epsilon = EPS5D;
     };
 
+#if (IGN_RPM_COUNT == 16) // the following test uses hardcoded test ignition table with 16 columns
     class IgnitionAngleAdvanceTest : public LaunchTestBase {
     protected:
         void doTest(
@@ -127,24 +128,27 @@ namespace {
     };
 
     void IgnitionAngleAdvanceTest::configureTestIgnitionTable() {
+        IgnitionTable testIgnitionTable;
         for (int loadIdx = 0; loadIdx < IGN_LOAD_COUNT; loadIdx++) {
-            config->ignitionTable[loadIdx][0] = TEST_IGNITION_650;
-            config->ignitionTable[loadIdx][1] = TEST_IGNITION_800;
-            config->ignitionTable[loadIdx][2] = TEST_IGNITION_1100;
-            config->ignitionTable[loadIdx][3] = TEST_IGNITION_1400;
-            config->ignitionTable[loadIdx][4] = TEST_IGNITION_1700;
-            config->ignitionTable[loadIdx][5] = TEST_IGNITION_2000;
-            config->ignitionTable[loadIdx][6] = TEST_IGNITION_2300;
-            config->ignitionTable[loadIdx][7] = TEST_IGNITION_2600;
-            config->ignitionTable[loadIdx][8] = TEST_IGNITION_2900;
-            config->ignitionTable[loadIdx][9] = TEST_IGNITION_3200;
-            config->ignitionTable[loadIdx][10] = TEST_IGNITION_3500;
-            config->ignitionTable[loadIdx][11] = TEST_IGNITION_3800;
-            config->ignitionTable[loadIdx][12] = TEST_IGNITION_4100;
-            config->ignitionTable[loadIdx][13] = TEST_IGNITION_4400;
-            config->ignitionTable[loadIdx][14] = TEST_IGNITION_4700;
-            config->ignitionTable[loadIdx][15] = TEST_IGNITION_7000;
-        }
+            testIgnitionTable[loadIdx][0] = TEST_IGNITION_650;
+            testIgnitionTable[loadIdx][1] = TEST_IGNITION_800;
+            testIgnitionTable[loadIdx][2] = TEST_IGNITION_1100;
+            testIgnitionTable[loadIdx][3] = TEST_IGNITION_1400;
+            testIgnitionTable[loadIdx][4] = TEST_IGNITION_1700;
+            testIgnitionTable[loadIdx][5] = TEST_IGNITION_2000;
+            testIgnitionTable[loadIdx][6] = TEST_IGNITION_2300;
+            testIgnitionTable[loadIdx][7] = TEST_IGNITION_2600;
+            testIgnitionTable[loadIdx][8] = TEST_IGNITION_2900;
+            testIgnitionTable[loadIdx][9] = TEST_IGNITION_3200;
+            testIgnitionTable[loadIdx][10] = TEST_IGNITION_3500;
+            testIgnitionTable[loadIdx][11] = TEST_IGNITION_3800;
+            testIgnitionTable[loadIdx][12] = TEST_IGNITION_4100;
+            testIgnitionTable[loadIdx][13] = TEST_IGNITION_4400;
+            testIgnitionTable[loadIdx][14] = TEST_IGNITION_4700;
+            testIgnitionTable[loadIdx][15] = TEST_IGNITION_7000;
+            static_assert(IGN_RPM_COUNT == 16);
+        };
+        getTestPersistentConfiguration().setIgnitionTable(testIgnitionTable);
     }
 
     TEST_F(IgnitionAngleAdvanceTest, withDisabledLaunchControlAndWithoutLaunchRetardWithSatisfiedLaunchConditions) {
@@ -153,7 +157,7 @@ namespace {
                 /* launchControlEnabled = */ {},
                 /* ignitionRetardEnable = */ {},
                 /* smoothRetardMode = */ {},
-                /* satifySwitchSpeedThresholdAndTpsConditions = */ true
+                /* satisfySwitchSpeedThresholdAndTpsConditions = */ true
             },
             /* testData = */ TEST_DATA_WITHOUT_LAUNCH_ANGLE_ADVANCE
         );
@@ -168,7 +172,7 @@ namespace {
                 /* launchControlEnabled = */ { true },
                 /* ignitionRetardEnable = */ { true },
                 /* smoothRetardMode = */ { false },
-                /* satifySwitchSpeedThresholdAndTpsConditions = */ true
+                /* satisfySwitchSpeedThresholdAndTpsConditions = */ true
             },
             /* testData = */ {
                 { "TEST_IGNITION_650",  650,  TEST_IGNITION_650 },
@@ -205,7 +209,7 @@ namespace {
                /* launchControlEnabled = */ { true },
                /* ignitionRetardEnable = */ { true },
                /* smoothRetardMode = */ { true },
-               /* satifySwitchSpeedThresholdAndTpsConditions = */ true
+               /* satisfySwitchSpeedThresholdAndTpsConditions = */ true
             },
             /* testData = */ {
                 { "TEST_IGNITION_650",  650,  TEST_IGNITION_650 },
@@ -258,7 +262,7 @@ namespace {
                 /* launchControlEnabled = */ { false },
                 /* ignitionRetardEnable = */ { true },
                 /* smoothRetardMode = */ { false },
-                /* satifySwitchSpeedThresholdAndTpsConditions = */ true
+                /* satisfySwitchSpeedThresholdAndTpsConditions = */ true
             },
             /* testData = */ TEST_DATA_WITHOUT_LAUNCH_ANGLE_ADVANCE
         );
@@ -270,7 +274,7 @@ namespace {
                 /* launchControlEnabled = */ { false },
                 /* ignitionRetardEnable = */ { true },
                 /* smoothRetardMode = */ { true },
-                /* satifySwitchSpeedThresholdAndTpsConditions = */ true
+                /* satisfySwitchSpeedThresholdAndTpsConditions = */ true
             },
             /* testData = */ TEST_DATA_WITHOUT_LAUNCH_ANGLE_ADVANCE
         );
@@ -287,7 +291,7 @@ namespace {
                 /* launchControlEnabled = */ { false },
                 /* ignitionRetardEnable = */ { false },
                 /* smoothRetardMode = */ { false },
-                /* satifySwitchSpeedThresholdAndTpsConditions = */ false
+                /* satisfySwitchSpeedThresholdAndTpsConditions = */ false
             },
             /* testData = */ TEST_DATA_WITHOUT_LAUNCH_ANGLE_ADVANCE
         );
@@ -302,7 +306,7 @@ namespace {
                 /* launchControlEnabled = */ { true },
                 /* ignitionRetardEnable = */ { true },
                 /* smoothRetardMode = */ { false },
-                /* satifySwitchSpeedThresholdAndTpsConditions = */ false
+                /* satisfySwitchSpeedThresholdAndTpsConditions = */ false
             },
             /* testData = */ TEST_DATA_WITHOUT_LAUNCH_ANGLE_ADVANCE
         );
@@ -317,7 +321,7 @@ namespace {
                 /* launchControlEnabled = */ { true },
                 /* ignitionRetardEnable = */ { true },
                 /* smoothRetardMode = */ { true },
-                /* satifySwitchSpeedThresholdAndTpsConditions = */ false
+                /* satisfySwitchSpeedThresholdAndTpsConditions = */ false
             },
             /* testData = */ TEST_DATA_WITHOUT_LAUNCH_ANGLE_ADVANCE
         );
@@ -332,7 +336,7 @@ namespace {
                                        /* launchControlEnabled = */ { false },
                                        /* ignitionRetardEnable = */ { true },
                                        /* smoothRetardMode = */ { false },
-                                       /* satifySwitchSpeedThresholdAndTpsConditions = */ false
+                                       /* satisfySwitchSpeedThresholdAndTpsConditions = */ false
                                },
                 /* testData = */ TEST_DATA_WITHOUT_LAUNCH_ANGLE_ADVANCE
         );
@@ -347,9 +351,10 @@ namespace {
                                        /* launchControlEnabled = */ { false },
                                        /* ignitionRetardEnable = */ { true },
                                        /* smoothRetardMode = */ { true },
-                                       /* satifySwitchSpeedThresholdAndTpsConditions = */ false
+                                       /* satisfySwitchSpeedThresholdAndTpsConditions = */ false
                                },
                 /* testData = */ TEST_DATA_WITHOUT_LAUNCH_ANGLE_ADVANCE
         );
     }
+#endif //(IGN_RPM_COUNT == 16)
 }

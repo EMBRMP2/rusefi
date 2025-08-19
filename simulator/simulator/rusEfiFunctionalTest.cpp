@@ -17,7 +17,6 @@
 #include "status_loop.h"
 #include "trigger_emulator_algo.h"
 #include "main_trigger_callback.h"
-#include "sensor_chart.h"
 #include "bench_test.h"
 #include "tunerstudio.h"
 #include "map_averaging.h"
@@ -147,6 +146,7 @@ static void assertNear(float actual, float expected) {
 }
 
 static void	runNotSquareTest() {
+    // [tag:runNotSquareTest]
     assertNear(getscriptTable(3)->getValue(0, 20), 140);
     assertNear(getscriptTable(3)->getValue(0, 30), 240);
 
@@ -166,6 +166,8 @@ static void writeEngineTypeDefaultConfig(engine_type_e type) {
 }
 
 void rusEfiFunctionalTest() {
+  printf("Running rusEFI simulator version: [%d]", (int)getRusEfiVersion());
+  // todo: do we still need 'printToConsole' for any reason?!
 	printToConsole("Running rusEFI simulator version:");
 	static char versionBuffer[20];
 	itoa10(versionBuffer, (int)getRusEfiVersion());
@@ -182,25 +184,11 @@ void rusEfiFunctionalTest() {
 
 	initFlash();
 
-  // [CannedTunes] at the moment we manually sync this list with WriteSimulatorConfiguration.java
-	for (auto const type : {
-			engine_type_e::MERCEDES_M111,
-			engine_type_e::BMW_M52,
-			engine_type_e::MAZDA_MIATA_NA6,
-			engine_type_e::MAZDA_MIATA_NA94,
-			engine_type_e::MAZDA_MIATA_NA96,
-			engine_type_e::MAZDA_MIATA_NB1,
-			engine_type_e::MAZDA_MIATA_NB2,
-			engine_type_e::HONDA_OBD1,
-			engine_type_e::HONDA_K,
-			engine_type_e::HELLEN_121_NISSAN_6_CYL,
-			engine_type_e::HELLEN_154_HYUNDAI_COUPE_BK1,
-			engine_type_e::HELLEN_154_HYUNDAI_COUPE_BK2,
-			engine_type_e::POLARIS_RZR,
-			engine_type_e::HYUNDAI_PB,
-			engine_type_e::MAVERICK_X3,
-			engine_type_e::HARLEY,
-	} ) {
+  printf("[CannedTunes]: %d \n", (int)getLastEngineType());
+  // [CannedTunes] let's export all just for simplicity. See also WriteSimulatorConfiguration.java
+	for (size_t typeIndex = 0;typeIndex<(size_t)getLastEngineType();typeIndex++) {
+    engine_type_e type = (engine_type_e)typeIndex;
+		printf("[CannedTunes]: testing engineConfig: %d \n", (int)type);
 		writeEngineTypeDefaultConfig(type);
 	}
 
@@ -236,7 +224,8 @@ void rusEfiFunctionalTest() {
 
 	engineConfiguration->enableVerboseCanTx = true;
 
-	initPeriodicEvents();
+	initPeriodicEvents(); //TODO: replace to initMainLoop();
+	initMainLoop();
 	rememberCurrentConfiguration();
 
 	extern bool main_loop_started;
@@ -264,7 +253,7 @@ void onFatalError(const char *msg, const char * file, int line) {
 	exit(-1);
 }
 
-void logMsg(const char *format, ...) {
+void logMsg(const char * /*format*/, ...) {
 //	FILE * fp;
 //	fp = fopen ("simulator.log", "a");
 //
@@ -277,7 +266,7 @@ void logMsg(const char *format, ...) {
 
 #if HAL_USE_CAN
 static bool didInitCan = false;
-CANDriver* detectCanDevice(brain_pin_e pinRx, brain_pin_e pinTx) {
+CANDriver* detectCanDevice(brain_pin_e /*pinRx*/, brain_pin_e /*pinTx*/) {
 	if (didInitCan) {
 		return nullptr;
 	}

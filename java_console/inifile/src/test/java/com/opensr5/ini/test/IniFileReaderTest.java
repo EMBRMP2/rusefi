@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class IniFileReaderTest {
     private static final String PAGE_READ = "    pageReadCommand     = \"X\",       \"X\",     \"X\"\n\n\n\n";
+    private static final String CRC_READ = "    crc32CheckCommand     = \"X\",       \"X\",     \"X\"\n\n\n\n";
     private static final String SIGNATURE_UNIT_TEST = "  signature      = \"unit test\"\n";
     private static final double EPS = 0.00001;
 
@@ -93,13 +94,15 @@ public class IniFileReaderTest {
         String string = "   nPages              = 3\n" +
                 SIGNATURE_UNIT_TEST +
                 PAGE_READ +
+            CRC_READ +
+            "ochBlockSize=1\n" +
                 "   pageSize            = 288,   64,     288\n";
 
 
-        IniFileMetaInfo meta = new IniFileMetaInfo(fromString(string));
+        IniFileMetaInfo meta = new IniFileMetaInfoImpl(fromString(string));
 
         assertEquals(3, meta.getnPages());
-        assertEquals(IniFileMetaInfo.DEFAULT_BLOCKING_FACTOR, meta.getBlockingFactor());
+        assertEquals(IniFileMetaInfoImpl.DEFAULT_BLOCKING_FACTOR, meta.getBlockingFactor());
         assertEquals(640, meta.getTotalSize());
         assertEquals("unit test", meta.getSignature());
 
@@ -114,8 +117,10 @@ public class IniFileReaderTest {
 
     @Test
     public void testCurve() {
-        String string = "page = 1\n" +
+        String string =
+            "   ; generates [SettingContextHelp]\n" +
                 "[Constants]\n" +
+                "page = 1\n" +
                 "scriptCurve1Bins = array, F32, 4828, [16], \"x\", 1, 0, -10000, 10000, 3\n" +
                 "scriptCurve1 = array, F32, 4892, [16], \"y\", 1, 0, -10000, 10000, 3\n " +
                 "[CurveEditor]\n" +
@@ -127,15 +132,35 @@ public class IniFileReaderTest {
                 "\t\tyBins\t\t= scriptCurve1\n" +
                 "\t\tshowTextValues = true\n";
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
-        assertEquals(2, model.allIniFields.size());
-        assertEquals(2, model.fieldsInUiOrder.size());
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
+        // technically these are constants?!
+        assertEquals(2, model.getAllIniFields().size());
+        assertEquals(2, model.getFieldsInUiOrder().size());
+    }
+
+    @Test
+    public void testMultiPage() {
+        String string =
+            "[Constants]\n" +
+            "page = 2\n" +
+            "scriptCurve2Bins = array, F32, 4828, [16], \"x\", 1, 0, -10000, 10000, 3\n" +
+            "scriptCurve2 = array, F32, 4892, [16], \"y\", 1, 0, -10000, 10000, 3\n " +
+            "page = 1\n" +
+            "scriptCurve1Bins = array, F32, 4828, [16], \"x\", 1, 0, -10000, 10000, 3\n" +
+            "scriptCurve1 = array, F32, 4892, [16], \"y\", 1, 0, -10000, 10000, 3\n "
+    ;
+        RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
+
+        assertEquals(4, model.getAllIniFields().size());
+        assertEquals(0, model.getFieldsInUiOrder().size());
     }
 
     @Test
     public void testTable() {
-        String string = "page = 1\n" +
+        String string =
                 "[Constants]\n" +
+                "page = 1\n" +
                 "tpsTpsAccelTable = array, F32, 19744, [8x8], \"value\", 1, 0, 0, 30000, 2\n" +
                 "tpsTpsAccelFromRpmBins = array, F32, 20000, [8], \"from\", 1, 0, 0, 30000, 2\n" +
                 "tpsTpsAccelToRpmBins = array, F32, 20032, [8], \"to\", 1, 0, 0, 25500, 2\n\n " +
@@ -146,12 +171,12 @@ public class IniFileReaderTest {
                 "\t\tyBins\t\t= tpsTpsAccelToRpmBins,  TPSValue\n" +
                 "\t\tzBins\t\t= tpsTpsAccelTable";
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
-        assertEquals(3, model.allIniFields.size());
-        assertEquals(3, model.fieldsInUiOrder.size());
-        assertTrue(model.fieldsInUiOrder.containsKey("tpsTpsAccelToRpmBins"));
-        assertFalse(model.fieldsInUiOrder.containsKey("tpsTpsAccelTbl"));
-        assertTrue(model.fieldsInUiOrder.containsKey("tpsTpsAccelTable"));
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
+        assertEquals(3, model.getAllIniFields().size());
+        assertEquals(3, model.getFieldsInUiOrder().size());
+        assertTrue(model.getFieldsInUiOrder().containsKey("tpsTpsAccelToRpmBins"));
+        assertFalse(model.getFieldsInUiOrder().containsKey("tpsTpsAccelTbl"));
+        assertTrue(model.getFieldsInUiOrder().containsKey("tpsTpsAccelTable"));
     }
 
     @Test
@@ -164,10 +189,10 @@ public class IniFileReaderTest {
                 "\tlambdaTable\t\t\t\t\t = array, U08, 18592, [16x16],\"deg\", 0.1, 0, 0, 25.0, 1\n" +
                 "#endif\n";
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
 
-        assertEquals(1, model.allIniFields.size());
-        assertEquals(0, model.fieldsInUiOrder.size()); // no UI for the field
+        assertEquals(1, model.getAllIniFields().size());
+        assertEquals(0, model.getFieldsInUiOrder().size()); // no UI for the field
     }
 
     @Test
@@ -179,10 +204,10 @@ public class IniFileReaderTest {
                         "primingSquirtDurationMs\t\t\t= scalar, F32,\t96,\t\"*C\", 1.0, 0, -40, 200, 1\n" +
                         "";
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
-        assertEquals(1, model.allIniFields.size());
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
+        assertEquals(1, model.getAllIniFields().size());
 
-        String crcProtocol = model.protocolMeta.get("crc32CheckCommand");
+        String crcProtocol = model.getProtocolMeta().get("crc32CheckCommand");
         assertEquals("k\\x00\\x00\\x00\\x00\\x00\\x00", crcProtocol);
 
         byte[] expected = {'k', 0, 0, 0, 0, 0, 0};
@@ -198,9 +223,9 @@ public class IniFileReaderTest {
                 "\tiat_adcChannel\t\t\t\t = bits, U08, 312, [0:7] \"PA0\", \"PA1\", \"PA2\", \"PA3\", \"PA4\", \"PA5\", \"PA6\", \"PA7\", \"PB0\", \"PB1\", \"PC0\", \"PC1\", \"PC2\", \"PC3\", \"PC4\", \"PC5\", \"Disabled\", \"PB12\", \"PB13\", \"PC14\", \"PC15\", \"PC16\", \"PC17\", \"PD3\", \"PD4\", \"PE2\", \"PE6\", \"INVALID\", \"INVALID\", \"INVALID\", \"INVALID\", \"INVALID\"\n";
 
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
 
-        assertEquals(2, model.allIniFields.size());
+        assertEquals(2, model.getAllIniFields().size());
     }
 
     @Test
@@ -212,12 +237,12 @@ public class IniFileReaderTest {
                 "\tiat_adcChannel\t\t\t\t = bits, U08, 312, [0:7] $gpio_list\n";
 
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
-        assertEquals(1, model.defines.size());
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
+        assertEquals(1, model.getDefines().size());
 
-        EnumIniField field = (EnumIniField) model.allIniFields.get("iat_adcChannel");
+        EnumIniField field = (EnumIniField) model.getAllIniFields().get("iat_adcChannel");
         assertEquals(7, field.getEnums().size());
-        assertEquals(2, model.allIniFields.size());
+        assertEquals(2, model.getAllIniFields().size());
     }
 
     @Test
@@ -253,11 +278,11 @@ public class IniFileReaderTest {
                 "\tname\t= bits,    U32,   \t744, [3:5], \"false\", \"true\"";
 
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
 
-        assertEquals(1, model.allIniFields.size());
+        assertEquals(1, model.getAllIniFields().size());
 
-        EnumIniField field = (EnumIniField) model.allIniFields.get("name");
+        EnumIniField field = (EnumIniField) model.getAllIniFields().get("name");
         assertEquals(3, field.getBitPosition());
         assertEquals(2, field.getBitSize0());
         assertEquals(2, field.getEnums().size());
@@ -273,10 +298,10 @@ public class IniFileReaderTest {
                 " \tname3\t\t\t= array, F32,\t108,\t[8],\t\"\", 1, 0, 0.0, 18000, 2\n";
 
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
 
-        assertEquals(1, model.allIniFields.size());
-        ArrayIniField field = (ArrayIniField) model.allIniFields.get("name");
+        assertEquals(1, model.getAllIniFields().size());
+        ArrayIniField field = (ArrayIniField) model.getAllIniFields().get("name");
         assertNotNull(field);
         assertEquals(1, field.getCols());
         assertEquals(8, field.getRows());
@@ -293,11 +318,11 @@ public class IniFileReaderTest {
                 "#endif";
 
         RawIniFile lines = IniFileReader.read(new ByteArrayInputStream(string.getBytes()));
-        IniFileModel model = new IniFileModel().readIniFile(lines);
+        IniFileModel model = IniFileModelImpl.readIniFile(lines, false, "");
 
-        assertEquals(1, model.allIniFields.size());
+        assertEquals(1, model.getAllIniFields().size());
 
-        EnumIniField field = (EnumIniField) model.allIniFields.get("name");
+        EnumIniField field = (EnumIniField) model.getAllIniFields().get("name");
         assertEquals(0, field.getBitPosition());
         assertEquals(2, field.getBitSize0());
         assertEquals(1, field.getEnums().size());

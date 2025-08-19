@@ -26,7 +26,7 @@
 
 #include "pch.h"
 #include "status_loop.h"
-#include "hip9011_logic.h"
+#include "electronic_throttle.h"
 
 #if EFI_LOGIC_ANALYZER
 #include "logic_analyzer.h"
@@ -39,7 +39,6 @@
 #include "malfunction_central.h"
 #include "speed_density.h"
 
-#include "advance_map.h"
 #include "tunerstudio.h"
 #include "fuel_math.h"
 #include "main_trigger_callback.h"
@@ -48,7 +47,7 @@
 #include "can_hw.h"
 #include "periodic_thread_controller.h"
 #include "cdm_ion_sense.h"
-#include "binary_logging.h"
+#include "binary_mlg_logging.h"
 #include "buffered_writer.h"
 #include "dynoview.h"
 #include "frequency_sensor.h"
@@ -66,10 +65,11 @@
 #endif /* EFI_PROD_CODE */
 
 #if EFI_CONFIGURATION_STORAGE
+#include "storage.h"
 #include "flash_main.h"
 #endif
 
-#if EFI_MAP_AVERAGING
+#if EFI_MAP_AVERAGING && defined (MODULE_MAP_AVERAGING)
 #include "map_averaging.h"
 #endif
 
@@ -81,8 +81,6 @@
 #include "engine_sniffer.h"
 extern WaveChart waveChart;
 #endif /* EFI_ENGINE_SNIFFER */
-
-#include "sensor_chart.h"
 
 extern int maxTriggerReentrant;
 extern uint32_t maxLockedDuration;
@@ -132,12 +130,6 @@ static void printEngineSnifferPinMappings() {
 		extern const char *vvtNames[];
 		printOutPin(vvtNames[i], engineConfiguration->camInputs[i]);
 	}
-	printOutPin(PROTOCOL_HIP_NAME, engineConfiguration->hip9011IntHoldPin);
-	printOutPin(PROTOCOL_TACH_NAME, engineConfiguration->tachOutputPin);
-#if EFI_LOGIC_ANALYZER
-	printOutPin(PROTOCOL_WA_CHANNEL_1, engineConfiguration->logicAnalyzerPins[0]);
-	printOutPin(PROTOCOL_WA_CHANNEL_2, engineConfiguration->logicAnalyzerPins[1]);
-#endif /* EFI_LOGIC_ANALYZER */
 
 	int cylCount = minI(engineConfiguration->cylindersCount, MAX_CYLINDER_COUNT);
 	for (int i = 0; i < cylCount; i++) {
@@ -145,9 +137,6 @@ static void printEngineSnifferPinMappings() {
 		printOutPin(enginePins.trailingCoils[i].getShortName(), engineConfiguration->trailingCoilPins[i]);
 		printOutPin(enginePins.injectors[i].getShortName(), engineConfiguration->injectionPins[i]);
 		printOutPin(enginePins.injectorsStage2[i].getShortName(), engineConfiguration->injectionPinsStage2[i]);
-	}
-	for (int i = 0; i < AUX_DIGITAL_VALVE_COUNT;i++) {
-		printOutPin(enginePins.auxValve[i].getShortName(), engineConfiguration->auxValves[i]);
 	}
 #endif /* EFI_PROD_CODE */
 }
@@ -157,9 +146,6 @@ void printOverallStatus() {
 	waveChart.publishIfFull();
 #endif /* EFI_ENGINE_SNIFFER */
 
-#if EFI_SENSOR_CHART
-	publishSensorChartIfFull();
-#endif // EFI_SENSOR_CHART
 
 	/**
 	 * we report the version every second - this way the console does not need to
@@ -201,6 +187,10 @@ void updateDevConsoleState() {
 		return;
 	}
 #endif /* EFI_PROD_CODE */
+
+#if EFI_RTC
+  engine->outputChannels.rtcUnixEpochTime = getEpochTime();
+#endif
 
 #if HAL_USE_ADC
 	printFullAdcReportIfNeeded();
@@ -282,14 +272,16 @@ class CommunicationBlinkingTask : public PeriodicTimerController {
 			setAllLeds(0);
 		} else if (counter % 2 == 0) {
 			enginePins.communicationLedPin.setValue(0, /*force*/true);
-#if HW_CHECK_SD
-extern int totalLoggedBytes;
-			if (totalLoggedBytes > 2000) {
-				enginePins.communicationLedPin.setValue(1);
-			}
-#endif // HW_CHECK_SD
 
-			enginePins.warningLedPin.setValue(0);
+#if EFI_FILE_LOGGING
+  extern bool needErrorReportFile;
+#else
+#define needErrorReportFile false
+#endif // EFI_FILE_LOGGING
+      // todo: properly encapsulate warning LED logic!
+      if (!needErrorReportFile) {
+			  enginePins.warningLedPin.setValue(0);
+			}
 		} else {
 #define BLINKING_PERIOD_MS 33
 
@@ -316,11 +308,6 @@ extern int totalLoggedBytes;
 			}
 
 			enginePins.communicationLedPin.setValue(1, /*force*/true);
-//#if HW_CHECK_MODE
-//			// we have to do anything possible to help users notice FACTORY MODE
-//			enginePins.errorLedPin.setValue(0);
-//			enginePins.runningLedPin.setValue(0);
-//#endif // HW_CHECK_MODE
 
 	#if EFI_ENGINE_CONTROL
 			if (isTriggerErrorNow()) {
@@ -340,10 +327,6 @@ private:
 static CommunicationBlinkingTask communicationsBlinkingTask;
 
 #endif /* EFI_PROD_CODE */
-
-#if EFI_HIP_9011
-extern HIP9011 instance;
-#endif /* EFI_HIP_9011 */
 
 
 #if EFI_TUNER_STUDIO
@@ -398,12 +381,12 @@ static void updateThrottles() {
 	SensorResult tps2 = Sensor::get(SensorType::Tps2);
 	engine->outputChannels.TPS2Value = tps2.value_or(0);
 	// If we don't have a TPS2 at all, don't turn on the failure light
-	engine->outputChannels.isTps2Error = isTps2Error();
+	engine->outputChannels.isTps2Error = Sensor::hasSensor(SensorType::Tps2Primary) ? !tps2.Valid : false;
 
 	SensorResult pedal = Sensor::get(SensorType::AcceleratorPedal);
 	engine->outputChannels.throttlePedalPosition = pedal.value_or(0);
 	// Only report fail if you have one (many people don't)
-	engine->outputChannels.isPedalError = isPedalError();
+	engine->outputChannels.isPedalError = !pedal.Valid;
 
 	// TPS 1 pri/sec split
 	engine->outputChannels.tps1Split = Sensor::getOrZero(SensorType::Tps1Primary) - Sensor::getOrZero(SensorType::Tps1Secondary);
@@ -413,21 +396,25 @@ static void updateThrottles() {
 	engine->outputChannels.tps12Split = Sensor::getOrZero(SensorType::Tps1) - Sensor::getOrZero(SensorType::Tps2);
 	// Pedal pri/sec split
 	engine->outputChannels.accPedalSplit = Sensor::getOrZero(SensorType::AcceleratorPedalPrimary) - Sensor::getOrZero(SensorType::AcceleratorPedalSecondary);
+
+	engine->outputChannels.accPedalUnfiltered = Sensor::getOrZero(SensorType::AcceleratorPedalUnfiltered);
 	updateUnfilteredRawPedal();
 }
 
 static void updateLambda() {
 	float lambdaValue = Sensor::getOrZero(SensorType::Lambda1);
 	engine->outputChannels.lambdaValue = lambdaValue;
-#if EFI_ENGINE_CONTROL
 	engine->outputChannels.AFRValue = lambdaValue * engine->fuelComputer.stoichiometricRatio;
+	// TODO: this can be calculated on PC side!
 	engine->outputChannels.afrGasolineScale = lambdaValue * STOICH_RATIO;
+	engine->outputChannels.SmoothedAFRValue = Sensor::getOrZero(SensorType::SmoothedLambda1);
 
 	float lambda2Value = Sensor::getOrZero(SensorType::Lambda2);
 	engine->outputChannels.lambdaValue2 = lambda2Value;
 	engine->outputChannels.AFRValue2 = lambda2Value * engine->fuelComputer.stoichiometricRatio;
+	// TODO: this can be calculated on PC side!
 	engine->outputChannels.afr2GasolineScale = lambda2Value * STOICH_RATIO;
-#endif // EFI_ENGINE_CONTROL
+	engine->outputChannels.SmoothedAFRValue2 = Sensor::getOrZero(SensorType::SmoothedLambda2);
 }
 
 static void updateFuelSensors() {
@@ -466,8 +453,10 @@ static void updateVehicleSpeed() {
 #if EFI_VEHICLE_SPEED
 	engine->outputChannels.vehicleSpeedKph = Sensor::getOrZero(SensorType::VehicleSpeed);
 	engine->outputChannels.wheelSlipRatio = Sensor::getOrZero(SensorType::WheelSlipRatio);
+#ifdef MODULE_GEAR_DETECTOR
 	engine->outputChannels.speedToRpmRatio = engine->module<GearDetector>()->getGearboxRatio();
 	engine->outputChannels.detectedGear = Sensor::getOrZero(SensorType::DetectedGear);
+#endif
 #endif /* EFI_VEHICLE_SPEED */
 }
 
@@ -496,6 +485,7 @@ static void updateRawSensors() {
 	engine->outputChannels.rawAuxTemp2 = Sensor::getRaw(SensorType::AuxTemp2);
 	engine->outputChannels.rawAmbientTemp = Sensor::getRaw(SensorType::AmbientTemperature);
 	engine->outputChannels.rawOilPressure = Sensor::getRaw(SensorType::OilPressure);
+	engine->outputChannels.rawFuelLevel = Sensor::getRaw(SensorType::FuelLevel);
   engine->outputChannels.rawAcPressure = Sensor::getRaw(SensorType::AcPressure);
 	engine->outputChannels.rawLowFuelPressure = Sensor::getRaw(SensorType::FuelPressureLow);
 	engine->outputChannels.rawHighFuelPressure = Sensor::getRaw(SensorType::FuelPressureHigh);
@@ -509,6 +499,11 @@ static void updateRawSensors() {
 	engine->outputChannels.rawAuxAnalog3 = Sensor::getRaw(SensorType::AuxAnalog3);
 	engine->outputChannels.rawAuxAnalog4 = Sensor::getRaw(SensorType::AuxAnalog4);
 
+#if EFI_PROD_CODE
+extern int flexCallbackCounter;
+	engine->outputChannels.rawFlexFreq = flexCallbackCounter;
+#endif // EFI_PROD_CODE
+
   for (size_t i = 0;i<LUA_GAUGE_COUNT;i++) {
 	  engine->outputChannels.luaGauges[i] = Sensor::getOrZero(luaGaugeTypes[i]);
   }
@@ -516,21 +511,31 @@ static void updateRawSensors() {
 	for (int i = 0; i < LUA_ANALOG_INPUT_COUNT; i++) {
 		adc_channel_e channel = engineConfiguration->auxAnalogInputs[i];
 		if (isAdcChannelValid(channel)) {
-			engine->outputChannels.rawAnalogInput[i] = getVoltageDivided("raw aux", channel);
+			engine->outputChannels.rawAnalogInput[i] = adcGetScaledVoltage("raw aux", channel);
 		}
 	}
 
 	// TODO: transition AFR to new sensor model
-	engine->outputChannels.rawAfr = (engineConfiguration->afr.hwChannel == EFI_ADC_NONE) ? 0 : getVoltageDivided("ego", engineConfiguration->afr.hwChannel);
+	engine->outputChannels.rawAfr = (engineConfiguration->afr.hwChannel == EFI_ADC_NONE) ? 0 : adcGetScaledVoltage("ego", engineConfiguration->afr.hwChannel);
 }
 static void updatePressures() {
 	engine->outputChannels.baroPressure = Sensor::getOrZero(SensorType::BarometricPressure);
-	engine->outputChannels.MAPValue = Sensor::getOrZero(SensorType::Map);
+  // instantMAPValue is injected in a very different way
+  float mapValue = Sensor::getOrZero(SensorType::Map);
+	engine->outputChannels.MAPValue = mapValue;
+
+	engine->outputChannels.mapFast = Sensor::getOrZero(SensorType::MapFast);
 	engine->outputChannels.oilPressure = Sensor::getOrZero(SensorType::OilPressure);
-    engine->outputChannels.acPressure = Sensor::getOrZero(SensorType::AcPressure);
+  engine->outputChannels.acPressure = Sensor::getOrZero(SensorType::AcPressure);
+
+ 	engine->outputChannels.compressorDischargePressure = Sensor::getOrZero(SensorType::CompressorDischargePressure);
+ 	engine->outputChannels.throttleInletPressure = Sensor::getOrZero(SensorType::ThrottleInletPressure);
+ 	engine->outputChannels.throttlePressureRatio = getThrottlePressureRatio(mapValue);
 
 	engine->outputChannels.auxLinear1 = Sensor::getOrZero(SensorType::AuxLinear1);
 	engine->outputChannels.auxLinear2 = Sensor::getOrZero(SensorType::AuxLinear2);
+	engine->outputChannels.auxLinear3 = Sensor::getOrZero(SensorType::AuxLinear3);
+	engine->outputChannels.auxLinear4 = Sensor::getOrZero(SensorType::AuxLinear4);
 }
 
 static void updateMiscSensors() {
@@ -563,14 +568,11 @@ static void updateSensors() {
 }
 
 static void updateFuelCorrections() {
-	for (size_t i = 0; i < STFT_BANK_COUNT; i++) {
-		engine->outputChannels.fuelPidCorrection[i] = 100.0f * (engine->engineState.stftCorrection[i] - 1.0f);
-	}
 	engine->outputChannels.Gego = 100.0f * engine->engineState.stftCorrection[0];
 }
 
 static void updateFuelResults() {
-#if EFI_VEHICLE_SPEED
+#if EFI_VEHICLE_SPEED && defined (MODULE_ODOMETER)
 	engine->outputChannels.fuelFlowRate = engine->module<TripOdometer>()->getConsumptionGramPerSecond();
 	engine->outputChannels.totalFuelConsumption = engine->module<TripOdometer>()->getConsumedGrams();
 	engine->outputChannels.ignitionOnTime = engine->module<TripOdometer>()->getIgnitionOnTime();
@@ -578,7 +580,7 @@ static void updateFuelResults() {
 
 	// output channel in km
 	engine->outputChannels.distanceTraveled = 0.001f * engine->module<TripOdometer>()->getDistanceMeters();
-#endif // EFI_VEHICLE_SPEED
+#endif // EFI_VEHICLE_SPEED MODULE_ODOMETER
 }
 
 static void updateFuelInfo() {
@@ -593,16 +595,13 @@ static void updateFuelInfo() {
 #endif // EFI_ENGINE_CONTROL
 }
 
-static void updateIgnition(int rpm) {
+static void updateIgnition(float rpm) {
 #if EFI_ENGINE_CONTROL
 	engine->outputChannels.coilDutyCycle = getCoilDutyCycle(rpm);
 #endif // EFI_ENGINE_CONTROL
 }
 
 static void updateFlags() {
-	engine->outputChannels.isMainRelayOn = enginePins.mainRelay.getLogicValue();
-	engine->outputChannels.isFanOn = enginePins.fanRelay.getLogicValue();
-	engine->outputChannels.isFan2On = enginePins.fanRelay2.getLogicValue();
 	engine->outputChannels.isO2HeaterOn = enginePins.o2heater.getLogicValue();
 	// todo: eliminate state copy logic by giving DfcoController it's owm xxx.txt and leveraging LiveData
 	engine->outputChannels.dfcoActive = engine->module<DfcoController>()->cutFuel();
@@ -650,21 +649,39 @@ static void updateWarningCodes() {
 // sensor state for EFI Analytics Tuner Studio
 // todo: the 'let's copy internal state for external consumers' approach is DEPRECATED
 // As of 2022 it's preferred to leverage LiveData where all state is exposed
+// this method is invoked ONLY if we SD card log or have serial connection with some frontend app
 void updateTunerStudioState() {
 	TunerStudioOutputChannels *tsOutputChannels = &engine->outputChannels;
 #if EFI_USB_SERIAL
+  // pretty much SD card logs know if specifically USB serial is active
 	engine->outputChannels.isUsbConnected =	is_usb_serial_ready();
 #endif // EFI_USB_SERIAL
 
-	int rpm = Sensor::get(SensorType::Rpm).value_or(0);
+	float rpm = Sensor::get(SensorType::Rpm).value_or(0);
+
+
+  static Timer blinkIndicatorsTimer;
+  constexpr float blinkHalfPeriod = 0.3;
+  bool isBlinkPhase = blinkIndicatorsTimer.hasElapsedSec(blinkHalfPeriod);
+#if EFI_ELECTRONIC_THROTTLE_BODY
+  blinkEtbErrorCodes(isBlinkPhase);
+#endif // EFI_ELECTRONIC_THROTTLE_BODY
+  if (isBlinkPhase) {
+    engine->outputChannels.sparkCutReasonBlinker = 0;
+    engine->outputChannels.fuelCutReasonBlinker = 0;
+
+    if (blinkIndicatorsTimer.hasElapsedSec(2 * blinkHalfPeriod)) {
+      blinkIndicatorsTimer.reset();
+    }
+  } else {
+    engine->outputChannels.sparkCutReasonBlinker = engine->outputChannels.sparkCutReason;
+    engine->outputChannels.fuelCutReasonBlinker = engine->outputChannels.fuelCutReason;
+  }
+
 
 #if EFI_PROD_CODE
 	executorStatistics();
 #endif /* EFI_PROD_CODE */
-
-	// header
-	tsOutputChannels->tsConfigVersion = TS_FILE_VERSION;
-	static_assert(offsetof (TunerStudioOutputChannels, tsConfigVersion) == TS_FILE_VERSION_OFFSET);
 
 	DcHardware *dc = getPrimaryDCHardwareForLogging();
 	engine->dc_motors.dcOutput0 = dc->dcMotor.get();
@@ -705,7 +722,11 @@ void updateTunerStudioState() {
 	tsOutputChannels->gyroYaw = engine->sensors.accelerometer.yawRate;
 
 #if EFI_DYNO_VIEW
-	tsOutputChannels->VssAcceleration = getDynoviewAcceleration();
+	tsOutputChannels->hp = getDynoviewHP();
+  tsOutputChannels->torque = getDynoviewTorque();
+#else
+	tsOutputChannels->hp = -1;
+  tsOutputChannels->torque = -1;
 #endif
 
 	tsOutputChannels->turboSpeed = Sensor::getOrZero(SensorType::TurbochargerSpeed);
@@ -714,16 +735,11 @@ void updateTunerStudioState() {
 	extern FrequencySensor vehicleSpeedSensor;
 	tsOutputChannels->vssEdgeCounter = vehicleSpeedSensor.eventCounter;
 
-#if HW_CHECK_MODE
-	tsOutputChannels->hasCriticalError = 1;
-#else
-	tsOutputChannels->hasCriticalError = hasFirmwareError();
-#endif // HW_CHECK_MODE
+	tsOutputChannels->hasCriticalError = hasFirmwareError() || hasConfigError();
+	tsOutputChannels->hasFaultReportFile = hasErrorReportFile();
+	tsOutputChannels->triggerPageRefreshFlag = needToTriggerTsRefresh() || ltftNeedVeRefresh();
 
 	tsOutputChannels->isWarnNow = engine->engineState.warnings.isWarningNow();
-#if EFI_HIP_9011_DEBUG
-	tsOutputChannels->isKnockChipOk = (instance.invalidResponsesCount == 0);
-#endif /* EFI_HIP_9011 */
 
 	tsOutputChannels->tpsAccelFuel = engine->engineState.tpsAccelEnrich;
 
@@ -734,13 +750,8 @@ void updateTunerStudioState() {
 	tsOutputChannels->starterState = enginePins.starterControl.getLogicValue();
 	tsOutputChannels->starterRelayDisable = enginePins.starterRelayDisable.getLogicValue();
 
-	tsOutputChannels->mapFast = Sensor::getOrZero(SensorType::MapFast);
-
 
 	tsOutputChannels->revolutionCounterSinceStart = engine->rpmCalculator.getRevolutionCounterSinceStart();
-#if EFI_CAN_SUPPORT
-	postCanState();
-#endif /* EFI_CAN_SUPPORT */
 
 #if EFI_CLOCK_LOCKS
 	tsOutputChannels->maxLockedDuration = NT2US(maxLockedDuration);
@@ -754,10 +765,6 @@ void updateTunerStudioState() {
 	tsOutputChannels->triggerSecondaryFall = engine->triggerCentral.getHwEventCounter((int)SHAFT_SECONDARY_FALLING);
 	tsOutputChannels->triggerSecondaryRise = engine->triggerCentral.getHwEventCounter((int)SHAFT_SECONDARY_RISING);
 
-	tsOutputChannels->triggerVvtRise = engine->triggerCentral.vvtEventRiseCounter[0];
-	tsOutputChannels->triggerVvtFall = engine->triggerCentral.vvtEventFallCounter[0];
-	tsOutputChannels->triggerVvt2Fall = engine->triggerCentral.vvtEventRiseCounter[1];
-	tsOutputChannels->triggerVvt2Rise = engine->triggerCentral.vvtEventFallCounter[1];
 #endif // EFI_SHAFT_POSITION_INPUT
 
 #if HAL_USE_PAL && EFI_PROD_CODE
@@ -765,28 +772,9 @@ void updateTunerStudioState() {
 #endif
 
 	switch (engineConfiguration->debugMode)	{
-	case DBG_TPS_ACCEL:
-		tsOutputChannels->debugIntField1 = engine->tpsAccelEnrichment.cb.getSize();
-		break;
-#if EFI_HIP_9011_DEBUG
-	case DBG_KNOCK:
-		// todo: maybe extract hipPostState(tsOutputChannels);
-		tsOutputChannels->debugIntField1 = instance.correctResponsesCount;
-		tsOutputChannels->debugIntField2 = instance.invalidResponsesCount;
-		break;
-#endif /* EFI_HIP_9011 */
-	case DBG_ION:
-#if EFI_CDM_INTEGRATION
-		ionPostState(tsOutputChannels);
-#endif /* EFI_CDM_INTEGRATION */
-		break;
-	case DBG_TLE8888:
-#if (BOARD_TLE8888_COUNT > 0)
-		tle8888PostState();
-#endif /* BOARD_TLE8888_COUNT */
-		break;
 	case DBG_LOGIC_ANALYZER:
 #if EFI_LOGIC_ANALYZER
+    // used by HW CI
 		reportLogicAnalyzerToTS();
 #endif /* EFI_LOGIC_ANALYZER */
 		break;

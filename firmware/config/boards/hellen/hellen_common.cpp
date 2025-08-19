@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "hellen_meta.h"
 #include "adc_subscription.h"
+#include "mmc_card.h"
+#include "storage.h"
 
 void hellenWbo() {
 	engineConfiguration->enableAemXSeries = true;
@@ -10,6 +12,11 @@ void hellenWbo() {
 void setHellenCan() {
 	engineConfiguration->canTxPin = H176_CAN_TX;
 	engineConfiguration->canRxPin = H176_CAN_RX;
+}
+
+void setHellenCan2() {
+	engineConfiguration->can2RxPin = Gpio::B12;
+	engineConfiguration->can2TxPin = Gpio::B13;
 }
 
 static void init5vpDiag() {
@@ -22,17 +29,20 @@ static bool is5vpInit = false;
 #endif // DIAG_5VP_PIN
 }
 
-void setHellenVbatt() {
+void setHellenAnalogDividers() {
 	// 4.7k high side/4.7k low side = 2.0 ratio divider
 	engineConfiguration->analogInputDividerCoefficient = 2.0f;
 
 	// set vbatt_divider 5.835
 	// 33k / 6.8k
 	engineConfiguration->vbattDividerCoeff = (33 + 6.8) / 6.8; // 5.835
+	engineConfiguration->adcVcc = 3.29f;
+}
+
+void setHellenVbatt() {
+  setHellenAnalogDividers();
 
 	engineConfiguration->vbattAdcChannel = H144_IN_VBATT;
-
-	engineConfiguration->adcVcc = 3.29f;
 
   init5vpDiag(); // piggy back on popular 'setHellenVbatt' method
 }
@@ -64,16 +74,78 @@ static bool hellenEnPinInitialized = false;
   return !getHellenBoardEnabled();
 }
 
-void hellenEnableEn(const char *msg) {
-  efiPrintf("Turning board ON [%s]", msg);
-	    megaEn.setValue(1, /*isForce*/ true);
+PUBLIC_API_WEAK void onHellenEnChange(int value) {
+}
+
+// Board specific helper to enable SD card only
+PUBLIC_API_WEAK bool onHellenSdChange(int value) {
+	// most Hellen board have no separate SD card power control
+	// return false and let MegaEn to be enabled
+	return false;
+}
+
+#ifndef EFI_BOOTLOADER
+Timer hellenEnPinStateChange;
+#endif
+
+static void setHellenEnValue(int value) {
+  // todo: can we use 'megaEn.getLogicValue()' instead?
+  static int currentHellenEnValue = -1;
+
+	megaEn.setValue(value, /*isForce*/ true);
+	if (currentHellenEnValue != value) {
+	  currentHellenEnValue = value;
+#ifndef EFI_BOOTLOADER
+	  hellenEnPinStateChange.reset();
+#endif
+	}
+	// todo: shall we move below callbacks into 'only-if-changed' conditional block?
+	onHellenEnChange(value);
   AdcSubscription::ResetFilters();
 }
 
+void hellenEnableEn(const char *msg) {
+  efiPrintf("Turning board ON [%s]", msg);
+  setHellenEnValue(1);
+#if EFI_STORAGE_MFS
+  chThdSleepMilliseconds(1);
+	storagRequestRegisterStorage(STORAGE_MFS_EXT_FLASH);
+#endif
+}
+
 void hellenDisableEn(const char *msg) {
+#if (EFI_FILE_LOGGING || EFI_CONFIGURATION_STORAGE) && EFI_PROD_CODE
+	// un-mount before turning power off SD card
+	// wait up to 1 second for SD card to become unmounted
+	efiPrintf("Long poll for SD card unmount");
+	int timeout = 1000;
+	sdCardRequestMode(SD_MODE_UNMOUNT);
+#if EFI_CONFIGURATION_STORAGE
+	// safe to call, even board does not have EXT FLASH
+	storagRequestUnregisterStorage(STORAGE_MFS_EXT_FLASH);
+#endif // EFI_CONFIGURATION_STORAGE
+	do {
+		chThdSleepMilliseconds(10);
+		if (sdCardGetCurrentMode() == SD_MODE_IDLE) {
+			break;
+		}
+		timeout -= 10;
+	} while (timeout > 0);
+#if EFI_CONFIGURATION_STORAGE
+	while (storageIsStorageRegistered(STORAGE_MFS_EXT_FLASH) && timeout > 0) {
+		chThdSleepMilliseconds(10);
+		timeout -= 10;
+	}
+#endif // EFI_CONFIGURATION_STORAGE
+#endif
   efiPrintf("Turning board off [%s]", msg);
-	    megaEn.setValue(0, /*isForce*/ true);
-  AdcSubscription::ResetFilters();
+  hellenDisableEnSilently();
+}
+
+void hellenDisableEnSilently() {
+	// this function is called from criticalShutdown() that may be called from hardFault handler
+	// please no call to OS functions!
+	setHellenEnValue(0);
 }
 
 void setHellenEnPin(Gpio pin, bool enableBoardOnStartUp) {
@@ -113,9 +185,15 @@ void hellenBoardStandBy() {
 extern OutputPin accelerometerChipSelect;
 
 void hellenMegaSdWithAccelerometer() {
-		setHellenSdCardSpi1();
+		setHellenSdCardSpi1Hardware();
 		// weird order of operations? i guess it does not really matter
 		hellenMegaAccelerometerPreInitCS2Pin();
+}
+
+void hellenMegaModule() {
+	setHellenVbatt();
+	hellenMegaSdWithAccelerometer();
+	setDefaultHellenAtPullUps();
 }
 
 void hellenMegaAccelerometerPreInitCS2Pin() {
@@ -124,6 +202,8 @@ void hellenMegaAccelerometerPreInitCS2Pin() {
 	    accelerometerChipSelect.initPin("mm-CS2", Gpio::H_SPI1_CS2);
 	    accelerometerChipSelect.setValue(1);
 	}
+#else
+  criticalError("probably broken MEMS configuration?");
 #endif // EFI_ONBOARD_MEMS
 }
 
@@ -143,20 +223,44 @@ void detectHellenBoardType() {
 #endif /* EFI_BOOTLOADER */
 }
 
-void setupTLE9201(Gpio controlPin, Gpio direction, Gpio disable, int dcIndex) {
-	// TLE9201 driver
-	// This chip has three control pins:
-	// DIR - sets direction of the motor
-	// PWM - pwm control (enable high, coast low)
-	// DIS - disables motor (enable low)
+int boardGetAnalogDiagnostic()
+{
+#ifdef DIAG_5VP_PIN
+	/* paranoid check */
+	if (!isBrainPinValid(DIAG_5VP_PIN)) {
+		/* Pin is not defined - return success */
+		return 0;
+	}
 
-	// PWM pin
-	engineConfiguration->etbIo[0].controlPin = controlPin;
-	// DIR pin
-	engineConfiguration->etbIo[0].directionPin1 = direction;
-	// Disable pin
-	engineConfiguration->etbIo[0].disablePin = disable;
-
-	// we only have pwm/dir, no dira/dirb
-	engineConfiguration->etb_use_two_wires = false;
+	return efiReadPin(DIAG_5VP_PIN) ? 0 : -1;
+#else
+	return 0;
+#endif
 }
+
+#ifndef EFI_BOOTLOADER
+bool boardSdCardEnable() {
+	// on mega-module we manage SD card power supply
+	if (getHellenBoardEnabled()) {
+		return true;
+	}
+
+	// Board can enable SD card power without enabling WBOs
+	if (onHellenSdChange(1)) {
+		efiPrintf("    *** turning SD power ONLY ***");
+		return true;
+	}
+
+	if (getTimeNowS() > 4 && !isIgnVoltage()) {
+		// looks like vehicle is OFF and we are hooked to USB - turn on peripheral to get Mass Storage Device USB profile
+		efiPrintf("    *** turning board ON to power SD card ***");
+		hellenEnableEn();
+		chThdSleepMilliseconds(200);
+
+		//check state
+		return getHellenBoardEnabled();
+	}
+
+	return false;
+}
+#endif // ! EFI_BOOTLOADER

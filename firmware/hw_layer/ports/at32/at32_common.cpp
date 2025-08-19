@@ -143,7 +143,7 @@ void tryResetWatchdog() {
 void setWatchdogResetPeriod(int) {
 }
 
-void baseMCUInit(void) {
+void baseMCUInit() {
     // looks like this holds a random value on start? Let's set a nice clean zero
     DWT->CYCCNT = 0;
 
@@ -161,7 +161,7 @@ extern uint32_t __main_stack_base__;
 
 typedef struct port_intctx intctx_t;
 
-EXTERNC int getRemainingStack(thread_t *otp) {
+int getRemainingStack(thread_t *otp) {
 #if CH_DBG_ENABLE_STACK_CHECK
     // this would dismiss coverity warning - see http://rusefi.com/forum/viewtopic.php?f=5&t=655
     // coverity[uninit_use]

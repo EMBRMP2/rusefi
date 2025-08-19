@@ -1,8 +1,10 @@
-plugins {
-  id 'java'
-}
+
 
 apply from: '../../android/dependencies.gradle'
+
+dependencies {
+  api project(':logging-api')
+}
 
 java {
   var boardDir = System.getenv("ABSOLUTE_BOARD_DIR")

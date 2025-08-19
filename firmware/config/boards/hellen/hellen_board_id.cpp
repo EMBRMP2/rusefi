@@ -122,7 +122,7 @@ float HellenBoardIdFinderBase::findClosestResistor(float R, bool testOnlyMajorSe
 	float minDelta = 1.e6f;
 	for (size_t i = 0; i < rValueSize; i++) {
 		// Find the nearest resistor by least ratio error
-		float delta = absF(1 - (R / rAllValues[i]));
+		float delta = std::abs(1 - (R / rAllValues[i]));
 		if (delta < minDelta) {
 			minDelta = delta;
 			*rIdx = i;
@@ -309,7 +309,8 @@ int detectHellenBoardId() {
 	int boardId = -1;
 #if defined( HELLEN_BOARD_ID_PIN_1) && !defined(HW_HELLEN_SKIP_BOARD_TYPE)
 	efiPrintf("Starting Hellen Board ID detection...");
-	efitick_t beginNt = getTimeNowNt();
+	Timer t;
+	t.reset();
 
 	const int numPins = 2;
 	Gpio rPins[numPins] = { HELLEN_BOARD_ID_PIN_1, HELLEN_BOARD_ID_PIN_2};
@@ -366,8 +367,7 @@ int detectHellenBoardId() {
 		palSetPadMode(getBrainPinPort(rPins[k]), getBrainPinIndex(rPins[k]), PAL_MODE_RESET);
 	}
 
-	efitick_t endNt = getTimeNowNt();
-	int elapsed_Ms = US2MS(NT2US(endNt - beginNt));
+	float elapsed_Ms = t.getElapsedSeconds() * 1000;
 
 	// Check that all resistors were actually detected
 	bool allRValid = true;
@@ -382,7 +382,7 @@ int detectHellenBoardId() {
 		boardId = -1;
 	}
 
-	efiPrintf("* RESULT: BoardId = %d, R1 = %.0f, R2 = %.0f (Elapsed time: %d ms)", boardId, R[0], R[1], elapsed_Ms);
+	efiPrintf("* RESULT: BoardId = %d, R1 = %.0f, R2 = %.0f (Elapsed time: %.1f ms)", boardId, R[0], R[1], elapsed_Ms);
 #endif /* HELLEN_BOARD_ID_PIN_1 */
 	return boardId;
 }

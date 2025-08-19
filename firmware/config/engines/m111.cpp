@@ -23,7 +23,7 @@ void setMercedesM111EngineConfiguration() {
 	engineConfiguration->firingOrder = FO_1_3_4_2;
 	engineConfiguration->displacement = 2.295f;
 	engineConfiguration->cylinderBore = 89.9;
-	engineConfiguration->vehicleWeight = 1250;
+	config->dynoCarCarMassKg = 1250;
 	engineConfiguration->injector.flow = 196;
 	engineConfiguration->enableCanVss = true;
 	engineConfiguration->canVssNbcType = W202;
@@ -41,7 +41,8 @@ void setMercedesM111EngineConfiguration() {
 	strcpy(engineConfiguration->engineCode, "M111");
 
     engineConfiguration->vvtMode[0] = VVT_SINGLE_TOOTH;
-	engineConfiguration->globalTriggerAngleOffset = 109 + 360; // please use a timing light?
+	engineConfiguration->camSyncOnSecondCrankRevolution = true;
+	engineConfiguration->globalTriggerAngleOffset = 109; // please use a timing light?
 
     // todo: i wonder if we have less custom curve for same sensor?
     setAtSensor(&engineConfiguration->iat, /*temp low*/0, 7400, /*temp mid*/22, 2180, /*temp high*/ 100, 180);

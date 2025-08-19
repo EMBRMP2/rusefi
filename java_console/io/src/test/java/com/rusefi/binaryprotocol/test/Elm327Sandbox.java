@@ -1,5 +1,8 @@
 package com.rusefi.binaryprotocol.test;
 
+
+/*
+
 import com.rusefi.binaryprotocol.IncomingDataBuffer;
 import com.rusefi.config.generated.Fields;
 import com.rusefi.config.generated.Integration;
@@ -38,13 +41,13 @@ public class Elm327Sandbox {
         if (1 == 1)
             return;
 
-        /*
-        SandboxCommon.runFcommand("First time", tsStream);
-        Elm327Connector.whyDoWeNeedToSleepBetweenCommands();
-
-        SandboxCommon.runFcommand("Second time", tsStream);
-        Elm327Connector.whyDoWeNeedToSleepBetweenCommands();
-*/
+//        /*
+//        SandboxCommon.runFcommand("First time", tsStream);
+//        Elm327Connector.whyDoWeNeedToSleepBetweenCommands();
+//
+//        SandboxCommon.runFcommand("Second time", tsStream);
+//        Elm327Connector.whyDoWeNeedToSleepBetweenCommands();
+///
 
         SandboxCommon.verifySignature(tsStream, "", "ELM");
         Elm327Connector.whyDoWeNeedToSleepBetweenCommands();
@@ -80,3 +83,4 @@ public class Elm327Sandbox {
     }
 
 }
+*/

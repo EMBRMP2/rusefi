@@ -32,6 +32,7 @@ inline uint32_t SWAP_UINT32(uint32_t x)
 
 #define BIT(n) (UINT32_C(1) << (n))
 
+// also known as 'HUMAN_INDEX'
 #define HUMAN_OFFSET 1
 
 // human-readable IDs start from 1 while computer-readable indices start from 0
@@ -46,10 +47,7 @@ inline uint32_t SWAP_UINT32(uint32_t x)
 const char * boolToString(bool value);
 
 char * efiTrim(char *param);
-int mytolower(const char c);
 int efiPow10(int param);
-bool startsWith(const char *line, const char *prefix);
-
 
 /**
  * Rounds value to specified precision.
@@ -134,3 +132,8 @@ int getBitRangeLsb(const uint8_t data[], int bitIndex, int bitWidth);
  for instance DBC 8|16@0
  */
 int getBitRangeMsb(const uint8_t data[], int bitIndex, int bitWidth);
+void setBitRangeMsb(uint8_t data[], int totalBitIndex, int bitWidth, int value);
+
+int motorolaMagicFromDbc(int b, int length);
+int getBitRangeMoto(const uint8_t data[], int bitIndex, int bitWidth);
+void setBitRangeMoto(uint8_t data[], int totalBitIndex, int bitWidth, int value);

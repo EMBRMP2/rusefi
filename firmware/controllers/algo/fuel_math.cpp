@@ -34,7 +34,7 @@
 #include "speed_density_base.h"
 #include "lua_hooks.h"
 
-extern fuel_Map3D_t veMap;
+extern ve_Map3D_t veMap;
 static mapEstimate_Map3D_t mapEstimationTable{"mape"};
 
 #if EFI_ENGINE_CONTROL
@@ -45,16 +45,15 @@ float getCrankingFuel3(float baseFuel, uint32_t revolutionCounterSinceStart) {
 	if (engineConfiguration->useRunningMathForCranking) {
 		baseCrankingFuel = baseFuel;
 	} else {
-		// parameter is in milligrams, convert to grams
-		baseCrankingFuel = engineConfiguration->cranking.baseFuel * 0.001f;
+		// Cranking fuel changes over time
+		baseCrankingFuel = interpolate3d(
+			  config->crankingCycleBaseFuel,
+			  config->crankingCycleFuelCltBins, Sensor::getOrZero(SensorType::Clt),
+			  config->crankingCycleBins, revolutionCounterSinceStart
+		  ) * 0.001f; // parameter is in milligrams, convert to grams
 	}
 
-	// Cranking fuel changes over time
-	engine->engineState.crankingFuel.durationCoefficient = interpolate3d(
-      		config->crankingCycleFuelCoef,
-      		config->crankingCycleFuelCltBins, Sensor::getOrZero(SensorType::Clt),
-      		config->crankingCycleBins, revolutionCounterSinceStart
-      	);
+	engine->engineState.crankingFuel.baseFuel = baseCrankingFuel * 1000; // convert to mg
 
 	/**
 	 * Cranking fuel is different depending on engine coolant temperature
@@ -97,7 +96,6 @@ float getCrankingFuel3(float baseFuel, uint32_t revolutionCounterSinceStart) {
 		: 1; // in case of failed TPS, don't correct.
 
 	floatms_t crankingFuel = baseCrankingFuel
-			* engine->engineState.crankingFuel.durationCoefficient
 			* engine->engineState.crankingFuel.coolantTemperatureCoefficient
 			* engine->engineState.crankingFuel.tpsCoefficient;
 
@@ -130,6 +128,7 @@ float getRunningFuel(float baseFuel) {
 
 #if EFI_LAUNCH_CONTROL
 	correction *= engine->launchController.getFuelCoefficient();
+	correction *= engine->module<NitrousController>().unmock().getFuelCoefficient();
 #endif
 
 	correction *= getLimpManager()->getLimitingFuelCorrection();
@@ -174,7 +173,7 @@ float getMaxAirflowAtMap(float map) {
 #if EFI_ENGINE_CONTROL
 
 // Per-cylinder base fuel mass
-static float getBaseFuelMass(int rpm) {
+static float getBaseFuelMass(float rpm) {
 	ScopePerf perf(PE::GetBaseFuel);
 
 	// airmass modes - get airmass first, then convert to fuel
@@ -279,19 +278,19 @@ float getInjectionModeDurationMultiplier() {
 	}
 }
 
-percent_t getInjectorDutyCycle(int rpm) {
+percent_t getInjectorDutyCycle(float rpm) {
 	floatms_t totalInjectiorAmountPerCycle = engine->engineState.injectionDuration * getNumberOfInjections(engineConfiguration->injectionMode);
 	floatms_t engineCycleDuration = getEngineCycleDuration(rpm);
 	return 100 * totalInjectiorAmountPerCycle / engineCycleDuration;
 }
 
-percent_t getInjectorDutyCycleStage2(int rpm) {
+percent_t getInjectorDutyCycleStage2(float rpm) {
 	floatms_t totalInjectiorAmountPerCycle = engine->engineState.injectionDurationStage2 * getNumberOfInjections(engineConfiguration->injectionMode);
 	floatms_t engineCycleDuration = getEngineCycleDuration(rpm);
 	return 100 * totalInjectiorAmountPerCycle / engineCycleDuration;
 }
 
-static float getCycleFuelMass(bool isCranking, float baseFuelMass) {
+float getCycleFuelMass(bool isCranking, float baseFuelMass) {
 	if (isCranking) {
 		return getCrankingFuel(baseFuelMass);
 	} else {
@@ -303,7 +302,7 @@ static float getCycleFuelMass(bool isCranking, float baseFuelMass) {
  * @returns	Mass of each individual fuel injection, in grams
  *     in case of single point injection mode the amount of fuel into all cylinders, otherwise the amount for one cylinder
  */
-float getInjectionMass(int rpm) {
+float getInjectionMass(float rpm) {
 	ScopePerf perf(PE::GetInjectionDuration);
 
 	// Always update base fuel - some cranking modes use it
@@ -328,19 +327,40 @@ float getInjectionMass(int rpm) {
 		engine->module<InjectorModelSecondary>()->prepare();
 	}
 
-	float tpsAccelEnrich = engine->tpsAccelEnrichment.getTpsEnrichment();
+	// This variable will hold the extra fuel mass from legacy AE modes
+	float tpsFuelMass = 0;
+
+	// Get the AE value (it will be 0 if predictive mode is active)
+	float tpsAccelEnrich = engine->module<TpsAccelEnrichment>()->getTpsEnrichment();
 	efiAssert(ObdCode::CUSTOM_ERR_ASSERT, !std::isnan(tpsAccelEnrich), "NaN tpsAccelEnrich", 0);
 	engine->engineState.tpsAccelEnrich = tpsAccelEnrich;
 
 	float tpsAccelPerInjection = durationMultiplier * tpsAccelEnrich;
 
-  if (engineConfiguration->tpsTpsPercentMode) {
-  	return injectionFuelMass * (1 + tpsAccelPerInjection);
-  } else {
-	  // For legacy reasons, the TPS accel table is in units of milliseconds, so we have to convert BACK to mass
-	  float tpsFuelMass = engine->module<InjectorModelPrimary>()->getFuelMassForDuration(tpsAccelPerInjection);
-	  return injectionFuelMass + tpsFuelMass;
+	// Use a switch to handle all AE modes
+	switch ((accel_enrichment_mode_e)engineConfiguration->accelEnrichmentMode) {
+		case AE_MODE_PERCENT_ADDER:
+			// Treat the tpsAccelEnrich value as a percentage
+			tpsFuelMass = injectionFuelMass * tpsAccelPerInjection;
+			break;
+
+		case AE_MODE_MS_ADDER:
+			// For legacy reasons, the TPS accel table is in units of milliseconds,
+			// so we have to convert BACK to mass
+			tpsFuelMass = engine->module<InjectorModelPrimary>()->getFuelMassForDuration(tpsAccelPerInjection);
+			break;
+
+		case AE_MODE_PREDICTIVE_MAP:
+			// Do nothing here. Fuel correction has already been handled by providing a
+			// corrected MAP value to the getBaseFuelMass() calculation.
+			break;
+
+		default:
+			criticalError("Invalid accelEnrichmentMode %d", engineConfiguration->accelEnrichmentMode);
+			break;
 	}
+
+	return injectionFuelMass + tpsFuelMass;
 }
 #endif
 
@@ -365,15 +385,6 @@ float getCltFuelCorrection() {
 	return interpolate2d(clt.Value, config->cltFuelCorrBins, config->cltFuelCorr);
 }
 
-angle_t getCltTimingCorrection() {
-	const auto clt = Sensor::get(SensorType::Clt);
-
-	if (!clt)
-		return 0; // this error should be already reported somewhere else, let's just handle it
-
-	return interpolate2d(clt.Value, config->cltTimingBins, config->cltTimingExtra);
-}
-
 float getIatFuelCorrection() {
 	const auto iat = Sensor::get(SensorType::Iat);
 
@@ -383,10 +394,35 @@ float getIatFuelCorrection() {
 	return interpolate2d(iat.Value, config->iatFuelCorrBins, config->iatFuelCorr);
 }
 
+float getPostCrankingFuelCorrection() {
+	const auto revolutionCounter = engine->rpmCalculator.getRevolutionCounterSinceStart();
+	// if the engine run time is past the last bin, disable ASE in case the table is filled with values more than 1.0, helps with compatibility
+	if (revolutionCounter > config->postCrankingDurationBins[efi::size(config->postCrankingDurationBins) - 1])
+		return 1;
+
+	// TODO:
+	//const auto clt = Sensor::get(SensorType::Clt);
+	//if (!clt)
+	//	return 1; // this error should be already reported somewhere else, let's just handle it
+
+	// post-cranking fuel enrichment.
+	float postCrankingFactor = interpolate3d(
+		config->postCrankingFactor,
+		config->postCrankingCLTBins, Sensor::getOrZero(SensorType::Clt),
+		config->postCrankingDurationBins, revolutionCounter
+	);
+
+	// for compatibility reasons, apply only if the factor is greater than unity (only allow adding fuel)
+	if (postCrankingFactor < 1.0f)
+		postCrankingFactor = 1.0f;
+
+	return postCrankingFactor;
+}
+
 float getBaroCorrection() {
 	if (Sensor::hasSensor(SensorType::BarometricPressure)) {
 		// Default to 1atm if failed
-		float pressure = Sensor::get(SensorType::BarometricPressure).value_or(101.325f);
+		float pressure = Sensor::get(SensorType::BarometricPressure).value_or(STD_ATMOSPHERE);
 
 		float correction = interpolate3d(
 			config->baroCorrTable,
@@ -405,7 +441,7 @@ float getBaroCorrection() {
 	}
 }
 
-percent_t getFuelALSCorrection(int rpm) {
+percent_t getFuelALSCorrection(float rpm) {
 #if EFI_ANTILAG_SYSTEM
 		if (engine->antilagController.isAntilagCondition) {
 			float throttleIntent = Sensor::getOrZero(SensorType::DriverThrottleIntent);
@@ -441,10 +477,11 @@ float getStandardAirCharge() {
 
 	// Calculation of 100% VE air mass in g/cyl - 1 cylinder filling at 1.204/L
 	// 101.325kpa, 20C
-	return idealGasLaw(cylDisplacement, 101.325f, 273.15f + 20.0f);
+	return idealGasLaw(cylDisplacement, STD_ATMOSPHERE, C_K_OFFSET + STD_IAT);
 }
 
-float getCylinderFuelTrim(size_t cylinderNumber, int rpm, float fuelLoad) {
+PUBLIC_API_WEAK_SOMETHING_WEIRD
+float getCylinderFuelTrim(size_t cylinderNumber, float rpm, float fuelLoad) {
 	auto trimPercent = interpolate3d(
 		config->fuelTrims[cylinderNumber].table,
 		config->fuelTrimLoadBins, fuelLoad,
@@ -459,7 +496,7 @@ float getCylinderFuelTrim(size_t cylinderNumber, int rpm, float fuelLoad) {
 
 static Hysteresis stage2Hysteresis;
 
-float getStage2InjectionFraction(int rpm, float load) {
+float getStage2InjectionFraction(float rpm, float load) {
 	if (!engineConfiguration->enableStagedInjection) {
 		return 0;
 	}

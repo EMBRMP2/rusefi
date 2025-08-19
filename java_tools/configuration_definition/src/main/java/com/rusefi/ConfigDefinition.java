@@ -1,11 +1,11 @@
 package com.rusefi;
 
+import com.devexperts.logging.Logging;
 import com.rusefi.newparse.DefinitionsState;
 import com.rusefi.output.*;
 import com.rusefi.pinout.PinoutLogic;
 import com.rusefi.trigger.TriggerWheelTSLogic;
 import com.rusefi.util.LazyFile;
-import com.rusefi.util.SystemOut;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -19,16 +19,18 @@ import java.util.*;
  * @see ConfigurationConsumer
  */
 public class ConfigDefinition {
+    private final static Logging log = Logging.getLogging(ConfigDefinition.class);
     public static final String SIGNATURE_HASH = "SIGNATURE_HASH";
 
     private static final String KEY_DEFINITION = "-definition";
-    private static final String KEY_TS_DESTINATION = "-ts_destination";
+    private static final String KEY_TS_TEMPLATE = "-ts_destination";
     private static final String KEY_C_DESTINATION = "-c_destination";
     private static final String KEY_C_DEFINES = "-c_defines";
     public static final String KEY_WITH_C_DEFINES = "-with_c_defines";
     private static final String KEY_JAVA_DESTINATION = "-java_destination";
     private static final String KEY_FIRING = "-firing_order";
     public static final String KEY_PREPEND = "-prepend";
+    public static final String KEY_SOFT_PREPEND = "-soft_prepend";
     private static final String KEY_SIGNATURE = "-signature";
     private static final String KEY_SIGNATURE_DESTINATION = "-signature_destination";
     private static final String KEY_ZERO_INIT = "-initialize_to_zero";
@@ -42,28 +44,27 @@ public class ConfigDefinition {
             options.addAll(Arrays.asList(args));
             String[] totalArgs = options.toArray(new String[0]);
             if (totalArgs.length < 2) {
-                SystemOut.println("Please specify\r\n"
-                        + KEY_DEFINITION + " x\r\n"
-                        + KEY_TS_DESTINATION + " x\r\n"
-                        + KEY_C_DESTINATION + " x\r\n"
-                        + KEY_JAVA_DESTINATION + " x\r\n"
+                log.error("Please specify\r\n"
+                    + KEY_DEFINITION + " x\n"
+                    + KEY_TS_TEMPLATE + " x\n"
+                    + KEY_C_DESTINATION + " x\n"
+                    + KEY_JAVA_DESTINATION + " x\n"
                 );
                 return;
             }
             doJob(totalArgs, new ReaderStateImpl());
         } catch (Throwable e) {
-            SystemOut.println(e);
+            log.error("unexpected", e);
             e.printStackTrace();
             System.exit(-1);
-        } finally {
-            SystemOut.close();
         }
     }
 
     public static void doJob(String[] args, ReaderStateImpl state) throws IOException {
-        SystemOut.println(ConfigDefinition.class + " Invoked with " + Arrays.toString(args));
+        log.info(ConfigDefinition.class + " Invoked with " + Arrays.toString(args));
 
         String tsInputFileFolder = null;
+        List<String> softPrePrendsFileNames = new ArrayList<>();
 
         DefinitionsState parseState = state.getEnumsReader().parseState;
         String signatureDestination = null;
@@ -82,7 +83,7 @@ public class ConfigDefinition {
                     // lame: order of command line arguments is important, these arguments should be AFTER '-tool' argument
                     state.setDefinitionInputFile(args[i + 1]);
                     break;
-                case KEY_TS_DESTINATION:
+                case KEY_TS_TEMPLATE:
                     tsInputFileFolder = args[i + 1];
                     break;
                 case KEY_C_DESTINATION:
@@ -98,7 +99,8 @@ public class ConfigDefinition {
                     state.destCDefinesFileName = args[i + 1];
                     break;
                 case KEY_JAVA_DESTINATION:
-                    state.addJavaDestination(args[i + 1]);
+                    String folderName = args[i + 1];
+                    state.addDestination(new FileJavaVariableRegistryConsumer(state, folderName, LazyFile.REAL, "VariableRegistryValues"));
                     break;
                 case "-field_lookup_file": {
                     String cppFile = args[i + 1];
@@ -106,7 +108,7 @@ public class ConfigDefinition {
                     i++;
                     state.addDestination(new GetConfigValueConsumer(cppFile, mdFile, LazyFile.REAL));
                 }
-                    break;
+                break;
                 case READFILE_OPTION:
                     String keyName = args[i + 1];
                     // yes, we take three parameters here thus pre-increment!
@@ -122,19 +124,25 @@ public class ConfigDefinition {
                     String firingEnumFileName = args[i + 1];
                     ExtraUtil.handleFiringOrder(firingEnumFileName, state.getVariableRegistry(), parseState);
                     state.addInputFile(firingEnumFileName);
-                    }
-                    break;
+                }
+                break;
                 case "-triggerInputFolder": {
                     String triggersInputFolder = args[i + 1];
                     new TriggerWheelTSLogic().execute(triggersInputFolder, state.getVariableRegistry());
                 }
-                    break;
+                break;
                 case KEY_PREPEND:
                     state.addPrepend(args[i + 1].trim());
                     break;
+                case KEY_SOFT_PREPEND: {
+                    String softPrependFileName = args[i + 1].trim();
+                    softPrePrendsFileNames.add(softPrependFileName);
+                    state.addSoftPrepend(softPrependFileName);
+                }
+                    break;
                 case KEY_SIGNATURE:
                     signaturePrependFile = args[i + 1];
-                    state.addPrependNotInput(signaturePrependFile);
+                    state.addPostponedPrependNotInput(signaturePrependFile);
                     // don't add this file to the 'inputFiles'
                     break;
                 case KEY_SIGNATURE_DESTINATION:
@@ -150,7 +158,7 @@ public class ConfigDefinition {
                         throw new IllegalStateException("Reading " + file.getAbsolutePath(), e);
                     }
                 }
-                    break;
+                break;
                 case "-ts_output_name":
                     state.setTsFileOutputName(args[i + 1]);
                     break;
@@ -163,12 +171,16 @@ public class ConfigDefinition {
             }
         }
 
+        FieldsApiGenerator.run();
+        handlePage(state, 1, softPrePrendsFileNames);
+        handlePage(state, 2, softPrePrendsFileNames);
+
         if (tsInputFileFolder != null) {
             // used to update .ini files
             state.addInputFile(TSProjectConsumer.getTsFileInputName(tsInputFileFolder));
         }
 
-        SystemOut.println(state.getEnumsReader().getEnums().size() + " total enumsReader");
+        log.info(state.getEnumsReader().getEnums().size() + " total enumsReader");
 
         // Add the variable for the config signature
         FirmwareVersion uniqueId = new FirmwareVersion(IoUtil2.getCrc32(state.getInputFiles()));
@@ -190,5 +202,13 @@ public class ConfigDefinition {
         }
 
         state.doJob();
+    }
+
+    private static void handlePage(ReaderStateImpl parentState, int pageIndex, List<String> softPrepends) throws IOException {
+        PlainConfigHandler page = new PlainConfigHandler("integration/config_page_" + pageIndex + ".txt", pageIndex, softPrepends);
+        page.doJob();
+        // PAGE_CONTENT_1 is handled here!
+        parentState.getVariableRegistry().put("PAGE_CONTENT_" + pageIndex, page.tsProjectConsumer.getContent());
+        parentState.getVariableRegistry().register("PAGE_SIZE_" + pageIndex, Integer.toString(page.tsProjectConsumer.getTotalSize()));
     }
 }

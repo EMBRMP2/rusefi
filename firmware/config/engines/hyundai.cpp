@@ -69,8 +69,6 @@ void setHyundaiPb() {
 	set201xHyundai();
 	// Injectors flow 1214 cc/min at 100 bar pressure
 	engineConfiguration->injector.flow = 1214;
-	engineConfiguration->injectionMode = IM_SEQUENTIAL;
-   	engineConfiguration->crankingInjectionMode = IM_SEQUENTIAL;
 
 	setCustomMap(/*lowValue*/ 20, /*mapLowValueVoltage*/ 0.79, /*highValue*/ 101.3, /*mapHighValueVoltage*/ 4);
 
@@ -80,9 +78,8 @@ void setHyundaiPb() {
 	engineConfiguration->vvtMode[0] = VVT_SINGLE_TOOTH;
 	engineConfiguration->vvtMode[1] = VVT_SINGLE_TOOTH;
 
-    engineConfiguration->ignitionMode = IM_INDIVIDUAL_COILS;
-
     engineConfiguration->hpfpCamLobes = 4;
+    setHpfpLobeProfileAngle(engineConfiguration->hpfpCamLobes);
     engineConfiguration->rethrowHardFault = true;
 
    	engineConfiguration->highPressureFuel.v1 = 0.5; /* volts */;
@@ -91,12 +88,16 @@ void setHyundaiPb() {
    	// page 98, Fuel System > Engine Control System > Rail Pressure Sensor (RPS) > Specifications
    	engineConfiguration->highPressureFuel.value2 = 20'000;
 
+#ifdef HW_HELLEN_4K_GDI
+	engineConfiguration->starterControlPin = Gpio::TLE9104_2_OUT_2; // vvt3
+
+#endif
+
 #ifdef HW_HELLEN_4CHAN
 	engineConfiguration->triggerInputPins[0] = Gpio::H144_IN_CAM;
 	engineConfiguration->triggerInputPins[1] = Gpio::H144_IN_D_4;
 	engineConfiguration->highPressureFuel.hwChannel = H144_IN_O2S2;
 
-    engineConfiguration->hpfpValvePin = Gpio::H144_OUT_IO6; // E2
 	engineConfiguration->starterControlPin = Gpio::H144_OUT_PWM5; // F1
 	engineConfiguration->startStopButtonPin = Gpio::H144_IN_VSS; // C4
 	config->boardUse2stepPullDown = true; // looks like 1K extra pull-down is needed on the harness?! :(
@@ -104,10 +105,14 @@ void setHyundaiPb() {
 	engineConfiguration->map.sensor.hwChannel = H144_IN_MAP2;
 #endif // HW_HELLEN_4CHAN
 
+#if defined(HW_HELLEN_4CHAN) || EFI_UNIT_TEST
+    engineConfiguration->hpfpValvePin = Gpio::H144_OUT_IO6; // E2
+#endif // HW_HELLEN_4CHAN
+
 #if HW_PROTEUS && EFI_PROD_CODE
 	engineConfiguration->highPressureFuel.hwChannel = PROTEUS_IN_ANALOG_VOLT_4;
-	setCommonNTCSensor(&engineConfiguration->clt, PROTEUS_DEFAULT_AT_PULLUP);
-	setCommonNTCSensor(&engineConfiguration->iat, PROTEUS_DEFAULT_AT_PULLUP);
+	setCommonNTCSensorParameters(&engineConfiguration->clt);
+	setCommonNTCSensorParameters(&engineConfiguration->iat);
 
 //    engineConfiguration->acRelayPin = Gpio::PROTEUS_LS_6;
     engineConfiguration->acSwitch = PROTEUS_DIGITAL_5;
@@ -295,11 +300,9 @@ static void commonGenesisCoupe() {
     // default "false"
     engineConfiguration->disableFan2WhenStopped = true;
     // default 50.0
-    engineConfiguration->crankingIACposition = 70;
+	setArrayValues(config->cltCrankingCorr, 70);
     // default 200.0
-    engineConfiguration->afterCrankingIACtaperDuration = 100;
-    // default "false"
-    engineConfiguration->overrideCrankingIacSetting = true;
+    setArrayValues(config->afterCrankingIACtaperDuration, 100);
     // default 0.0
     engineConfiguration->tpsAccelLookback = 0.3;
     // default 40.0

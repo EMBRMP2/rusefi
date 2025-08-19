@@ -1,9 +1,9 @@
 # Combine the related files for a specific platform and MCU.
 
 # Target ECU board design
-BOARDCPPSRC = $(BOARD_DIR)/board_configuration.cpp
+BOARDCPPSRC = $(BOARD_DIR)/board_configuration_uaefi121.cpp \
+  $(BOARD_DIR)/mega-uaefi.cpp \
 
-DDEFS += -DEFI_MAIN_RELAY_CONTROL=TRUE
 
 #no mux on mm100
 
@@ -21,9 +21,9 @@ DDEFS += -DEFI_MAX_31855=TRUE
 
 
 
-
-ONBOARD_MEMS_TYPE=LIS2DH12
-
-include $(BOARDS_DIR)/hellen/hellen-common100.mk
+include $(BOARD_DIR)/mega-uaefi.mk
 
 DDEFS += $(PRIMARY_COMMUNICATION_PORT_USART2)
+
+DDEFS += -DUSB_DESCRIPTOR_B_LENGTH=30
+DDEFS += -DUSB_DESCRIPTOR_STRING_CONTENT="'r', 0, 'u', 0, 's', 0, 'E', 0, 'F', 0, 'I', 0, ' ', 0, 'u', 0, 'a', 0, 'E', 0, 'F', 0, 'I', 0, '1', 0, '2', 0, '1', 0"

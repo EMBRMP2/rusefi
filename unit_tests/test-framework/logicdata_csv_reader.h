@@ -9,8 +9,6 @@ const int NORMAL_ORDER[2] = {0, 1};
 
 const int REVERSE_ORDER[2] = {1, 0};
 
-
-
 class CsvReader {
 public:
 	CsvReader(size_t triggerCount, size_t vvtCount) : CsvReader(triggerCount, vvtCount, 0.0) {}
@@ -22,6 +20,7 @@ public:
 	}
 	~CsvReader();
 
+  /* when reading two cam channels it's either on intake one exhaust or two intakes on different banks */
 	bool twoBanksSingleCamMode = true;
 
 	void open(const char *fileName, const int* triggerColumnIndeces = NORMAL_ORDER, const int *vvtColumnIndeces = NORMAL_ORDER);
@@ -32,10 +31,14 @@ public:
 
 	bool flipOnRead = false;
 	bool flipVvtOnRead = false;
+	int readingOffset = 0;
+	double lastTimeStamp = 0.0;
 
 	int lineIndex() const {
 		return m_lineIndex;
 	}
+
+  cyclic_buffer<double, 720> history;
 
 private:
 	const size_t m_triggerCount;

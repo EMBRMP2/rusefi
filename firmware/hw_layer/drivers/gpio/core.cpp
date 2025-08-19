@@ -333,11 +333,18 @@ int gpiochips_setPadMode(brain_pin_e pin, iomode_t mode)
  */
 
 int gpiochips_writePad(brain_pin_e pin, int value) {
+#if EFI_PROD_CODE
+extern bool isInHardFaultHandler;
+  // todo: technical debt, how do we turn off smart GPIO?!
+  if (isInHardFaultHandler) {
+    return -130;
+  }
+#endif // EFI_PROD_CODE
 	gpiochip *chip = gpiochip_find(pin);
 
 	if (!chip) {
 		// todo: make readPad fail in a similar way?
-		criticalError("gpiochip not found for pin %d", pin);
+		criticalError("Failed migration? Time to reset settings? gpiochip not found for pin %d", pin);
 		return -108;
 	}
 
@@ -468,8 +475,7 @@ const char *gpiochips_getPinName(brain_pin_e pin) {
 	return nullptr;
 }
 
-int gpiochip_register(brain_pin_e base, const char *name, GpioChip&, size_t size)
-{
+int gpiochip_register(brain_pin_e base, const char *name, GpioChip&, size_t size) {
 	(void)base; (void)name; (void)size;
 
 	return 0;
